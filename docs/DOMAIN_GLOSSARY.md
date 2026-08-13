@@ -1,0 +1,25 @@
+# Glossário de domínio
+
+- **Conta**: identidade do usuário e fonte do Nível Global.
+- **Nível Global**: nível herdado por todos os personagens da conta.
+- **Personagem**: unidade jogável individual com classe, Reino, build, itens e Poder próprios.
+- **Poder**: índice de força/desenvolvimento do personagem, principalmente derivado da build/equipamentos.
+- **Reino defendido**: escolha de identidade/facção do personagem; não deve obrigar uma classe específica.
+- **Atributos de Jornada**: Percepção, Conhecimento, Força, Agilidade.
+- **Stats de Combate**: HP, MP, Dano Físico, Dano Mágico, Defesa Física, Defesa Mágica, Crítico, Esquiva etc.
+- **Habilidade**: ação normal equipada em um dos quatro slots.
+- **Ultimate**: ação de categoria Ultimate; exatamente um slot.
+- **Postura**: estado/estilo de combate equipado; exatamente um slot.
+- **Passiva**: efeito passivo equipado; exatamente um slot e não é bônus grátis.
+- **Linhagem**: transformação/herança especial do personagem; máximo uma.
+- **Escola**: fonte adicional de repertório, como Fogo ou escola marcial.
+- **Arte Secreta**: habilidade rara/especial descoberta no mundo.
+- **Preset**: snapshot configurável da preparação do personagem.
+- **Pet**: auxiliar equipado, máximo um ativo.
+- **Troféu**: especialização de caça, máximo um ativo.
+- **Skin**: cosmético sem impacto em Poder.
+- **Caça**: atividade básica de procurar/enfrentar criaturas e ganhar XP/loot/ouro.
+- **Missão**: objetivo previamente aceito que adiciona recompensas às ações do jogador.
+- **Jornada**: deslocamento/eventos entre locais, com testes de atributos de aventura.
+- **Arena**: PvP assíncrono contra snapshot controlado por IA.
+- **Grupo de Aventureiros**: sistema social equivalente ao papel normalmente ocupado por guildas, mas com nome/identidade própria de Rupterya.

@@ -1,0 +1,141 @@
+export type DamageFamily = "physical" | "magical" | "hybrid";
+export type AbilitySlotKind = "skill" | "ultimate" | "stance" | "passive";
+export type SecretArtPath = "martial" | "mystic" | "arcane";
+export type AbilitySource = "class" | "lineage" | "school" | "secret_art" | "creature";
+export type EquipmentSlot = "weapon" | "head" | "chest" | "hands" | "feet" | "trinket";
+
+export interface AdventureAttributes {
+  perception: number;
+  knowledge: number;
+  strength: number;
+  agility: number;
+}
+
+export interface CharacterCombatStats {
+  physicalDamage: number;
+  magicalDamage: number;
+  physicalDefense: number;
+  magicalDefense: number;
+  criticalChance: number;
+  dodgeChance: number;
+}
+
+export interface CharacterVitals {
+  hpCurrent: number;
+  hpMax: number;
+  mpCurrent: number;
+  mpMax: number;
+  morale: number;
+  gold: number;
+}
+
+export interface CharacterSummary extends CharacterVitals {
+  name: string;
+  className: string;
+  kingdom: string;
+  level: number;
+  power: number;
+  stats: CharacterCombatStats;
+}
+
+export interface ClassDefinition {
+  id: string;
+  name: string;
+  description: string;
+  baseVitals: Pick<CharacterVitals, "hpMax" | "mpMax" | "morale" | "gold">;
+  baseStats: CharacterCombatStats;
+  adventure: AdventureAttributes;
+}
+
+export interface AbilityDefinition {
+  id: string;
+  name: string;
+  slotKind: AbilitySlotKind;
+  description: string;
+  damageFamily?: DamageFamily;
+  physicalScaling?: number;
+  magicalScaling?: number;
+  manaCost?: number;
+  cooldownTurns?: number;
+  source: AbilitySource;
+}
+
+export interface SecretArtDefinition extends AbilityDefinition {
+  source: "secret_art" | "creature";
+  secretArtPath: SecretArtPath;
+  discoveryText?: string;
+}
+
+export interface CombatLoadout {
+  skill1: string | null;
+  skill2: string | null;
+  skill3: string | null;
+  skill4: string | null;
+  ultimate: string | null;
+  stance: string | null;
+  passive: string | null;
+}
+
+export type LoadoutSlot = keyof CombatLoadout;
+
+export interface EquipmentItem {
+  id: string;
+  name: string;
+  slot: EquipmentSlot;
+  rarity: "common" | "rare" | "epic";
+  power: number;
+  modifiers: Partial<CharacterCombatStats & Pick<CharacterVitals, "hpMax" | "mpMax">>;
+}
+
+export interface EquippedItems {
+  weapon: string | null;
+  head: string | null;
+  chest: string | null;
+  hands: string | null;
+  feet: string | null;
+  trinket: string | null;
+}
+
+export interface CharacterPreset {
+  id: string;
+  name: string;
+  loadout: CombatLoadout;
+  equipment: EquippedItems;
+}
+
+export interface CharacterBuild {
+  characterId: string;
+  lineageId?: string;
+  schoolId?: string;
+  loadout: CombatLoadout;
+  equippedPetId?: string;
+  equippedTrophyId?: string;
+  skinId?: string;
+}
+
+export interface GameCharacter {
+  id: string;
+  name: string;
+  classId: string;
+  kingdom: string;
+  lineageId: string | null;
+  schoolId: string | null;
+  skinId: string;
+  vitals: CharacterVitals;
+  equipment: EquippedItems;
+  ownedAbilityIds: string[];
+  presets: CharacterPreset[];
+  activePresetId: string;
+}
+
+export interface DevAccount {
+  id: string;
+  globalLevel: number;
+  globalXp: number;
+  characterSlots: number;
+  characters: GameCharacter[];
+}
+
+export type GridIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export interface BattleGridSide { slots: Partial<Record<GridIndex, string>>; }
+export interface MirroredBattleGrid { player: BattleGridSide; enemy: BattleGridSide; }

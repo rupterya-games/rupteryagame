@@ -76,6 +76,11 @@ export class DevCharacterRepository {
   setLineage(character: GameCharacter, lineageId: string | null): GameCharacter { return { ...character, lineageId }; }
   setSchool(character: GameCharacter, schoolId: string | null): GameCharacter { return { ...character, schoolId }; }
   setSkin(character: GameCharacter, skinId: string): GameCharacter { return { ...character, skinId }; }
+  restAtInn(character: GameCharacter): GameCharacter {
+    const base = classes.find((entry) => entry.id === character.classId)!;
+    const computed = applyEquipment(base, character.equipment, equipment);
+    return { ...character, vitals: { ...character.vitals, hpCurrent: computed.hpMax, hpMax: computed.hpMax, mpCurrent: computed.mpMax, mpMax: computed.mpMax } };
+  }
 
   addPreset(character: GameCharacter, name: string): GameCharacter {
     const preset: CharacterPreset = { id: id(), name: name.trim() || `Preset ${character.presets.length + 1}`, loadout: defaultLoadout(character.classId), equipment: emptyEquipment() };

@@ -7,7 +7,7 @@ import { abilities, classes, equipment, fiordevalleJourneyNodes, huntCreatures, 
 import { repository } from "@/lib/dev-character-repository";
 
 type View = "slots" | "lobby" | "profile" | "equipment" | "abilities" | "presets" | "hunt";
-type BattleEffect = { kind: "physical" | "magical"; targetId: string } | null;
+type BattleEffect = { kind: "physical" | "magical" | "dragonfire"; targetId: string } | null;
 const slotLabels: Record<string, string> = { weapon: "Arma", head: "Cabeça", chest: "Peito", hands: "Mãos", feet: "Pés", trinket: "Amuleto" };
 
 export default function HomePage() {
@@ -71,7 +71,10 @@ export default function HomePage() {
       window.setTimeout(() => {
         if (next.player.hpCurrent < battle.player.hpCurrent) setBattleEffect({ kind: "physical", targetId: battle.player.id });
       }, 330);
-      window.setTimeout(() => setBattleEffect(null), 760);
+      window.setTimeout(() => {
+        if (next.status !== "defeat" && next.lastPetTargetId) setBattleEffect({ kind: "dragonfire", targetId: next.lastPetTargetId });
+      }, 650);
+      window.setTimeout(() => setBattleEffect(null), 1120);
     }
     if (next.status !== "active") {
       setAccount(repository.settleHunt(account, selected, next));

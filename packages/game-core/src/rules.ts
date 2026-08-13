@@ -1,4 +1,4 @@
-import type { AbilityDefinition, CharacterCombatStats, CharacterPreset, ClassDefinition, CombatLoadout, EquippedItems, EquipmentItem, GameCharacter, HuntBattleState, HuntCombatant, HuntCreatureDefinition, LoadoutSlot } from "./domain";
+import type { AbilityDefinition, CharacterCombatStats, CharacterPreset, ClassDefinition, CombatLoadout, EquippedItems, EquipmentItem, GameCharacter, HuntBattleState, HuntCombatant, HuntCompanion, HuntCreatureDefinition, LoadoutSlot } from "./domain";
 
 export const LOADOUT_SLOTS: ReadonlyArray<{ key: LoadoutSlot; label: string; kind: AbilityDefinition["slotKind"] }> = [
   { key: "skill1", label: "Habilidade 1", kind: "skill" },
@@ -66,7 +66,7 @@ export function activePreset(character: GameCharacter): CharacterPreset {
 
 const battleId = () => globalThis.crypto?.randomUUID?.() ?? `hunt-${Date.now()}`;
 
-export function createHuntBattle(input: { regionId: string; player: HuntCombatant; creatures: HuntCreatureDefinition[] }): HuntBattleState {
+export function createHuntBattle(input: { regionId: string; player: HuntCombatant; creatures: HuntCreatureDefinition[]; companion?: HuntCompanion | null }): HuntBattleState {
   const enemies: HuntCombatant[] = input.creatures.map((creature, index) => ({
     id: `${creature.id}-${index}`,
     name: creature.name,
@@ -89,7 +89,9 @@ export function createHuntBattle(input: { regionId: string; player: HuntCombatan
     regionId: input.regionId,
     creatures: input.creatures,
     player: input.player,
+    companion: input.companion ?? null,
     enemies,
+    lastPetTargetId: null,
     turn: 1,
     status: "active",
     reward: null,
@@ -119,5 +121,15 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
   if (afterCounter.hpCurrent === 0) {
     return { ...state, player: afterCounter, enemies, status: "defeat", log: [...state.log, playerLog, enemyLog, { turn: state.turn, tone: "defeat", text: `${player.name} caiu. HP permanece em 0 até receber cura.` }] };
   }
-  return { ...state, player: afterCounter, enemies, turn: state.turn + 1, log: [...state.log, playerLog, enemyLog] };
+  if (!state.companion) return { ...state, player: afterCounter, enemies, lastPetTargetId: null, turn: state.turn + 1, log: [...state.log, playerLog, enemyLog] };
+  const petTarget = enemies.filter((enemy) => enemy.hpCurrent > 0).sort((left, right) => left.hpCurrent - right.hpCurrent)[0];
+  const petRawDamage = Math.max(1, Math.round(player.stats.magicalDamage * state.companion.magicalDamageScaling));
+  const petDamage = mitigateDamage(petRawDamage, "magical", petTarget.stats);
+  const enemiesAfterPet = enemies.map((enemy) => enemy.id === petTarget.id ? { ...enemy, hpCurrent: Math.max(0, enemy.hpCurrent - petDamage) } : enemy);
+  const petLog = { turn: state.turn, tone: "player" as const, text: `${state.companion.name} lanÃ§a Bola de Fogo em ${petTarget.name}, o inimigo com menor HP, e causa ${petDamage} de dano mÃ¡gico.` };
+  if (enemiesAfterPet.every((enemy) => enemy.hpCurrent === 0)) {
+    const reward = { xp: state.creatures.reduce((sum, creature) => sum + creature.xpReward, 0), gold: state.creatures.reduce((sum, creature) => sum + creature.goldReward, 0) };
+    return { ...state, player: afterCounter, enemies: enemiesAfterPet, lastPetTargetId: petTarget.id, status: "victory", reward, log: [...state.log, playerLog, enemyLog, petLog, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${reward.xp} XP global Â· +${reward.gold} ouro.` }] };
+  }
+  return { ...state, player: afterCounter, enemies: enemiesAfterPet, lastPetTargetId: petTarget.id, turn: state.turn + 1, log: [...state.log, playerLog, enemyLog, petLog] };
 }

@@ -1,4 +1,4 @@
-import type { AbilityDefinition, ClassDefinition, EquipmentItem, HuntCreatureDefinition, HuntRegionDefinition } from "@rupterya/game-core";
+import type { AbilityDefinition, ClassDefinition, EquipmentItem, HuntCompanion, HuntCreatureDefinition, HuntRegionDefinition } from "@rupterya/game-core";
 
 const remoteClassArt = (name: string) => `https://rrbwdoaeozklumvscaei.supabase.co/storage/v1/object/public/rupterya-art/${name}.jpeg`;
 
@@ -48,6 +48,14 @@ export const equipment: EquipmentItem[] = [
 ];
 
 export const kingdoms = ["Eldravia", "FiorDeValle", "Dustfall"];
+
+export const emberDragonCompanion: HuntCompanion = {
+  id: "ember-dragon",
+  name: "Dragão de Brasa",
+  portraitPath: "/art/companions/ember-dragon.png",
+  description: "Lendário: no fim da rodada, Bola de Fogo causa 10% do dano mágico do herói ao inimigo com menor HP.",
+  magicalDamageScaling: 0.1,
+};
 
 export const huntRegions: HuntRegionDefinition[] = [
   { id: "fiordevalle", name: "FiorDeValle", kingdom: "FiorDeValle", description: "Centro, Mercado, Vinhedos, Estrada Velha, Colinas, Casas Abandonadas, Floresta Sombria, Cemitério e Distrito dos Nobres são ligados por rotas de Jornada.", danger: "Região-piloto · Seed regional", creatureIds: ["vampire-wanderer", "raider", "crimson-herald", "mist-captain"] },

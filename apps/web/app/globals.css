@@ -136,3 +136,35 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   .battle-actions button { min-height:62px; padding:6px 4px; }
   .battle-actions button strong { font-size:10px; }
 }
+
+/* Cartas aliadas equilibradas: o herói e o mascote dividem a borda do jogador. */
+.battle-table { min-height:448px; }
+.enemy-pack { z-index:2; min-height:152px; }
+.enemy-card>img,.enemy-card .monster-art { height:112px; }
+.player-card { width:min(43%,174px); margin-right:30%; transform:translateX(-13%); }
+.player-card>img { height:130px; }
+.battle-table .versus { display:block; position:absolute; z-index:3; left:calc(50% + 14px); bottom:24px; width:min(31%,130px); height:193px; overflow:hidden; border:1px solid #e2bd5d; border-radius:12px; color:transparent; font-size:0; background:linear-gradient(180deg,transparent 48%,#10161be8 49%),url("/art/companions/ember-dragon.png") center 19% / cover no-repeat; box-shadow:0 0 0 2px #211407,0 8px 20px #000c,0 0 24px #e178263d; }
+.battle-table .versus:after { content:"LENDÁRIO  ·  DRAGÃO DE BRASA"; position:absolute; right:7px; bottom:8px; left:7px; color:#ffd879; font-size:9px; font-weight:900; line-height:1.25; text-align:center; text-shadow:0 2px 4px #000; }
+.battle-table .versus:before { content:"ALIADO"; position:absolute; top:7px; left:7px; z-index:1; padding:3px 5px; border:1px solid #e6be58; border-radius:999px; background:#25170dcc; color:#ffe3a1; font-size:8px; font-weight:900; letter-spacing:.08em; }
+.battle-card.hit-dragonfire { animation:card-shake .42s cubic-bezier(.36,.07,.19,.97) both; border-color:#f19b3d; box-shadow:0 0 0 1px #ffcd6a,0 0 30px #f15b21aa; }
+.battle-card.hit-dragonfire .battle-impact { background:radial-gradient(circle at 50% 48%,#fff4c3 0 5%,#ff9b31dd 14%,#e74d1d99 31%,transparent 65%); animation:dragon-impact .55s ease-out both; mix-blend-mode:screen; }
+.battle-table:has(.hit-dragonfire) .versus { animation:dragon-cast .55s ease-out both; }
+.battle-table:has(.hit-dragonfire) .versus:before { box-shadow:0 0 14px #ff7c26; }
+@keyframes dragon-impact { 0% { opacity:0; transform:scale(.3); } 35% { opacity:1; } 100% { opacity:0; transform:scale(1.45); } }
+@keyframes dragon-cast { 0%,100% { transform:translateY(0) scale(1); } 42% { transform:translateY(-10px) scale(1.06); filter:brightness(1.45) saturate(1.4); } }
+@media (min-width:761px) {
+  .battle-table { min-height:545px; }
+  .enemy-pack { min-height:196px; }
+  .enemy-card>img,.enemy-card .monster-art { height:154px; }
+  .player-card { width:min(27%,210px); margin-right:25%; }
+  .player-card>img { height:160px; }
+  .battle-table .versus { left:calc(50% + 40px); bottom:30px; width:min(22%,174px); height:239px; }
+}
+@media (max-width:390px) {
+  .battle-table { min-height:422px; }
+  .enemy-pack { min-height:128px; }
+  .enemy-card>img,.enemy-card .monster-art { height:88px; }
+  .player-card { width:min(40%,150px); margin-right:31%; }
+  .player-card>img { height:112px; }
+  .battle-table .versus { left:calc(50% + 8px); bottom:18px; width:30%; height:166px; }
+}

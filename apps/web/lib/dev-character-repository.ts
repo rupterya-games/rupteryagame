@@ -1,6 +1,6 @@
 import { activePreset, applyEquipment, characterPower, createHuntBattle, emptyEquipment, setLoadoutAbility } from "@rupterya/game-core";
 import type { CharacterPreset, DevAccount, EquipmentItem, GameCharacter, HuntBattleState, HuntCreatureDefinition, LoadoutSlot } from "@rupterya/game-core";
-import { abilities, classes, equipment, sharedAbilities } from "./catalog";
+import { abilities, classes, emberDragonCompanion, equipment, sharedAbilities } from "./catalog";
 
 const STORAGE_KEY = "rupterya-browser-dev-account-v2";
 const allAbilities = [...abilities, ...sharedAbilities];
@@ -102,7 +102,7 @@ export class DevCharacterRepository {
   beginHunt(account: DevAccount, character: GameCharacter, regionId: string, creatures: HuntCreatureDefinition[]): HuntBattleState {
     const summary = this.summary(account, character);
     const definition = classes.find((entry) => entry.id === character.classId)!;
-    return createHuntBattle({ regionId, creatures, player: { id: character.id, name: character.name, portraitPath: definition.portraitPath, hpCurrent: character.vitals.hpCurrent, hpMax: summary.hpMax, mpCurrent: character.vitals.mpCurrent, mpMax: summary.mpMax, stats: summary.stats } });
+    return createHuntBattle({ regionId, creatures, companion: emberDragonCompanion, player: { id: character.id, name: character.name, portraitPath: definition.portraitPath, hpCurrent: character.vitals.hpCurrent, hpMax: summary.hpMax, mpCurrent: character.vitals.mpCurrent, mpMax: summary.mpMax, stats: summary.stats } });
   }
 
   settleHunt(account: DevAccount, character: GameCharacter, battle: HuntBattleState): DevAccount {

@@ -174,6 +174,14 @@ export interface HuntCombatant {
   stats: CharacterCombatStats;
 }
 
+export interface HuntCompanion {
+  id: string;
+  name: string;
+  portraitPath: string;
+  description: string;
+  magicalDamageScaling: number;
+}
+
 export interface HuntBattleLog {
   turn: number;
   text: string;
@@ -185,7 +193,9 @@ export interface HuntBattleState {
   regionId: string;
   creatures: HuntCreatureDefinition[];
   player: HuntCombatant;
+  companion: HuntCompanion | null;
   enemies: HuntCombatant[];
+  lastPetTargetId: string | null;
   turn: number;
   status: "active" | "victory" | "defeat";
   log: HuntBattleLog[];

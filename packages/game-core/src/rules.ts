@@ -1,4 +1,4 @@
-import type { AbilityDefinition, CharacterCombatStats, CharacterPreset, ClassDefinition, CombatLoadout, EquippedItems, EquipmentItem, GameCharacter, LoadoutSlot } from "./domain";
+import type { AbilityDefinition, CharacterCombatStats, CharacterPreset, ClassDefinition, CombatLoadout, EquippedItems, EquipmentItem, GameCharacter, HuntBattleState, HuntCombatant, HuntCreatureDefinition, LoadoutSlot } from "./domain";
 
 export const LOADOUT_SLOTS: ReadonlyArray<{ key: LoadoutSlot; label: string; kind: AbilityDefinition["slotKind"] }> = [
   { key: "skill1", label: "Habilidade 1", kind: "skill" },
@@ -62,4 +62,61 @@ export function setLoadoutAbility(loadout: CombatLoadout, slot: LoadoutSlot, abi
 
 export function activePreset(character: GameCharacter): CharacterPreset {
   return character.presets.find((preset) => preset.id === character.activePresetId) ?? character.presets[0];
+}
+
+const battleId = () => globalThis.crypto?.randomUUID?.() ?? `hunt-${Date.now()}`;
+
+export function createHuntBattle(input: { regionId: string; player: HuntCombatant; creatures: HuntCreatureDefinition[] }): HuntBattleState {
+  const enemies: HuntCombatant[] = input.creatures.map((creature, index) => ({
+    id: `${creature.id}-${index}`,
+    name: creature.name,
+    hpCurrent: creature.hpMax,
+    hpMax: creature.hpMax,
+    mpCurrent: 0,
+    mpMax: 0,
+    stats: {
+      physicalDamage: creature.physicalDamage,
+      magicalDamage: 0,
+      physicalDefense: creature.physicalDefense,
+      magicalDefense: creature.magicalDefense,
+      criticalChance: 0,
+      dodgeChance: 0,
+    },
+  }));
+  return {
+    id: battleId(),
+    regionId: input.regionId,
+    creatures: input.creatures,
+    player: input.player,
+    enemies,
+    turn: 1,
+    status: "active",
+    reward: null,
+    log: [{ turn: 0, tone: "system", text: input.creatures.length > 1 ? `Emboscada: ${input.creatures.length} inimigos bloqueiam o caminho.` : `${input.creatures[0].name} bloqueia o caminho.` }],
+  };
+}
+
+export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefinition): HuntBattleState {
+  if (state.status !== "active") return state;
+  if (!ability.damageFamily || ability.slotKind === "passive" || ability.slotKind === "stance") return { ...state, log: [...state.log, { turn: state.turn, tone: "system", text: `${ability.name} não causa dano nesta rodada.` }] };
+  const manaCost = ability.manaCost ?? 0;
+  if (state.player.mpCurrent < manaCost) return { ...state, log: [...state.log, { turn: state.turn, tone: "system", text: `MP insuficiente para ${ability.name}.` }] };
+  const kind = ability.damageFamily === "magical" ? "magical" : "physical";
+  const raw = abilityRawDamage(ability, state.player.stats);
+  const primaryEnemy = state.enemies.find((enemy) => enemy.hpCurrent > 0)!;
+  const dealt = mitigateDamage(raw, kind, primaryEnemy.stats);
+  const player = { ...state.player, mpCurrent: state.player.mpCurrent - manaCost };
+  const enemies = state.enemies.map((enemy) => enemy.id === primaryEnemy.id ? { ...enemy, hpCurrent: Math.max(0, enemy.hpCurrent - dealt) } : enemy);
+  const playerLog = { turn: state.turn, tone: "player" as const, text: `${player.name} usa ${ability.name} e causa ${dealt} de dano.` };
+  if (enemies.every((enemy) => enemy.hpCurrent === 0)) {
+    const reward = { xp: state.creatures.reduce((sum, creature) => sum + creature.xpReward, 0), gold: state.creatures.reduce((sum, creature) => sum + creature.goldReward, 0) };
+    return { ...state, player, enemies, status: "victory", reward, log: [...state.log, playerLog, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${reward.xp} XP global · +${reward.gold} ouro.` }] };
+  }
+  const received = enemies.filter((enemy) => enemy.hpCurrent > 0).reduce((sum, enemy) => sum + mitigateDamage(enemy.stats.physicalDamage, "physical", player.stats), 0);
+  const afterCounter = { ...player, hpCurrent: Math.max(0, player.hpCurrent - received) };
+  const enemyLog = { turn: state.turn, tone: "enemy" as const, text: `${enemies.filter((enemy) => enemy.hpCurrent > 0).length} inimigo(s) respondem e causam ${received} de dano físico.` };
+  if (afterCounter.hpCurrent === 0) {
+    return { ...state, player: afterCounter, enemies, status: "defeat", log: [...state.log, playerLog, enemyLog, { turn: state.turn, tone: "defeat", text: `${player.name} caiu. HP permanece em 0 até receber cura.` }] };
+  }
+  return { ...state, player: afterCounter, enemies, turn: state.turn + 1, log: [...state.log, playerLog, enemyLog] };
 }

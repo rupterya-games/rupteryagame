@@ -42,6 +42,8 @@ export interface ClassDefinition {
   id: string;
   name: string;
   description: string;
+  role: string;
+  portraitPath: string;
   baseVitals: Pick<CharacterVitals, "hpMax" | "mpMax" | "morale" | "gold">;
   baseStats: CharacterCombatStats;
   adventure: AdventureAttributes;
@@ -134,6 +136,58 @@ export interface DevAccount {
   globalXp: number;
   characterSlots: number;
   characters: GameCharacter[];
+}
+
+export interface HuntCreatureDefinition {
+  id: string;
+  name: string;
+  description: string;
+  regionId: string;
+  level: number;
+  hpMax: number;
+  physicalDamage: number;
+  physicalDefense: number;
+  magicalDefense: number;
+  xpReward: number;
+  goldReward: number;
+}
+
+export interface HuntRegionDefinition {
+  id: string;
+  name: string;
+  kingdom: string;
+  description: string;
+  danger: string;
+  creatureIds: string[];
+}
+
+export interface HuntCombatant {
+  id: string;
+  name: string;
+  portraitPath?: string;
+  hpCurrent: number;
+  hpMax: number;
+  mpCurrent: number;
+  mpMax: number;
+  stats: CharacterCombatStats;
+}
+
+export interface HuntBattleLog {
+  turn: number;
+  text: string;
+  tone: "system" | "player" | "enemy" | "victory" | "defeat";
+}
+
+export interface HuntBattleState {
+  id: string;
+  regionId: string;
+  creatures: HuntCreatureDefinition[];
+  player: HuntCombatant;
+  enemies: HuntCombatant[];
+  turn: number;
+  status: "active" | "victory" | "defeat";
+  log: HuntBattleLog[];
+  reward: { xp: number; gold: number } | null;
 }
 
 export type GridIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;

@@ -7,12 +7,16 @@ const allAbilities = [...abilities, ...sharedAbilities];
 const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
 export class DevCharacterRepository {
+  emptyAccount(): DevAccount {
+    return { id: "dev-account", globalLevel: 30, globalXp: 0, characterSlots: 6, characters: [] };
+  }
+
   load(): DevAccount {
     if (typeof window !== "undefined") {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) return JSON.parse(raw) as DevAccount;
     }
-    return { id: "dev-account", globalLevel: 30, globalXp: 0, characterSlots: 6, characters: [] };
+    return this.emptyAccount();
   }
 
   save(account: DevAccount): DevAccount {

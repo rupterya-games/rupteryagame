@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LOADOUT_SLOTS, activePreset } from "@rupterya/game-core";
 import type { GameCharacter, LoadoutSlot } from "@rupterya/game-core";
 import { abilities, classes, equipment, kingdoms, sharedAbilities } from "@/lib/catalog";
@@ -10,14 +10,20 @@ type View = "slots" | "lobby" | "profile" | "equipment" | "abilities" | "presets
 const slotLabels: Record<string, string> = { weapon: "Arma", head: "Cabeca", chest: "Peito", hands: "Maos", feet: "Pes", trinket: "Amuleto" };
 
 export default function HomePage() {
-  const [account, setAccount] = useState(() => repository.load());
-  const [selectedId, setSelectedId] = useState<string | null>(account.characters[0]?.id ?? null);
-  const [view, setView] = useState<View>(account.characters.length ? "lobby" : "slots");
+  const [account, setAccount] = useState(() => repository.emptyAccount());
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [view, setView] = useState<View>("slots");
   const [name, setName] = useState("");
   const [classId, setClassId] = useState("warrior");
   const [kingdom, setKingdom] = useState(kingdoms[0]);
   const [message, setMessage] = useState("Conta DEV pronta: Nv. Global 30.");
   const [presetName, setPresetName] = useState("");
+  useEffect(() => {
+    const storedAccount = repository.load();
+    setAccount(storedAccount);
+    setSelectedId(storedAccount.characters[0]?.id ?? null);
+    setView(storedAccount.characters.length ? "lobby" : "slots");
+  }, []);
   const selected = account.characters.find((character) => character.id === selectedId) ?? null;
   const summary = useMemo(() => selected ? repository.summary(account, selected) : null, [account, selected]);
 

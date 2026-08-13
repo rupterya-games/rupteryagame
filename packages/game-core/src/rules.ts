@@ -70,6 +70,7 @@ export function createHuntBattle(input: { regionId: string; player: HuntCombatan
   const enemies: HuntCombatant[] = input.creatures.map((creature, index) => ({
     id: `${creature.id}-${index}`,
     name: creature.name,
+    portraitPath: creature.portraitPath,
     hpCurrent: creature.hpMax,
     hpMax: creature.hpMax,
     mpCurrent: 0,

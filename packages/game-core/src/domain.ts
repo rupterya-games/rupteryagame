@@ -142,6 +142,8 @@ export interface HuntCreatureDefinition {
   id: string;
   name: string;
   description: string;
+  portraitPath?: string;
+  rarity: "common" | "rare" | "boss";
   regionId: string;
   level: number;
   hpMax: number;

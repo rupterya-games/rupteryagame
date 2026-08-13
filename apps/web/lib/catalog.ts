@@ -58,6 +58,19 @@ export const huntCreatures: HuntCreatureDefinition[] = [
   { id: "mist-captain", name: "Capitão da Névoa", description: "Mini-boss que pode sair da névoa durante a Jornada.", regionId: "fiordevalle", level: 30, hpMax: 210, physicalDamage: 35, physicalDefense: 10, magicalDefense: 10, xpReward: 10, goldReward: 36 },
 ];
 
+export const fiordevalleJourneyNodes = [
+  { id: "centro", name: "Centro", icon: "⌂", column: 2, row: 1 },
+  { id: "bairro_humano", name: "Bairro", icon: "⌂", column: 1, row: 2 },
+  { id: "vinhedos", name: "Vinhedos", icon: "♧", column: 2, row: 2 },
+  { id: "distrito_nobre", name: "Nobres", icon: "♜", column: 3, row: 2 },
+  { id: "estrada_velha", name: "Estrada", icon: "↟", column: 2, row: 3 },
+  { id: "colinas", name: "Colinas", icon: "⛰", column: 1, row: 4 },
+  { id: "casas_abandonadas", name: "Casas", icon: "⌂", column: 2, row: 4 },
+  { id: "cemiterio", name: "Cemitério", icon: "✟", column: 3, row: 4 },
+  { id: "floresta_sombria", name: "Floresta", icon: "♠", column: 2, row: 5 },
+  { id: "portao", name: "Portão", icon: "⚑", column: 3, row: 3 },
+] as const;
+
 export function rollFiordevalleEncounter(random: () => number = Math.random) {
   const level = 30;
   const count = 1 + Math.floor(random() * 3);

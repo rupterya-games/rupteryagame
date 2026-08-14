@@ -4,6 +4,7 @@ import { abilities, classes, emberDragonCompanion, equipment, sharedAbilities } 
 
 const STORAGE_KEY = "rupterya-browser-dev-account-v2";
 const allAbilities = [...abilities, ...sharedAbilities];
+const starterItemIds = ["iron-sword", "iron-helm", "leather-coat", "traveler-boots"];
 const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
 const defaultLoadout = (classId: string) => {
@@ -31,7 +32,7 @@ export class DevCharacterRepository {
         const compatible = Object.values(preset.loadout).every((abilityId) => abilityId === null || ownedAbilityIds.includes(abilityId));
         return { ...preset, loadout: compatible ? preset.loadout : defaultLoadout(definition.id) };
       });
-      return { ...character, classId: definition.id, ownedAbilityIds: [...new Set([...ownedAbilityIds, "school-fire", "lineage-vampire", "secret-predatory-charge"])], presets };
+      return { ...character, classId: definition.id, inventoryItemIds: character.inventoryItemIds ?? starterItemIds, ownedAbilityIds: [...new Set([...ownedAbilityIds, "school-fire", "lineage-vampire", "secret-predatory-charge"])], presets };
     });
     return { ...stored, characters };
   }
@@ -48,7 +49,7 @@ export class DevCharacterRepository {
     const name = input.name.trim();
     if (name.length < 3) throw new Error("Use um nome com ao menos 3 caracteres.");
     const preset: CharacterPreset = { id: id(), name: "Caça", loadout: defaultLoadout(definition.id), equipment: emptyEquipment() };
-    const character: GameCharacter = { id: id(), name, classId: definition.id, kingdom: input.kingdom, lineageId: null, schoolId: null, skinId: "default", vitals: { hpCurrent: definition.baseVitals.hpMax, hpMax: definition.baseVitals.hpMax, mpCurrent: definition.baseVitals.mpMax, mpMax: definition.baseVitals.mpMax, morale: definition.baseVitals.morale, gold: definition.baseVitals.gold }, equipment: preset.equipment, ownedAbilityIds: [...abilities.filter((ability) => ability.id.startsWith(`${definition.id}-`)).map((ability) => ability.id), "school-fire", "lineage-vampire", "secret-predatory-charge"], presets: [preset], activePresetId: preset.id };
+    const character: GameCharacter = { id: id(), name, classId: definition.id, kingdom: input.kingdom, lineageId: null, schoolId: null, skinId: "default", vitals: { hpCurrent: definition.baseVitals.hpMax, hpMax: definition.baseVitals.hpMax, mpCurrent: definition.baseVitals.mpMax, mpMax: definition.baseVitals.mpMax, morale: definition.baseVitals.morale, gold: definition.baseVitals.gold }, equipment: preset.equipment, inventoryItemIds: starterItemIds, ownedAbilityIds: [...abilities.filter((ability) => ability.id.startsWith(`${definition.id}-`)).map((ability) => ability.id), "school-fire", "lineage-vampire", "secret-predatory-charge"], presets: [preset], activePresetId: preset.id };
     return this.save({ ...account, characters: [...account.characters, character] });
   }
 
@@ -57,6 +58,7 @@ export class DevCharacterRepository {
   }
 
   equip(character: GameCharacter, item: EquipmentItem): GameCharacter {
+    if (!character.inventoryItemIds.includes(item.id)) throw new Error("Esse item ainda não pertence ao inventário.");
     const preset = activePreset(character);
     const equipmentState = { ...preset.equipment, [item.slot]: preset.equipment[item.slot] === item.id ? null : item.id };
     const updated = { ...preset, equipment: equipmentState };
@@ -109,7 +111,8 @@ export class DevCharacterRepository {
   settleHunt(account: DevAccount, character: GameCharacter, battle: HuntBattleState): DevAccount {
     if (battle.status === "active") return account;
     const gold = character.vitals.gold + (battle.status === "victory" ? battle.reward?.gold ?? 0 : 0);
-    const updated = { ...character, vitals: { ...character.vitals, hpCurrent: battle.player.hpCurrent, hpMax: battle.player.hpMax, mpCurrent: battle.player.mpCurrent, mpMax: battle.player.mpMax, gold } };
+    const inventoryItemIds = battle.status === "victory" ? [...new Set([...character.inventoryItemIds, ...(battle.reward?.itemIds ?? [])])] : character.inventoryItemIds;
+    const updated = { ...character, inventoryItemIds, vitals: { ...character.vitals, hpCurrent: battle.player.hpCurrent, hpMax: battle.player.hpMax, mpCurrent: battle.player.mpCurrent, mpMax: battle.player.mpMax, gold } };
     return this.save({ ...account, globalXp: account.globalXp + (battle.status === "victory" ? battle.reward?.xp ?? 0 : 0), characters: account.characters.map((entry) => entry.id === character.id ? updated : entry) });
   }
 

@@ -4,6 +4,7 @@ export type AbilitySlotKind = "skill" | "ultimate" | "stance" | "passive";
 export type SecretArtPath = "martial" | "mystic" | "arcane";
 export type AbilitySource = "class" | "lineage" | "school" | "secret_art" | "creature";
 export type EquipmentSlot = "weapon" | "head" | "chest" | "hands" | "feet" | "trinket";
+export type ItemRarity = "common" | "rare" | "epic" | "legendary";
 
 export interface AdventureAttributes {
   perception: number;
@@ -106,11 +107,14 @@ export interface EquipmentItem {
   id: string;
   name: string;
   slot: EquipmentSlot;
-  rarity: "common" | "rare" | "epic";
+  rarity: ItemRarity;
+  itemLevel: number;
+  upgradeLevel: number;
   power: number;
   modifiers: Partial<CharacterCombatStats & Pick<CharacterVitals, "hpMax" | "mpMax">>;
   statusEffects?: StatusEffectApplication[];
   keywords?: string[];
+  affixes?: string[];
 }
 
 export interface EquippedItems {
@@ -152,6 +156,7 @@ export interface GameCharacter {
   ownedAbilityIds: string[];
   presets: CharacterPreset[];
   activePresetId: string;
+  inventoryItemIds: string[];
 }
 
 export interface DevAccount {
@@ -177,6 +182,7 @@ export interface HuntCreatureDefinition {
   xpReward: number;
   goldReward: number;
   statusEffects?: StatusEffectApplication[];
+  equippedItem?: EquipmentItem;
 }
 
 export interface HuntRegionDefinition {
@@ -223,11 +229,12 @@ export interface HuntBattleState {
   companion: HuntCompanion | null;
   enemies: HuntCombatant[];
   lastPetTargetId: string | null;
+  lastPetDamage: number;
   cooldowns: Record<string, number>;
   turn: number;
   status: "active" | "victory" | "defeat";
   log: HuntBattleLog[];
-  reward: { xp: number; gold: number } | null;
+  reward: { xp: number; gold: number; itemIds: string[] } | null;
 }
 
 export type GridIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;

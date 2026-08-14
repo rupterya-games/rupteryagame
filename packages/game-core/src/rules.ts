@@ -76,11 +76,32 @@ function attack(input: { attacker: HuntCombatant; defender: HuntCombatant; rawDa
   return { defender, dealt, critical };
 }
 
-function rewardFor(state: HuntBattleState) { return { xp: state.creatures.reduce((sum, creature) => sum + creature.xpReward, 0), gold: state.creatures.reduce((sum, creature) => sum + creature.goldReward, 0) }; }
+export const dropBreakChanceByRarity = { common: 0, rare: 12, epic: 28, legendary: 45 } as const;
+
+function rewardFor(state: HuntBattleState, turn: number) {
+  const itemIds: string[] = [];
+  const logs: HuntBattleLog[] = [];
+  state.creatures.forEach((creature) => {
+    if (!creature.equippedItem) return;
+    const chance = dropBreakChanceByRarity[creature.equippedItem.rarity];
+    if (Math.random() * 100 < chance) {
+      logs.push({ turn, tone: "system", text: `${creature.equippedItem.name} se quebrou durante a luta (${chance}% de risco).` });
+      return;
+    }
+    itemIds.push(creature.equippedItem.id);
+    logs.push({ turn, tone: "victory", text: `Drop obtido: ${creature.equippedItem.name}.` });
+  });
+  return { reward: { xp: state.creatures.reduce((sum, creature) => sum + creature.xpReward, 0), gold: state.creatures.reduce((sum, creature) => sum + creature.goldReward, 0), itemIds }, logs };
+}
 
 export function createHuntBattle(input: { regionId: string; player: HuntCombatant; creatures: HuntCreatureDefinition[]; companion?: HuntCompanion | null }): HuntBattleState {
-  const enemies: HuntCombatant[] = input.creatures.map((creature, index) => ({ id: `${creature.id}-${index}`, name: creature.name, portraitPath: creature.portraitPath, hpCurrent: creature.hpMax, hpMax: creature.hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: creature.statusEffects ?? [], stats: { physicalDamage: creature.physicalDamage, magicalDamage: 0, physicalDefense: creature.physicalDefense, magicalDefense: creature.magicalDefense, criticalChance: creature.rarity === "boss" ? 12 : creature.rarity === "rare" ? 7 : 4, dodgeChance: creature.rarity === "rare" ? 5 : 2, bleedChance: 0, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 0, burnResistance: 0, poisonResistance: 0, blindResistance: 0 } }));
-  return { id: battleId(), regionId: input.regionId, creatures: input.creatures, player: { ...input.player, activeEffects: input.player.activeEffects ?? emptyEffects(), onHitEffects: input.player.onHitEffects ?? [] }, companion: input.companion ?? null, enemies, lastPetTargetId: null, cooldowns: {}, turn: 1, status: "active", reward: null, log: [{ turn: 0, tone: "system", text: input.creatures.length > 1 ? `Emboscada: ${input.creatures.length} inimigos bloqueiam o caminho.` : `${input.creatures[0].name} bloqueia o caminho.` }] };
+  const enemies: HuntCombatant[] = input.creatures.map((creature, index) => {
+    const item = creature.equippedItem;
+    const itemModifiers = item?.modifiers ?? {};
+    const hpMax = creature.hpMax + (itemModifiers.hpMax ?? 0);
+    return { id: `${creature.id}-${index}`, name: creature.name, portraitPath: creature.portraitPath, hpCurrent: hpMax, hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: [...(creature.statusEffects ?? []), ...(item?.statusEffects ?? [])], stats: { physicalDamage: creature.physicalDamage + (itemModifiers.physicalDamage ?? 0), magicalDamage: itemModifiers.magicalDamage ?? 0, physicalDefense: creature.physicalDefense + (itemModifiers.physicalDefense ?? 0), magicalDefense: creature.magicalDefense + (itemModifiers.magicalDefense ?? 0), criticalChance: (creature.rarity === "boss" ? 12 : creature.rarity === "rare" ? 7 : 4) + (itemModifiers.criticalChance ?? 0), dodgeChance: (creature.rarity === "rare" ? 5 : 2) + (itemModifiers.dodgeChance ?? 0), bleedChance: itemModifiers.bleedChance ?? 0, burnChance: itemModifiers.burnChance ?? 0, poisonChance: itemModifiers.poisonChance ?? 0, blindChance: itemModifiers.blindChance ?? 0, bleedResistance: itemModifiers.bleedResistance ?? 0, burnResistance: itemModifiers.burnResistance ?? 0, poisonResistance: itemModifiers.poisonResistance ?? 0, blindResistance: itemModifiers.blindResistance ?? 0 } };
+  });
+  return { id: battleId(), regionId: input.regionId, creatures: input.creatures, player: { ...input.player, activeEffects: input.player.activeEffects ?? emptyEffects(), onHitEffects: input.player.onHitEffects ?? [] }, companion: input.companion ?? null, enemies, lastPetTargetId: null, lastPetDamage: 0, cooldowns: {}, turn: 1, status: "active", reward: null, log: [{ turn: 0, tone: "system", text: input.creatures.length > 1 ? `Emboscada: ${input.creatures.length} inimigos bloqueiam o caminho.` : `${input.creatures[0].name} bloqueia o caminho.` }] };
 }
 
 export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefinition): HuntBattleState {
@@ -89,7 +110,7 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
   let player = tickEffects(state.player, state.turn, logs);
   if (player.hpCurrent === 0) return { ...state, player, status: "defeat", log: [...logs, { turn: state.turn, tone: "defeat", text: `${player.name} caiu pelos efeitos ativos.` }] };
   let enemies = state.enemies.map((enemy) => tickEffects(enemy, state.turn, logs));
-  if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const reward = rewardFor(state); return { ...state, player, enemies, status: "victory", reward, log: [...logs, { turn: state.turn, tone: "victory", text: `Os efeitos derrotaram a emboscada. +${reward.xp} XP global · +${reward.gold} ouro.` }] }; }
+  if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const loot = rewardFor(state, state.turn); return { ...state, player, enemies, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `Os efeitos derrotaram a emboscada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] }; }
   const cooldown = state.cooldowns[ability.id] ?? 0;
   if (cooldown > 0) return { ...state, player, enemies, log: [...logs, { turn: state.turn, tone: "system", text: `${ability.name} está em recarga por mais ${cooldown} turno(s).` }] };
   if (!ability.damageFamily || ability.slotKind === "passive" || ability.slotKind === "stance") return { ...state, player, enemies, log: [...logs, { turn: state.turn, tone: "system", text: `${ability.name} não causa dano nesta rodada.` }] };
@@ -103,18 +124,18 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
   logs.push({ turn: state.turn, tone: "player", text: hit.dealt ? `${player.name} usa ${ability.name} e causa ${hit.dealt} de dano${hit.critical ? " crítico" : ""}.` : `${player.name} usa ${ability.name}, mas não acerta.` });
   const cooldowns = Object.fromEntries(Object.entries(state.cooldowns).map(([id, turns]): [string, number] => [id, Math.max(0, turns - 1)]).filter(([, turns]) => turns > 0)) as Record<string, number>;
   if (ability.cooldownTurns) cooldowns[ability.id] = ability.cooldownTurns;
-  if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const reward = rewardFor(state); return { ...state, player, enemies, cooldowns, status: "victory", reward, log: [...logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${reward.xp} XP global · +${reward.gold} ouro.` }] }; }
+  if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const loot = rewardFor(state, state.turn); return { ...state, player, enemies, cooldowns, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] }; }
   for (const enemy of enemies.filter((entry) => entry.hpCurrent > 0)) {
     const counter = attack({ attacker: enemy, defender: player, rawDamage: enemy.stats.physicalDamage, kind: "physical", effects: enemy.onHitEffects, sourceName: enemy.name, turn: state.turn, logs });
     player = counter.defender;
     if (counter.dealt) logs.push({ turn: state.turn, tone: "enemy", text: `${enemy.name} causa ${counter.dealt} de dano${counter.critical ? " crítico" : ""}.` });
     if (player.hpCurrent === 0) return { ...state, player, enemies, cooldowns, status: "defeat", log: [...logs, { turn: state.turn, tone: "defeat", text: `${player.name} caiu. HP permanece em 0 até receber cura.` }] };
   }
-  if (!state.companion) return { ...state, player, enemies, cooldowns, lastPetTargetId: null, turn: state.turn + 1, log: logs };
+  if (!state.companion) return { ...state, player, enemies, cooldowns, lastPetTargetId: null, lastPetDamage: 0, turn: state.turn + 1, log: logs };
   const petTarget = enemies.filter((enemy) => enemy.hpCurrent > 0).sort((left, right) => left.hpCurrent - right.hpCurrent)[0];
   const petDamage = Math.max(1, Math.round(player.stats.magicalDamage * state.companion.magicalDamageScaling));
   enemies = enemies.map((enemy) => enemy.id === petTarget.id ? { ...enemy, hpCurrent: Math.max(0, enemy.hpCurrent - petDamage) } : enemy);
   logs.push({ turn: state.turn, tone: "player", text: `${state.companion.name} lança Bola de Fogo em ${petTarget.name} e causa ${petDamage} de dano mágico.` });
-  if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const reward = rewardFor(state); return { ...state, player, enemies, cooldowns, lastPetTargetId: petTarget.id, status: "victory", reward, log: [...logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${reward.xp} XP global · +${reward.gold} ouro.` }] }; }
-  return { ...state, player, enemies, cooldowns, lastPetTargetId: petTarget.id, turn: state.turn + 1, log: logs };
+  if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const loot = rewardFor(state, state.turn); return { ...state, player, enemies, cooldowns, lastPetTargetId: petTarget.id, lastPetDamage: petDamage, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] }; }
+  return { ...state, player, enemies, cooldowns, lastPetTargetId: petTarget.id, lastPetDamage: petDamage, turn: state.turn + 1, log: logs };
 }

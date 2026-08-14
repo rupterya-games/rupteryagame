@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import {
   LOADOUT_SLOTS,
   activePreset,
+  dropBreakChanceByRarity,
   resolveHuntTurn,
   statusEffectLabels,
 } from "@rupterya/game-core";
@@ -43,6 +44,7 @@ type View =
 type BattleEffect = {
   kind: "physical" | "magical" | "dragonfire";
   targetId: string;
+  damage?: number;
 } | null;
 type JourneyOutcome = {
   destinationId: string;
@@ -60,10 +62,8 @@ const slotLabels: Record<string, string> = {
 };
 
 function BattleLoadout({
-  battle,
   character,
 }: {
-  battle: HuntBattleState;
   character: GameCharacter;
 }) {
   const equipped = Object.values(character.equipment).flatMap((itemId) =>
@@ -88,21 +88,6 @@ function BattleLoadout({
           )}
         </div>
       </div>
-      {battle.companion && (
-        <article className="battle-companion">
-          <img
-            src={battle.companion.portraitPath}
-            alt={`Carta de ${battle.companion.name}`}
-          />
-          <div>
-            <small>LENDÁRIO · ALIADO</small>
-            <strong>{battle.companion.name}</strong>
-            <p>
-              Fim da rodada: Bola de Fogo causa 10% do dano mágico no menor HP.
-            </p>
-          </div>
-        </article>
-      )}
     </section>
   );
 }
@@ -496,6 +481,7 @@ export default function HomePage() {
           setBattleEffect({
             kind: "dragonfire",
             targetId: next.lastPetTargetId,
+            damage: next.lastPetDamage,
           });
       }, 650);
       window.setTimeout(() => setBattleEffect(null), 1120);
@@ -632,7 +618,7 @@ export default function HomePage() {
           />
         )}
         {battle && view === "hunt" && selected && (
-          <BattleLoadout battle={battle} character={selected} />
+          <BattleLoadout character={selected} />
         )}
         <MusicToggle enabled={musicEnabled} onToggle={toggleMusic} />
         <p className="notice">{message}</p>
@@ -827,7 +813,7 @@ export default function HomePage() {
             calculados no game-core.
           </p>
           <div className="equipment-grid">
-            {equipment.map((item) => {
+            {equipment.filter((item) => selected.inventoryItemIds.includes(item.id)).map((item) => {
               const active = selected.equipment[item.slot] === item.id;
               return (
                 <button
@@ -1071,7 +1057,7 @@ export default function HomePage() {
                     <span
                       className={`battle-impact ${battleEffect.kind}`}
                       aria-hidden="true"
-                    />
+                    >{battleEffect.damage ? `-${battleEffect.damage}` : ""}</span>
                   )}
                   <img src={summary!.portraitPath} alt="" />
                   <div>
@@ -1106,7 +1092,15 @@ export default function HomePage() {
                     </div>
                   </div>
                 </article>
-                <div className="versus">VS</div>
+                {battle.companion && (
+                  <div
+                    className="battle-pet"
+                    role="img"
+                    aria-label={`${battle.companion.name}, aliado lendário`}
+                  >
+                    <span>ALIADO</span>
+                  </div>
+                )}
                 <div className="enemy-pack">
                   {battle.enemies.map((enemy, index) => (
                     <article
@@ -1117,7 +1111,7 @@ export default function HomePage() {
                         <span
                           className={`battle-impact ${battleEffect.kind}`}
                           aria-hidden="true"
-                        />
+                        >{battleEffect.damage ? `-${battleEffect.damage}` : ""}</span>
                       )}
                       {enemy.portraitPath ? (
                         <img
@@ -1137,6 +1131,7 @@ export default function HomePage() {
                           · Nv. {battle.creatures[index].level}
                         </small>
                         <strong>{enemy.name}</strong>
+                        {battle.creatures[index].equippedItem && <small className="enemy-drop-preview">Usa: {battle.creatures[index].equippedItem.name} · quebra {dropBreakChanceByRarity[battle.creatures[index].equippedItem.rarity]}%</small>}
                         <CombatEffects effects={enemy.activeEffects} />
                         <div className="battle-resource">
                           <span>
@@ -1201,6 +1196,7 @@ export default function HomePage() {
                       ? `+${battle.reward?.xp} XP global · +${battle.reward?.gold} ouro`
                       : "Procure cura antes da próxima caçada."}
                   </p>
+                  {battle.status === "victory" && battle.reward?.itemIds.length ? <small className="loot-result">Itens preservados: {battle.reward.itemIds.map((itemId) => equipment.find((item) => item.id === itemId)?.name ?? itemId).join(", ")}</small> : null}
                   <button className="primary" onClick={() => setBattle(null)}>
                     Voltar às rotas
                   </button>
@@ -1228,7 +1224,7 @@ export default function HomePage() {
         <BattleCooldownPanel battle={battle} abilities={[...battleAbilities]} />
       )}
       {battle && view === "hunt" && selected && (
-        <BattleLoadout battle={battle} character={selected} />
+        <BattleLoadout character={selected} />
       )}
       <MusicToggle enabled={musicEnabled} onToggle={toggleMusic} />
       <p className="notice">{message}</p>

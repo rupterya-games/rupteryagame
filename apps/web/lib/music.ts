@@ -12,7 +12,9 @@ class RupteryaMusicDirector {
   private master: GainNode | null = null;
   private background: AudioBufferSourceNode | null = null;
   private readonly buffers = new Map<AudioTrack, AudioBuffer>();
+  private readonly loading = new Map<AudioTrack, Promise<AudioBuffer>>();
   private mode: MusicMode = "none";
+  private playbackRequest = 0;
 
   private ensureContext() {
     if (this.context && this.master) return;
@@ -25,43 +27,73 @@ class RupteryaMusicDirector {
   private async load(track: AudioTrack) {
     const cached = this.buffers.get(track);
     if (cached) return cached;
+    const inFlight = this.loading.get(track);
+    if (inFlight) return inFlight;
     this.ensureContext();
-    const response = await fetch(tracks[track], { cache: "force-cache" });
-    if (!response.ok || !this.context) throw new Error("Não foi possível carregar o áudio.");
-    const buffer = await this.context.decodeAudioData(await response.arrayBuffer());
-    this.buffers.set(track, buffer);
-    return buffer;
+    const request = (async () => {
+      const response = await fetch(tracks[track], { cache: "force-cache" });
+      if (!response.ok || !this.context) throw new Error("Unable to load audio.");
+      const buffer = await this.context.decodeAudioData(await response.arrayBuffer());
+      this.buffers.set(track, buffer);
+      return buffer;
+    })();
+    this.loading.set(track, request);
+    try {
+      return await request;
+    } finally {
+      this.loading.delete(track);
+    }
   }
 
   private stopBackground() {
     if (!this.background) return;
-    try { this.background.stop(); } catch { /* source já foi finalizado */ }
+    try {
+      this.background.stop();
+    } catch {
+      // Source already stopped.
+    }
     this.background.disconnect();
     this.background = null;
   }
 
   async setMode(mode: MusicMode) {
+    const request = ++this.playbackRequest;
+    const sameTrackAlreadyPlaying = this.mode === mode && this.background;
     this.mode = mode;
+    if (sameTrackAlreadyPlaying) {
+      await this.context?.resume();
+      return;
+    }
+
     this.stopBackground();
     if (mode === "none") return;
     this.ensureContext();
     if (!this.context || !this.master) return;
     await this.context.resume();
+    if (request !== this.playbackRequest || this.mode !== mode) return;
     const buffer = await this.load(mode);
-    if (this.mode !== mode || this.context.state !== "running") return;
+    if (
+      request !== this.playbackRequest ||
+      this.mode !== mode ||
+      this.context.state !== "running"
+    ) return;
+
     const source = this.context.createBufferSource();
     source.buffer = buffer;
     source.loop = true;
     source.connect(this.master);
     source.start();
     this.background = source;
+    source.onended = () => {
+      if (this.background === source) this.background = null;
+    };
   }
 
   stop() {
+    this.playbackRequest += 1;
     this.mode = "none";
     this.stopBackground();
   }
-
 }
 
 export const musicDirector = new RupteryaMusicDirector();

@@ -60,6 +60,46 @@ const slotLabels: Record<string, string> = {
   feet: "Pés",
   trinket: "Amuleto",
 };
+const equipmentSlotIds = ["weapon", "head", "chest", "hands", "feet", "trinket"] as const;
+
+function EquipmentLoadoutModal({
+  character,
+  onClose,
+}: {
+  character: GameCharacter;
+  onClose: () => void;
+}) {
+  return (
+    <div className="loadout-overlay" role="presentation" onClick={onClose}>
+      <section
+        className="loadout-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Equipamentos em uso"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="section-title">
+          <span>EQUIPAMENTO</span>
+          <button onClick={onClose} aria-label="Fechar equipamentos">×</button>
+        </div>
+        <p>Loadout ativo · toque fora para voltar à batalha.</p>
+        <div className="loadout-equipment-grid">
+          {equipmentSlotIds.map((slot) => {
+            const item = equipment.find((entry) => entry.id === character.equipment[slot]);
+            return (
+              <article className={`loadout-equipment-slot ${item ? "equipped" : "empty"}`} key={slot}>
+                <div className={`loadout-item-art item-art-${slot}`} aria-hidden="true" />
+                <small>{slotLabels[slot]}</small>
+                <strong>{item?.name ?? "Vazio"}</strong>
+                <span>{item ? `Poder +${item.power}` : "Sem item"}</span>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
 
 function BattleLoadout({
   character,
@@ -241,6 +281,7 @@ export default function HomePage() {
   const [battle, setBattle] = useState<HuntBattleState | null>(null);
   const [battleEffect, setBattleEffect] = useState<BattleEffect>(null);
   const [musicEnabled, setMusicEnabled] = useState(false);
+  const [showBattleLoadout, setShowBattleLoadout] = useState(false);
   const [journeyOutcome, setJourneyOutcome] = useState<JourneyOutcome | null>(
     null,
   );
@@ -1043,6 +1084,7 @@ export default function HomePage() {
                 <span>Caça solo · {battle.enemies.length} inimigo(s)</span>
                 <button
                   onClick={() => {
+                    setShowBattleLoadout(false);
                     setBattle(null);
                   }}
                 >
@@ -1052,6 +1094,13 @@ export default function HomePage() {
               <div className="battle-table" style={battleBoardStyle}>
                 <article
                   className={`battle-card player-card ${battleEffect?.targetId === battle.player.id ? `hit-${battleEffect.kind}` : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Abrir equipamentos do herói"
+                  onDoubleClick={() => setShowBattleLoadout(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") setShowBattleLoadout(true);
+                  }}
                 >
                   {battleEffect?.targetId === battle.player.id && (
                     <span
@@ -1197,7 +1246,10 @@ export default function HomePage() {
                       : "Procure cura antes da próxima caçada."}
                   </p>
                   {battle.status === "victory" && battle.reward?.itemIds.length ? <small className="loot-result">Itens preservados: {battle.reward.itemIds.map((itemId) => equipment.find((item) => item.id === itemId)?.name ?? itemId).join(", ")}</small> : null}
-                  <button className="primary" onClick={() => setBattle(null)}>
+                  <button className="primary" onClick={() => {
+                    setShowBattleLoadout(false);
+                    setBattle(null);
+                  }}>
                     Voltar às rotas
                   </button>
                 </section>
@@ -1225,6 +1277,12 @@ export default function HomePage() {
       )}
       {battle && view === "hunt" && selected && (
         <BattleLoadout character={selected} />
+      )}
+      {showBattleLoadout && battle && view === "hunt" && selected && (
+        <EquipmentLoadoutModal
+          character={selected}
+          onClose={() => setShowBattleLoadout(false)}
+        />
       )}
       <MusicToggle enabled={musicEnabled} onToggle={toggleMusic} />
       <p className="notice">{message}</p>

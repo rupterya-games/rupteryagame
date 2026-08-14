@@ -249,6 +249,17 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .combat-effects { display:flex; flex-wrap:wrap; gap:3px; margin-top:4px; }.combat-effects small { padding:2px 4px; border:1px solid #ab6d54; border-radius:999px; color:#ffd1b4; background:#351d1bd9; font-size:8px; line-height:1.1; }.item-card .item-keyword { grid-column:1; color:#dcb56c; font-size:10px; font-style:normal; line-height:1.25; }
 .enemy-drop-preview { display:block; margin-top:4px !important; color:#e6c47a !important; line-height:1.2; }.loot-result { display:block; margin:-4px 0 10px; color:#e6c47a; font-size:11px; line-height:1.35; }
 
+/* Inspeção de equipamento: disponível por duplo toque no herói durante a batalha. */
+.player-card { cursor:zoom-in; }
+.loadout-overlay { position:fixed; z-index:50; inset:0; display:grid; place-items:center; padding:16px; background:#05070ab8; backdrop-filter:blur(5px); }
+.loadout-modal { width:min(100%,430px); max-height:min(86dvh,660px); overflow:auto; border:1px solid #b89043; border-radius:16px; padding:13px; background:radial-gradient(circle at 50% 0,#43341f,#11151b 58%); box-shadow:0 20px 54px #000d,inset 0 0 0 1px #efd07622; }
+.loadout-modal .section-title { margin:0; }.loadout-modal .section-title button { min-width:35px; min-height:35px; font-size:20px; }.loadout-modal>p { margin:4px 0 12px; color:#c6b690; font-size:11px; }
+.loadout-equipment-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.loadout-equipment-slot { min-width:0; display:grid; grid-template-rows:72px auto auto auto; gap:3px; padding:6px; border:1px solid #4d473d; border-radius:10px; background:#0b1016; }.loadout-equipment-slot.equipped { border-color:#9d7a3c; box-shadow:inset 0 1px #ffe49a22,0 4px 12px #0008; }.loadout-equipment-slot.empty { opacity:.67; }
+.loadout-item-art { border:1px solid #8b6b35; border-radius:7px; background-image:url("/art/items/loadout-item-atlas-v1.png"); background-repeat:no-repeat; background-size:300% 200%; box-shadow:inset 0 0 10px #000a; }.item-art-weapon { background-position:0 0; }.item-art-head { background-position:50% 0; }.item-art-chest { background-position:100% 0; }.item-art-hands { background-position:0 100%; }.item-art-feet { background-position:50% 100%; }.item-art-trinket { background-position:100% 100%; }
+.loadout-equipment-slot small { color:#d9b86e; font-size:9px; text-transform:uppercase; letter-spacing:.06em; }.loadout-equipment-slot strong { overflow:hidden; color:#e8e1d1; font-size:10px; line-height:1.18; text-overflow:ellipsis; white-space:nowrap; }.loadout-equipment-slot span { color:#9eabb5; font-size:9px; }
+@media (max-width:390px) { .loadout-overlay { padding:10px; }.loadout-modal { padding:10px; }.loadout-equipment-grid { gap:6px; }.loadout-equipment-slot { grid-template-rows:62px auto auto auto; padding:5px; }.loadout-equipment-slot strong { font-size:9px; } }
+
 /* Aliado de mesa: o herói não ocupa a mesa inteira e o dragão vira uma criatura viva no canto. */
 .battle-table { min-height:294px; padding:12px 9px 15px; }
 .player-card { width:min(36%,132px); margin-right:0; transform:none; }

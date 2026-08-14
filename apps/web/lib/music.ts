@@ -14,7 +14,7 @@ class RupteryaMusicDirector {
     if (this.context && this.master) return;
     this.context = new AudioContext();
     this.master = this.context.createGain();
-    this.master.gain.value = 0.16;
+    this.master.gain.value = 0.46;
     this.master.connect(this.context.destination);
   }
 
@@ -24,6 +24,7 @@ class RupteryaMusicDirector {
     if (mode === "none") return;
     this.ensureAudio();
     if (!this.context || !this.master) return;
+    this.master.gain.value = mode === "combat" ? 0.5 : 0.42;
     await this.context.resume();
     if (this.context.state !== "running") return;
     this.step = 0;
@@ -46,9 +47,9 @@ class RupteryaMusicDirector {
     const notes = combat ? combatNotes : lobbyNotes;
     const beatMs = combat ? 300 : 650;
     const note = notes[this.step % notes.length];
-    this.playNote(note, combat ? 0.16 : 0.12, combat ? "sawtooth" : "sine", combat ? 0.28 : 0.2, beatMs / 1000);
+    this.playNote(note, combat ? 0.18 : 0.22, combat ? "sawtooth" : "sine", combat ? 0.28 : 0.2, beatMs / 1000);
     if (combat && this.step % 2 === 0) this.playNote(note / 2, 0.13, "triangle", 0.22, beatMs / 1000);
-    if (!combat && this.step % 4 === 0) this.playNote(note * 1.5, 0.07, "triangle", 0.5, beatMs / 1000);
+    if (!combat && this.step % 2 === 0) this.playNote(note * 1.5, 0.13, "triangle", 0.5, beatMs / 1000);
     this.step += 1;
     this.timer = window.setTimeout(() => this.playLoop(), beatMs);
   }

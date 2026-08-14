@@ -9,6 +9,7 @@ import { musicDirector } from "@/lib/music";
 
 type View = "slots" | "lobby" | "profile" | "equipment" | "abilities" | "presets" | "hunt";
 type BattleEffect = { kind: "physical" | "magical" | "dragonfire"; targetId: string } | null;
+type JourneyOutcome = { destinationId: string; kind: "event" | "quiet"; nodeName: string; text: string };
 const slotLabels: Record<string, string> = { weapon: "Arma", head: "Cabeça", chest: "Peito", hands: "Mãos", feet: "Pés", trinket: "Amuleto" };
 
 function BattleLoadout({ battle, character }: { battle: HuntBattleState; character: GameCharacter }) {
@@ -29,6 +30,10 @@ function MusicToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => 
   return <button className={`music-toggle ${enabled ? "playing" : ""}`} onClick={onToggle} aria-pressed={enabled}>{enabled ? "♫ Som" : "♫ Ativar som"}</button>;
 }
 
+function JourneyOutcomePanel({ outcome, onHunt }: { outcome: JourneyOutcome; onHunt: () => void }) {
+  return <section className={`journey-outcome-panel ${outcome.kind}`}><strong>{outcome.kind === "event" ? `Evento em ${outcome.nodeName}` : "Travessia silenciosa"}</strong><small>{outcome.text}</small><button className="primary" onClick={onHunt}>Procurar ameaça</button></section>;
+}
+
 export default function HomePage() {
   const [account, setAccount] = useState(() => repository.emptyAccount());
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -43,6 +48,7 @@ export default function HomePage() {
   const [battle, setBattle] = useState<HuntBattleState | null>(null);
   const [battleEffect, setBattleEffect] = useState<BattleEffect>(null);
   const [musicEnabled, setMusicEnabled] = useState(false);
+  const [journeyOutcome, setJourneyOutcome] = useState<JourneyOutcome | null>(null);
 
   useEffect(() => {
     const stored = repository.load();
@@ -81,11 +87,30 @@ export default function HomePage() {
   };
   const startJourney = () => {
     if (!selected || selected.vitals.hpCurrent <= 0) { setMessage("Seu personagem está sem HP. Descanse na Estalagem antes de caçar."); return; }
+    const route = fiordevalleJourneyRoutes[journeyNodeId] ?? ["fiordevalle"];
+    const intermediateStops = route.slice(1, -1);
+    const eventId = intermediateStops.length ? intermediateStops[Math.floor(Math.random() * intermediateStops.length)] : route.at(-1)!;
+    const eventNode = fiordevalleJourneyNodes.find((node) => node.id === eventId) ?? journeyNode;
+    const eventFound = Math.random() < 0.5;
+    setJourneyOutcome(eventFound
+      ? { destinationId: journeyNodeId, kind: "event", nodeName: eventNode.name, text: "Uma ocorrência interrompeu a rota. A caça continua disponível quando você quiser." }
+      : { destinationId: journeyNodeId, kind: "quiet", nodeName: eventNode.name, text: "Nenhum evento foi encontrado nesta rota. Você chegou sem interrupções." });
+    setMessage(`Rota percorrida: FiorDeValle → ${journeyNode.name}.`);
+    return;
     const creature = huntCreatures[0];
     if (!creature) return;
     const creatures = region.id === "fiordevalle" ? rollFiordevalleEncounter() : [creature];
-    setBattle(repository.beginHunt(account, selected, region.id, creatures));
+    setBattle(repository.beginHunt(account, selected!, region.id, creatures));
     setMessage(`Jornada para ${journeyNode.name}: encontro revelado.`);
+  };
+  const beginHuntFromJourney = () => {
+    if (!selected) return;
+    const creature = huntCreatures[0];
+    if (!creature) return;
+    const creatures = region.id === "fiordevalle" ? rollFiordevalleEncounter() : [creature];
+    setJourneyOutcome(null);
+    setBattle(repository.beginHunt(account, selected, region.id, creatures));
+    setMessage(`Ameaça revelada em ${journeyNode.name}.`);
   };
   const takeTurn = (ability: AbilityDefinition) => {
     if (!battle || !selected) return;
@@ -123,6 +148,7 @@ export default function HomePage() {
     })}</section>
     {account.characters.length < account.characterSlots && <section className="panel form-panel"><div className="section-title"><span>Novo personagem</span><span className="badge">DEV</span></div><label>Nome<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Eldrin" maxLength={24} /></label><span className="field-label">Classe e retrato</span><div className="class-picker">{classes.map((entry) => <button type="button" className={`class-option ${classId === entry.id ? "selected" : ""}`} onClick={() => setClassId(entry.id)} key={entry.id}><img src={entry.portraitPath} alt="" /><strong>{entry.name}</strong><small>{entry.role}</small></button>)}</div><label>Reino que defende<select value={kingdom} onChange={(event) => setKingdom(event.target.value)}>{kingdoms.map((entry) => <option key={entry}>{entry}</option>)}</select></label><button className="primary" onClick={create}>Criar personagem</button></section>}
     {view === "hunt" && !battle && <JourneyRoutePanel destinationId={journeyNodeId} />}
+    {view === "hunt" && !battle && journeyOutcome?.destinationId === journeyNodeId && <JourneyOutcomePanel outcome={journeyOutcome} onHunt={beginHuntFromJourney} />}
     {battle && view === "hunt" && selected && <BattleLoadout battle={battle} character={selected} />}
     <MusicToggle enabled={musicEnabled} onToggle={toggleMusic} />
     <p className="notice">{message}</p>

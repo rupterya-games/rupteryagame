@@ -205,6 +205,13 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .journey-route-panel small.passed { color:#aab89d; }
 .journey-route-panel b { color:#cda75e; font-size:12px; }
 .journey-route-panel p { margin:0; color:#8f998e; font-size:10px; }
+.journey-route-panel { position:fixed; z-index:14; right:12px; bottom:86px; left:12px; max-width:740px; margin:auto; }
+.journey-outcome-panel { position:fixed; z-index:15; right:12px; bottom:174px; left:12px; display:grid; gap:6px; max-width:740px; margin:auto; padding:10px 12px; border:1px solid #81663a; border-radius:12px; background:linear-gradient(135deg,#302415,#15191d); box-shadow:0 10px 24px #000b; }
+.journey-outcome-panel.event { border-color:#d4a652; }
+.journey-outcome-panel strong { color:#f4d58a; font-size:12px; }
+.journey-outcome-panel small { color:#d0d5d9; font-size:10px; line-height:1.35; }
+.journey-outcome-panel .primary { justify-self:start; min-height:36px; padding:6px 10px; font-size:11px; }
+@media (min-width:761px) { .journey-route-panel { bottom:20px; } .journey-outcome-panel { bottom:118px; } }
 .music-toggle { position:fixed; z-index:20; top:12px; right:12px; min-height:36px; padding:7px 10px; border:1px solid #675438; border-radius:999px; background:#121820e8; color:#d8d1c1; box-shadow:0 5px 16px #0009; font-size:11px; font-weight:800; }
 .music-toggle.playing { border-color:#d9b45d; background:#342815e8; color:#ffe3a1; box-shadow:0 0 15px #d18c3944,0 5px 16px #0009; }
 @media (min-width:761px) {

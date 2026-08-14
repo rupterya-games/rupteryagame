@@ -5,6 +5,7 @@ import { LOADOUT_SLOTS, activePreset, resolveHuntTurn } from "@rupterya/game-cor
 import type { AbilityDefinition, GameCharacter, HuntBattleState, LoadoutSlot } from "@rupterya/game-core";
 import { abilities, classes, equipment, fiordevalleJourneyNodes, fiordevalleJourneyRoutes, huntCreatures, huntRegions, kingdoms, rollFiordevalleEncounter, sharedAbilities } from "@/lib/catalog";
 import { repository } from "@/lib/dev-character-repository";
+import { musicDirector } from "@/lib/music";
 
 type View = "slots" | "lobby" | "profile" | "equipment" | "abilities" | "presets" | "hunt";
 type BattleEffect = { kind: "physical" | "magical" | "dragonfire"; targetId: string } | null;
@@ -24,6 +25,10 @@ function JourneyRoutePanel({ destinationId }: { destinationId: string }) {
   return <section className="journey-route-panel" aria-label="Registro da rota planejada"><span>Rota planejada</span><div>{stops.map((node, index) => <small key={node.id} className={index === stops.length - 1 ? "destination" : "passed"}>{node.icon} {node.name}{index < stops.length - 1 && <b> → </b>}</small>)}</div><p>Partida: FiorDeValle · Destino: {stops.at(-1)?.name ?? "FiorDeValle"}</p></section>;
 }
 
+function MusicToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return <button className={`music-toggle ${enabled ? "playing" : ""}`} onClick={onToggle} aria-pressed={enabled}>{enabled ? "♫ Som" : "♫ Ativar som"}</button>;
+}
+
 export default function HomePage() {
   const [account, setAccount] = useState(() => repository.emptyAccount());
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -37,6 +42,7 @@ export default function HomePage() {
   const [journeyNodeId, setJourneyNodeId] = useState("fiordevalle");
   const [battle, setBattle] = useState<HuntBattleState | null>(null);
   const [battleEffect, setBattleEffect] = useState<BattleEffect>(null);
+  const [musicEnabled, setMusicEnabled] = useState(false);
 
   useEffect(() => {
     const stored = repository.load();
@@ -44,6 +50,12 @@ export default function HomePage() {
     setSelectedId(stored.characters[0]?.id ?? null);
     setView(stored.characters.length ? "lobby" : "slots");
   }, []);
+
+  const musicMode = battle ? "combat" : "lobby";
+  useEffect(() => {
+    if (!musicEnabled) { musicDirector.stop(); return; }
+    void musicDirector.setMode(musicMode);
+  }, [musicEnabled, musicMode]);
 
   const selected = account.characters.find((character) => character.id === selectedId) ?? null;
   const summary = useMemo(() => selected ? repository.summary(account, selected) : null, [account, selected]);
@@ -95,6 +107,11 @@ export default function HomePage() {
       setMessage(next.status === "victory" ? "Vitória registrada: XP global e ouro foram adicionados." : "Derrota registrada: sua vida permanece em 0 até receber cura.");
     }
   };
+  const toggleMusic = () => {
+    if (musicEnabled) { musicDirector.stop(); setMusicEnabled(false); return; }
+    setMusicEnabled(true);
+    void musicDirector.setMode(musicMode);
+  };
 
   if (!selected || view === "slots") return <main className="shell">
     <header className="topbar"><div><span className="brand">RUPTERYA</span><small>Browser prototype · Caça V0</small></div><strong>Conta Nv. {account.globalLevel}</strong></header>
@@ -107,6 +124,7 @@ export default function HomePage() {
     {account.characters.length < account.characterSlots && <section className="panel form-panel"><div className="section-title"><span>Novo personagem</span><span className="badge">DEV</span></div><label>Nome<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Eldrin" maxLength={24} /></label><span className="field-label">Classe e retrato</span><div className="class-picker">{classes.map((entry) => <button type="button" className={`class-option ${classId === entry.id ? "selected" : ""}`} onClick={() => setClassId(entry.id)} key={entry.id}><img src={entry.portraitPath} alt="" /><strong>{entry.name}</strong><small>{entry.role}</small></button>)}</div><label>Reino que defende<select value={kingdom} onChange={(event) => setKingdom(event.target.value)}>{kingdoms.map((entry) => <option key={entry}>{entry}</option>)}</select></label><button className="primary" onClick={create}>Criar personagem</button></section>}
     {view === "hunt" && !battle && <JourneyRoutePanel destinationId={journeyNodeId} />}
     {battle && view === "hunt" && selected && <BattleLoadout battle={battle} character={selected} />}
+    <MusicToggle enabled={musicEnabled} onToggle={toggleMusic} />
     <p className="notice">{message}</p>
   </main>;
 

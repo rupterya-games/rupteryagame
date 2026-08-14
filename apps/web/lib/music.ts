@@ -1,11 +1,10 @@
 export type MusicMode = "none" | "lobby" | "combat";
 
-type AudioTrack = Exclude<MusicMode, "none"> | "journey";
+type AudioTrack = Exclude<MusicMode, "none">;
 
 const tracks: Record<AudioTrack, string> = {
-  lobby: "/audio/lobby-minstrels.mp3",
-  combat: "/audio/combat-battle-of-dragons.mp3",
-  journey: "/audio/journey-call.mp3",
+  lobby: "/audio/lobby-theme.mpeg",
+  combat: "/audio/combat-quest.mpeg",
 };
 
 class RupteryaMusicDirector {
@@ -63,18 +62,6 @@ class RupteryaMusicDirector {
     this.stopBackground();
   }
 
-  async playJourneyCue() {
-    if (this.mode === "none") return;
-    this.ensureContext();
-    if (!this.context || !this.master) return;
-    await this.context.resume();
-    const buffer = await this.load("journey");
-    if (this.context.state !== "running") return;
-    const source = this.context.createBufferSource();
-    source.buffer = buffer;
-    source.connect(this.master);
-    source.start();
-  }
 }
 
 export const musicDirector = new RupteryaMusicDirector();

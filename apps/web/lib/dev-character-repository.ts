@@ -102,7 +102,8 @@ export class DevCharacterRepository {
   beginHunt(account: DevAccount, character: GameCharacter, regionId: string, creatures: HuntCreatureDefinition[]): HuntBattleState {
     const summary = this.summary(account, character);
     const definition = classes.find((entry) => entry.id === character.classId)!;
-    return createHuntBattle({ regionId, creatures, companion: emberDragonCompanion, player: { id: character.id, name: character.name, portraitPath: definition.portraitPath, hpCurrent: character.vitals.hpCurrent, hpMax: summary.hpMax, mpCurrent: character.vitals.mpCurrent, mpMax: summary.mpMax, stats: summary.stats } });
+    const onHitEffects = Object.values(character.equipment).flatMap((itemId) => equipment.find((item) => item.id === itemId)?.statusEffects ?? []);
+    return createHuntBattle({ regionId, creatures, companion: emberDragonCompanion, player: { id: character.id, name: character.name, portraitPath: definition.portraitPath, hpCurrent: character.vitals.hpCurrent, hpMax: summary.hpMax, mpCurrent: character.vitals.mpCurrent, mpMax: summary.mpMax, stats: summary.stats, activeEffects: [], onHitEffects } });
   }
 
   settleHunt(account: DevAccount, character: GameCharacter, battle: HuntBattleState): DevAccount {

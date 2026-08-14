@@ -1,4 +1,5 @@
 export type DamageFamily = "physical" | "magical" | "hybrid";
+export type StatusEffectKind = "bleed" | "burn" | "poison" | "blind";
 export type AbilitySlotKind = "skill" | "ultimate" | "stance" | "passive";
 export type SecretArtPath = "martial" | "mystic" | "arcane";
 export type AbilitySource = "class" | "lineage" | "school" | "secret_art" | "creature";
@@ -18,6 +19,25 @@ export interface CharacterCombatStats {
   magicalDefense: number;
   criticalChance: number;
   dodgeChance: number;
+  bleedChance: number;
+  burnChance: number;
+  poisonChance: number;
+  blindChance: number;
+  bleedResistance: number;
+  burnResistance: number;
+  poisonResistance: number;
+  blindResistance: number;
+}
+
+export interface StatusEffectApplication {
+  kind: StatusEffectKind;
+  chance: number;
+  turns: number;
+  percentMaxHp?: number;
+}
+
+export interface CombatStatusEffect extends StatusEffectApplication {
+  sourceName: string;
 }
 
 export interface CharacterVitals {
@@ -59,6 +79,8 @@ export interface AbilityDefinition {
   magicalScaling?: number;
   manaCost?: number;
   cooldownTurns?: number;
+  statusEffects?: StatusEffectApplication[];
+  keywords?: string[];
   source: AbilitySource;
 }
 
@@ -87,6 +109,8 @@ export interface EquipmentItem {
   rarity: "common" | "rare" | "epic";
   power: number;
   modifiers: Partial<CharacterCombatStats & Pick<CharacterVitals, "hpMax" | "mpMax">>;
+  statusEffects?: StatusEffectApplication[];
+  keywords?: string[];
 }
 
 export interface EquippedItems {
@@ -152,6 +176,7 @@ export interface HuntCreatureDefinition {
   magicalDefense: number;
   xpReward: number;
   goldReward: number;
+  statusEffects?: StatusEffectApplication[];
 }
 
 export interface HuntRegionDefinition {
@@ -172,6 +197,8 @@ export interface HuntCombatant {
   mpCurrent: number;
   mpMax: number;
   stats: CharacterCombatStats;
+  activeEffects: CombatStatusEffect[];
+  onHitEffects: StatusEffectApplication[];
 }
 
 export interface HuntCompanion {

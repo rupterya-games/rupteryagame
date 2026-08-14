@@ -34,6 +34,12 @@ function JourneyOutcomePanel({ outcome, onHunt }: { outcome: JourneyOutcome; onH
   return <section className={`journey-outcome-panel ${outcome.kind}`}><strong>{outcome.kind === "event" ? `Evento em ${outcome.nodeName}` : "Travessia silenciosa"}</strong><small>{outcome.text}</small><button className="primary" onClick={onHunt}>Procurar ameaça</button></section>;
 }
 
+function BattleCooldownPanel({ battle, abilities }: { battle: HuntBattleState; abilities: AbilityDefinition[] }) {
+  const recovering = abilities.filter((ability) => (battle.cooldowns[ability.id] ?? 0) > 0);
+  if (!recovering.length) return null;
+  return <section className="battle-cooldowns" aria-label="Habilidades em recarga"><span>Em recarga</span><div>{recovering.map((ability) => <small key={ability.id}>{ability.name} · {battle.cooldowns[ability.id]}T</small>)}</div></section>;
+}
+
 export default function HomePage() {
   const [account, setAccount] = useState(() => repository.emptyAccount());
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -114,6 +120,8 @@ export default function HomePage() {
   };
   const takeTurn = (ability: AbilityDefinition) => {
     if (!battle || !selected) return;
+    const cooldown = battle.cooldowns[ability.id] ?? 0;
+    if (cooldown > 0) { setMessage(`${ability.name} estará disponível em ${cooldown} turno(s).`); return; }
     const target = battle.enemies.find((enemy) => enemy.hpCurrent > 0);
     const next = resolveHuntTurn(battle, ability);
     setBattle(next);
@@ -149,6 +157,7 @@ export default function HomePage() {
     {account.characters.length < account.characterSlots && <section className="panel form-panel"><div className="section-title"><span>Novo personagem</span><span className="badge">DEV</span></div><label>Nome<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Eldrin" maxLength={24} /></label><span className="field-label">Classe e retrato</span><div className="class-picker">{classes.map((entry) => <button type="button" className={`class-option ${classId === entry.id ? "selected" : ""}`} onClick={() => setClassId(entry.id)} key={entry.id}><img src={entry.portraitPath} alt="" /><strong>{entry.name}</strong><small>{entry.role}</small></button>)}</div><label>Reino que defende<select value={kingdom} onChange={(event) => setKingdom(event.target.value)}>{kingdoms.map((entry) => <option key={entry}>{entry}</option>)}</select></label><button className="primary" onClick={create}>Criar personagem</button></section>}
     {view === "hunt" && !battle && <JourneyRoutePanel destinationId={journeyNodeId} />}
     {view === "hunt" && !battle && journeyOutcome?.destinationId === journeyNodeId && <JourneyOutcomePanel outcome={journeyOutcome} onHunt={beginHuntFromJourney} />}
+    {battle && view === "hunt" && <BattleCooldownPanel battle={battle} abilities={[...battleAbilities]} />}
     {battle && view === "hunt" && selected && <BattleLoadout battle={battle} character={selected} />}
     <MusicToggle enabled={musicEnabled} onToggle={toggleMusic} />
     <p className="notice">{message}</p>

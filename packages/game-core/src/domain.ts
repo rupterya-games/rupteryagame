@@ -196,6 +196,7 @@ export interface HuntBattleState {
   companion: HuntCompanion | null;
   enemies: HuntCombatant[];
   lastPetTargetId: string | null;
+  cooldowns: Record<string, number>;
   turn: number;
   status: "active" | "victory" | "defeat";
   log: HuntBattleLog[];

@@ -92,6 +92,7 @@ export function createHuntBattle(input: { regionId: string; player: HuntCombatan
     companion: input.companion ?? null,
     enemies,
     lastPetTargetId: null,
+    cooldowns: {},
     turn: 1,
     status: "active",
     reward: null,
@@ -101,6 +102,8 @@ export function createHuntBattle(input: { regionId: string; player: HuntCombatan
 
 export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefinition): HuntBattleState {
   if (state.status !== "active") return state;
+  const cooldown = state.cooldowns[ability.id] ?? 0;
+  if (cooldown > 0) return { ...state, log: [...state.log, { turn: state.turn, tone: "system", text: `${ability.name} está em recarga por mais ${cooldown} turno(s).` }] };
   if (!ability.damageFamily || ability.slotKind === "passive" || ability.slotKind === "stance") return { ...state, log: [...state.log, { turn: state.turn, tone: "system", text: `${ability.name} não causa dano nesta rodada.` }] };
   const manaCost = ability.manaCost ?? 0;
   if (state.player.mpCurrent < manaCost) return { ...state, log: [...state.log, { turn: state.turn, tone: "system", text: `MP insuficiente para ${ability.name}.` }] };
@@ -109,6 +112,9 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
   const primaryEnemy = state.enemies.find((enemy) => enemy.hpCurrent > 0)!;
   const dealt = mitigateDamage(raw, kind, primaryEnemy.stats);
   const player = { ...state.player, mpCurrent: state.player.mpCurrent - manaCost };
+  const cooldowns = Object.fromEntries(Object.entries(state.cooldowns).map(([id, turns]): [string, number] => [id, Math.max(0, turns - 1)]).filter(([, turns]) => turns > 0)) as Record<string, number>;
+  if (ability.cooldownTurns) cooldowns[ability.id] = ability.cooldownTurns;
+  state = { ...state, cooldowns };
   const enemies = state.enemies.map((enemy) => enemy.id === primaryEnemy.id ? { ...enemy, hpCurrent: Math.max(0, enemy.hpCurrent - dealt) } : enemy);
   const playerLog = { turn: state.turn, tone: "player" as const, text: `${player.name} usa ${ability.name} e causa ${dealt} de dano.` };
   if (enemies.every((enemy) => enemy.hpCurrent === 0)) {

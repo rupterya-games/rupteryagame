@@ -218,6 +218,9 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 @media (min-width:761px) { .journey-route-panel { bottom:20px; } .journey-outcome-panel { bottom:118px; } }
 .music-toggle { position:fixed; z-index:20; top:12px; right:12px; min-height:36px; padding:7px 10px; border:1px solid #675438; border-radius:999px; background:#121820e8; color:#d8d1c1; box-shadow:0 5px 16px #0009; font-size:11px; font-weight:800; }
 .music-toggle.playing { border-color:#d9b45d; background:#342815e8; color:#ffe3a1; box-shadow:0 0 15px #d18c3944,0 5px 16px #0009; }
+.journey-node.route-passed { border-color:#d6ae5d; background:#3c3a1f; color:#fff1c8; box-shadow:0 0 0 2px #d6ae5d33,0 5px 15px #0009; }
+.journey-node.route-current { border-color:#fff0ab; background:#71552b; animation:route-step .56s ease-out both; box-shadow:0 0 0 3px #eac96966,0 0 24px #f0b95088; }
+@keyframes route-step { 0% { transform:scale(.72); filter:brightness(.7); } 60% { transform:scale(1.13); filter:brightness(1.45); } 100% { transform:scale(1); } }
 @media (min-width:761px) {
   .battle-table { min-height:440px; padding:20px 28px 22px; }
   .enemy-pack { min-height:166px; padding:10px; }

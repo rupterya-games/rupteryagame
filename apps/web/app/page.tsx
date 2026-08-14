@@ -9,7 +9,7 @@ import { musicDirector } from "@/lib/music";
 
 type View = "slots" | "lobby" | "profile" | "equipment" | "abilities" | "presets" | "hunt";
 type BattleEffect = { kind: "physical" | "magical" | "dragonfire"; targetId: string } | null;
-type JourneyOutcome = { destinationId: string; kind: "event" | "quiet"; nodeName: string; text: string };
+type JourneyOutcome = { destinationId: string; kind: "event" | "quiet" | "encounter"; nodeName: string; text: string };
 const slotLabels: Record<string, string> = { weapon: "Arma", head: "Cabeça", chest: "Peito", hands: "Mãos", feet: "Pés", trinket: "Amuleto" };
 
 function BattleLoadout({ battle, character }: { battle: HuntBattleState; character: GameCharacter }) {
@@ -55,6 +55,7 @@ export default function HomePage() {
   const [battleEffect, setBattleEffect] = useState<BattleEffect>(null);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [journeyOutcome, setJourneyOutcome] = useState<JourneyOutcome | null>(null);
+  const [traveledRoute, setTraveledRoute] = useState<string[]>(["fiordevalle"]);
 
   useEffect(() => {
     const stored = repository.load();
@@ -68,6 +69,21 @@ export default function HomePage() {
     if (!musicEnabled) { musicDirector.stop(); return; }
     void musicDirector.setMode(musicMode);
   }, [musicEnabled, musicMode]);
+
+  useEffect(() => {
+    const unlockMusic = () => { setMusicEnabled(true); void musicDirector.setMode(musicMode); };
+    window.addEventListener("pointerdown", unlockMusic, { once: true });
+    return () => window.removeEventListener("pointerdown", unlockMusic);
+  }, [musicMode]);
+
+  useEffect(() => {
+    document.querySelectorAll<HTMLElement>(".journey-node").forEach((element) => {
+      const node = fiordevalleJourneyNodes.find((entry) => element.textContent?.includes(entry.name));
+      if (!node) return;
+      element.classList.toggle("route-passed", traveledRoute.includes(node.id));
+      element.classList.toggle("route-current", traveledRoute.at(-1) === node.id);
+    });
+  }, [traveledRoute, view]);
 
   const selected = account.characters.find((character) => character.id === selectedId) ?? null;
   const summary = useMemo(() => selected ? repository.summary(account, selected) : null, [account, selected]);
@@ -93,6 +109,27 @@ export default function HomePage() {
   };
   const startJourney = () => {
     if (!selected || selected.vitals.hpCurrent <= 0) { setMessage("Seu personagem está sem HP. Descanse na Estalagem antes de caçar."); return; }
+    const plannedRoute = fiordevalleJourneyRoutes[journeyNodeId] ?? ["fiordevalle"];
+    setJourneyOutcome(null);
+    setTraveledRoute([plannedRoute[0]]);
+    plannedRoute.slice(1).forEach((nodeId, index) => {
+      window.setTimeout(() => {
+        const walked = plannedRoute.slice(0, index + 2);
+        setTraveledRoute(walked);
+        if (index !== plannedRoute.length - 2) return;
+        const eventStop = walked[Math.max(0, Math.floor(Math.random() * walked.length))];
+        const eventNode = fiordevalleJourneyNodes.find((node) => node.id === eventStop) ?? journeyNode;
+        const encounterFound = Math.random() < 0.72;
+        const eventFound = Math.random() < 0.62;
+        setJourneyOutcome(encounterFound
+          ? { destinationId: journeyNodeId, kind: "encounter", nodeName: eventNode.name, text: eventFound ? "Um evento revelou uma emboscada na rota. A ameaça está esperando." : "Uma ameaça foi encontrada ao final da rota." }
+          : eventFound
+            ? { destinationId: journeyNodeId, kind: "event", nodeName: eventNode.name, text: "Um evento foi encontrado no caminho. A rota foi concluída sem combate." }
+            : { destinationId: journeyNodeId, kind: "quiet", nodeName: eventNode.name, text: "Nenhum evento apareceu durante esta travessia." });
+        setMessage(`Chegada em ${journeyNode.name}.`);
+      }, (index + 1) * 620);
+    });
+    return;
     const route = fiordevalleJourneyRoutes[journeyNodeId] ?? ["fiordevalle"];
     const intermediateStops = route.slice(1, -1);
     const eventId = intermediateStops.length ? intermediateStops[Math.floor(Math.random() * intermediateStops.length)] : route.at(-1)!;

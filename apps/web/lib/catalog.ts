@@ -69,7 +69,7 @@ export const huntCreatures: HuntCreatureDefinition[] = [
 ];
 
 export const fiordevalleJourneyNodes = [
-  { id: "centro", name: "Centro", icon: "⌂", column: 2, row: 1 },
+  { id: "fiordevalle", name: "FiorDeValle", icon: "⌂", column: 2, row: 1 },
   { id: "bairro_humano", name: "Bairro", icon: "⌂", column: 1, row: 2 },
   { id: "vinhedos", name: "Vinhedos", icon: "♧", column: 2, row: 2 },
   { id: "distrito_nobre", name: "Nobres", icon: "♜", column: 3, row: 2 },
@@ -80,6 +80,19 @@ export const fiordevalleJourneyNodes = [
   { id: "floresta_sombria", name: "Floresta", icon: "♠", column: 2, row: 5 },
   { id: "portao", name: "Portão", icon: "⚑", column: 3, row: 3 },
 ] as const;
+
+export const fiordevalleJourneyRoutes: Record<string, string[]> = {
+  fiordevalle: ["fiordevalle"],
+  bairro_humano: ["fiordevalle", "bairro_humano"],
+  vinhedos: ["fiordevalle", "vinhedos"],
+  distrito_nobre: ["fiordevalle", "distrito_nobre"],
+  estrada_velha: ["fiordevalle", "vinhedos", "estrada_velha"],
+  colinas: ["fiordevalle", "bairro_humano", "colinas"],
+  casas_abandonadas: ["fiordevalle", "vinhedos", "estrada_velha", "casas_abandonadas"],
+  cemiterio: ["fiordevalle", "distrito_nobre", "portao", "cemiterio"],
+  floresta_sombria: ["fiordevalle", "vinhedos", "estrada_velha", "casas_abandonadas", "floresta_sombria"],
+  portao: ["fiordevalle", "distrito_nobre", "portao"],
+};
 
 export function rollFiordevalleEncounter(random: () => number = Math.random) {
   const level = 30;

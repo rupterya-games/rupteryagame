@@ -124,7 +124,8 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
   if (!state.companion) return { ...state, player: afterCounter, enemies, lastPetTargetId: null, turn: state.turn + 1, log: [...state.log, playerLog, enemyLog] };
   const petTarget = enemies.filter((enemy) => enemy.hpCurrent > 0).sort((left, right) => left.hpCurrent - right.hpCurrent)[0];
   const petRawDamage = Math.max(1, Math.round(player.stats.magicalDamage * state.companion.magicalDamageScaling));
-  const petDamage = mitigateDamage(petRawDamage, "magical", petTarget.stats);
+  // O dano do companion é uma passiva fixa: 10% do dano mágico do herói, sem mitigação adicional.
+  const petDamage = petRawDamage;
   const enemiesAfterPet = enemies.map((enemy) => enemy.id === petTarget.id ? { ...enemy, hpCurrent: Math.max(0, enemy.hpCurrent - petDamage) } : enemy);
   const petLog = { turn: state.turn, tone: "player" as const, text: `${state.companion.name} lanÃ§a Bola de Fogo em ${petTarget.name}, o inimigo com menor HP, e causa ${petDamage} de dano mÃ¡gico.` };
   if (enemiesAfterPet.every((enemy) => enemy.hpCurrent === 0)) {

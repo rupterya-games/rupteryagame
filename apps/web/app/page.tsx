@@ -3,12 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { LOADOUT_SLOTS, activePreset, resolveHuntTurn } from "@rupterya/game-core";
 import type { AbilityDefinition, GameCharacter, HuntBattleState, LoadoutSlot } from "@rupterya/game-core";
-import { abilities, classes, equipment, fiordevalleJourneyNodes, huntCreatures, huntRegions, kingdoms, rollFiordevalleEncounter, sharedAbilities } from "@/lib/catalog";
+import { abilities, classes, equipment, fiordevalleJourneyNodes, fiordevalleJourneyRoutes, huntCreatures, huntRegions, kingdoms, rollFiordevalleEncounter, sharedAbilities } from "@/lib/catalog";
 import { repository } from "@/lib/dev-character-repository";
 
 type View = "slots" | "lobby" | "profile" | "equipment" | "abilities" | "presets" | "hunt";
 type BattleEffect = { kind: "physical" | "magical" | "dragonfire"; targetId: string } | null;
 const slotLabels: Record<string, string> = { weapon: "Arma", head: "Cabeça", chest: "Peito", hands: "Mãos", feet: "Pés", trinket: "Amuleto" };
+
+function BattleLoadout({ battle, character }: { battle: HuntBattleState; character: GameCharacter }) {
+  const equipped = Object.values(character.equipment).flatMap((itemId) => equipment.filter((item) => item.id === itemId));
+  return <section className="battle-loadout" aria-label="Aliado e equipamentos em uso">
+    <div className="battle-gear"><span>Equipado</span><div>{equipped.length ? equipped.map((item) => <small key={item.id}>{slotLabels[item.slot]} · {item.name}</small>) : <small>Sem equipamento</small>}</div></div>
+    {battle.companion && <article className="battle-companion"><img src={battle.companion.portraitPath} alt={`Carta de ${battle.companion.name}`} /><div><small>LENDÁRIO · ALIADO</small><strong>{battle.companion.name}</strong><p>Fim da rodada: Bola de Fogo causa 10% do dano mágico no menor HP.</p></div></article>}
+  </section>;
+}
+
+function JourneyRoutePanel({ destinationId }: { destinationId: string }) {
+  const route = fiordevalleJourneyRoutes[destinationId] ?? ["fiordevalle"];
+  const stops = route.map((id) => fiordevalleJourneyNodes.find((node) => node.id === id)).filter((node): node is typeof fiordevalleJourneyNodes[number] => Boolean(node));
+  return <section className="journey-route-panel" aria-label="Registro da rota planejada"><span>Rota planejada</span><div>{stops.map((node, index) => <small key={node.id} className={index === stops.length - 1 ? "destination" : "passed"}>{node.icon} {node.name}{index < stops.length - 1 && <b> → </b>}</small>)}</div><p>Partida: FiorDeValle · Destino: {stops.at(-1)?.name ?? "FiorDeValle"}</p></section>;
+}
 
 export default function HomePage() {
   const [account, setAccount] = useState(() => repository.emptyAccount());
@@ -20,7 +34,7 @@ export default function HomePage() {
   const [message, setMessage] = useState("Conta DEV pronta: Nv. Global 30.");
   const [presetName, setPresetName] = useState("");
   const [regionId, setRegionId] = useState(huntRegions[0].id);
-  const [journeyNodeId, setJourneyNodeId] = useState("vinhedos");
+  const [journeyNodeId, setJourneyNodeId] = useState("fiordevalle");
   const [battle, setBattle] = useState<HuntBattleState | null>(null);
   const [battleEffect, setBattleEffect] = useState<BattleEffect>(null);
 
@@ -91,6 +105,8 @@ export default function HomePage() {
       return character && definition ? <button className="slot-card occupied portrait-slot" onClick={() => open(character)} key={character.id}><img src={definition.portraitPath} alt="" /><span>Nv. {account.globalLevel}</span><strong>{character.name}</strong><small>{definition.name} · {character.kingdom}</small></button> : <div className="slot-card" key={index}><span>SLOT {index + 1}</span><strong>Livre</strong><small>Disponível no modo DEV</small></div>;
     })}</section>
     {account.characters.length < account.characterSlots && <section className="panel form-panel"><div className="section-title"><span>Novo personagem</span><span className="badge">DEV</span></div><label>Nome<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Eldrin" maxLength={24} /></label><span className="field-label">Classe e retrato</span><div className="class-picker">{classes.map((entry) => <button type="button" className={`class-option ${classId === entry.id ? "selected" : ""}`} onClick={() => setClassId(entry.id)} key={entry.id}><img src={entry.portraitPath} alt="" /><strong>{entry.name}</strong><small>{entry.role}</small></button>)}</div><label>Reino que defende<select value={kingdom} onChange={(event) => setKingdom(event.target.value)}>{kingdoms.map((entry) => <option key={entry}>{entry}</option>)}</select></label><button className="primary" onClick={create}>Criar personagem</button></section>}
+    {view === "hunt" && !battle && <JourneyRoutePanel destinationId={journeyNodeId} />}
+    {battle && view === "hunt" && selected && <BattleLoadout battle={battle} character={selected} />}
     <p className="notice">{message}</p>
   </main>;
 

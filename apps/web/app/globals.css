@@ -168,3 +168,59 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   .player-card>img { height:112px; }
   .battle-table .versus { left:calc(50% + 8px); bottom:18px; width:30%; height:166px; }
 }
+
+/* Combate compacto: ações visíveis antes da dobra em telas de celular. */
+.battle-table .versus { display:none; }
+.battle-screen { gap:7px; padding:10px; }
+.battle-table { min-height:318px; margin:8px 0 0; padding:12px 9px 14px; gap:8px; }
+.enemy-pack { min-height:112px; padding:5px; }
+.enemy-card>img,.enemy-card .monster-art { height:74px; }
+.enemy-card>div:not(.monster-art) { padding:5px; }
+.enemy-card strong { font-size:10px; }
+.enemy-card .battle-resource { margin-top:4px; }
+.player-card { width:min(42%,154px); margin-right:0; transform:none; }
+.player-card>img { height:104px; }
+.battle-actions { padding:7px; }
+.battle-actions>span { padding-bottom:4px; font-size:10px; }
+.battle-actions button { min-height:56px; }
+.combat-log { max-height:66px; padding:7px; }
+.combat-log p { font-size:10px; }
+.battle-loadout { display:grid; grid-template-columns:1fr 1.2fr; gap:8px; align-items:stretch; margin-top:-4px; }
+.battle-gear,.battle-companion { min-width:0; border:1px solid #665338; border-radius:12px; background:linear-gradient(145deg,#1e1810,#11151a); box-shadow:0 7px 16px #0007; }
+.battle-gear { padding:9px; }
+.battle-gear>span { color:#e0bc70; font-size:10px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+.battle-gear>div { display:grid; gap:5px; margin-top:7px; }
+.battle-gear small { color:#ced3d8; font-size:10px; line-height:1.25; }
+.battle-companion { display:grid; grid-template-columns:74px 1fr; overflow:hidden; border-color:#d3a85b; }
+.battle-companion img { width:74px; height:100%; min-height:102px; object-fit:cover; object-position:center 20%; }
+.battle-companion>div { padding:8px; }
+.battle-companion small { color:#f1c76f; font-size:9px; font-weight:900; }
+.battle-companion strong { display:block; margin-top:3px; font-size:12px; }
+.battle-companion p { margin:4px 0 0; color:#bfc6ce; font-size:9px; line-height:1.3; }
+.journey-route-panel { display:grid; gap:6px; padding:10px 12px; border:1px solid #695a3d; border-radius:12px; background:linear-gradient(135deg,#252317,#111820); box-shadow:0 8px 20px #0006; }
+.journey-route-panel>span { color:#e4c271; font-size:10px; font-weight:900; letter-spacing:.09em; text-transform:uppercase; }
+.journey-route-panel>div { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.journey-route-panel small { color:#bcc8b1; font-size:10px; line-height:1.35; }
+.journey-route-panel small.destination { color:#f7df9e; font-weight:900; }
+.journey-route-panel small.passed { color:#aab89d; }
+.journey-route-panel b { color:#cda75e; font-size:12px; }
+.journey-route-panel p { margin:0; color:#8f998e; font-size:10px; }
+@media (min-width:761px) {
+  .battle-table { min-height:440px; padding:20px 28px 22px; }
+  .enemy-pack { min-height:166px; padding:10px; }
+  .enemy-card>img,.enemy-card .monster-art { height:132px; }
+  .player-card { width:min(27%,205px); }
+  .player-card>img { height:150px; }
+  .battle-loadout { max-width:940px; width:100%; grid-template-columns:1fr 1.1fr; margin:0 auto; }
+  .battle-companion { grid-template-columns:92px 1fr; }
+  .battle-companion img { width:92px; min-height:112px; }
+}
+@media (max-width:390px) {
+  .battle-table { min-height:296px; padding:10px 6px 12px; }
+  .enemy-pack { min-height:100px; }
+  .enemy-card>img,.enemy-card .monster-art { height:64px; }
+  .player-card { width:min(40%,140px); }
+  .player-card>img { height:92px; }
+  .battle-companion { grid-template-columns:61px 1fr; }
+  .battle-companion img { width:61px; min-height:96px; }
+}

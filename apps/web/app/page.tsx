@@ -101,6 +101,46 @@ function EquipmentLoadoutModal({
   );
 }
 
+function CreatureLoadoutModal({
+  creature,
+  onClose,
+}: {
+  creature: HuntBattleState["creatures"][number];
+  onClose: () => void;
+}) {
+  const items = creature.equippedItems ?? (creature.equippedItem ? [creature.equippedItem] : []);
+  return (
+    <div className="loadout-overlay" role="presentation" onClick={onClose}>
+      <section className="loadout-modal creature-loadout-modal" role="dialog" aria-modal="true" aria-label={`Equipamentos de ${creature.name}`} onClick={(event) => event.stopPropagation()}>
+        <div className="section-title">
+          <span>ITENS AVISTADOS</span>
+          <button onClick={onClose} aria-label="Fechar equipamentos">×</button>
+        </div>
+        <p>{creature.name} · dados táticos da criatura avistada.</p>
+        <div className="creature-detail-stats">
+          <small>Classificação: {creature.rarity === "boss" ? "Chefe" : creature.rarity === "rare" ? "Raro" : "Comum"}</small>
+          <small>Nível {creature.level} · HP {creature.hpMax}</small>
+          <small>Ataque {creature.physicalDamage} · Defesa {creature.physicalDefense}/{creature.magicalDefense}</small>
+          {creature.statusEffects?.length ? <small>Perigo: {creature.statusEffects.map((effect) => statusEffectLabels[effect.kind]).join(", ")}</small> : <small>Perigo: ataque direto</small>}
+        </div>
+        {items.length ? (
+          <div className="loadout-equipment-grid">
+            {items.map((item) => (
+              <article className="loadout-equipment-slot equipped" key={item.id}>
+                <div className={`loadout-item-art item-art-${item.slot}`} aria-hidden="true" />
+                <small>{item.rarity} · {slotLabels[item.slot]}</small>
+                <strong>{item.name}</strong>
+                <span>Integridade: {100 - (item.breakChance ?? dropBreakChanceByRarity[item.rarity])}%</span>
+                {item.uniqueKeyword && <em>{item.uniqueKeyword}</em>}
+              </article>
+            ))}
+          </div>
+        ) : <p className="empty-loadout">Nenhum Item Destacado nesta aparição.</p>}
+      </section>
+    </div>
+  );
+}
+
 function BattleLoadout({
   character,
 }: {
@@ -282,6 +322,7 @@ export default function HomePage() {
   const [battleEffect, setBattleEffect] = useState<BattleEffect>(null);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [showBattleLoadout, setShowBattleLoadout] = useState(false);
+  const [inspectedCreatureIndex, setInspectedCreatureIndex] = useState<number | null>(null);
   const [journeyOutcome, setJourneyOutcome] = useState<JourneyOutcome | null>(
     null,
   );
@@ -949,17 +990,17 @@ export default function HomePage() {
                 Escola: {selected.schoolId ? "Fogo" : "Nenhuma"}
               </button>
               <button
-                className={selected.skinId === "crimson" ? "selected" : ""}
+                className={selected.skinId === "guardian-eclipse" ? "selected" : ""}
                 onClick={() =>
                   persist(
                     repository.setSkin(
                       selected,
-                      selected.skinId === "crimson" ? "default" : "crimson",
+                      selected.skinId === "guardian-eclipse" ? "default" : "guardian-eclipse",
                     ),
                   )
                 }
               >
-                Skin Carmesim (cosmética)
+                Guardião do Eclipse (premium)
               </button>
             </div>
             <small>Skin não modifica Poder. Linhagem máxima: uma.</small>
@@ -1155,6 +1196,13 @@ export default function HomePage() {
                     <article
                       className={`battle-card enemy-card rarity-${battle.creatures[index].rarity} ${battleEffect?.targetId === enemy.id ? `hit-${battleEffect.kind}` : ""}`}
                       key={enemy.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Ver equipamento de ${enemy.name}`}
+                      onClick={() => setInspectedCreatureIndex(index)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") setInspectedCreatureIndex(index);
+                      }}
                     >
                       {battleEffect?.targetId === enemy.id && (
                         <span
@@ -1171,21 +1219,10 @@ export default function HomePage() {
                         <div className="monster-art">✦</div>
                       )}
                       <div>
-                        <small>
-                          {battle.creatures[index].rarity === "boss"
-                            ? "BOSS"
-                            : battle.creatures[index].rarity === "rare"
-                              ? "RARO"
-                              : "COMUM"}{" "}
-                          · Nv. {battle.creatures[index].level}
-                        </small>
                         <strong>{enemy.name}</strong>
-                        {battle.creatures[index].equippedItem && <small className="enemy-drop-preview">Usa: {battle.creatures[index].equippedItem.name} · quebra {dropBreakChanceByRarity[battle.creatures[index].equippedItem.rarity]}%</small>}
+                        {(battle.creatures[index].equippedItems ?? []).map((item) => <small className="enemy-drop-preview" key={item.id}>⌁ {item.name} · {item.rarity} · integridade {100 - (item.breakChance ?? dropBreakChanceByRarity[item.rarity])}%</small>)}
                         <CombatEffects effects={enemy.activeEffects} />
                         <div className="battle-resource">
-                          <span>
-                            HP {enemy.hpCurrent}/{enemy.hpMax}
-                          </span>
                           <i>
                             <b
                               style={{
@@ -1194,7 +1231,6 @@ export default function HomePage() {
                             />
                           </i>
                         </div>
-                        <p>{battle.creatures[index].description}</p>
                       </div>
                     </article>
                   ))}
@@ -1246,6 +1282,7 @@ export default function HomePage() {
                       : "Procure cura antes da próxima caçada."}
                   </p>
                   {battle.status === "victory" && battle.reward?.itemIds.length ? <small className="loot-result">Itens preservados: {battle.reward.itemIds.map((itemId) => equipment.find((item) => item.id === itemId)?.name ?? itemId).join(", ")}</small> : null}
+                  {battle.status === "victory" && battle.reward?.fragments.length ? <small className="loot-result">Fragmentos: {battle.reward.fragments.map((entry) => `${entry.amount} ${entry.rarity}`).join(" · ")}</small> : null}
                   <button className="primary" onClick={() => {
                     setShowBattleLoadout(false);
                     setBattle(null);
@@ -1282,6 +1319,12 @@ export default function HomePage() {
         <EquipmentLoadoutModal
           character={selected}
           onClose={() => setShowBattleLoadout(false)}
+        />
+      )}
+      {inspectedCreatureIndex !== null && battle && view === "hunt" && battle.creatures[inspectedCreatureIndex] && (
+        <CreatureLoadoutModal
+          creature={battle.creatures[inspectedCreatureIndex]}
+          onClose={() => setInspectedCreatureIndex(null)}
         />
       )}
       <MusicToggle enabled={musicEnabled} onToggle={toggleMusic} />

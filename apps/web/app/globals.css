@@ -258,6 +258,8 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .loadout-equipment-slot { min-width:0; display:grid; grid-template-rows:72px auto auto auto; gap:3px; padding:6px; border:1px solid #4d473d; border-radius:10px; background:#0b1016; }.loadout-equipment-slot.equipped { border-color:#9d7a3c; box-shadow:inset 0 1px #ffe49a22,0 4px 12px #0008; }.loadout-equipment-slot.empty { opacity:.67; }
 .loadout-item-art { border:1px solid #8b6b35; border-radius:7px; background-image:url("/art/items/loadout-item-atlas-v1.png"); background-repeat:no-repeat; background-size:300% 200%; box-shadow:inset 0 0 10px #000a; }.item-art-weapon { background-position:0 0; }.item-art-head { background-position:50% 0; }.item-art-chest { background-position:100% 0; }.item-art-hands { background-position:0 100%; }.item-art-feet { background-position:50% 100%; }.item-art-trinket { background-position:100% 100%; }
 .loadout-equipment-slot small { color:#d9b86e; font-size:9px; text-transform:uppercase; letter-spacing:.06em; }.loadout-equipment-slot strong { overflow:hidden; color:#e8e1d1; font-size:10px; line-height:1.18; text-overflow:ellipsis; white-space:nowrap; }.loadout-equipment-slot span { color:#9eabb5; font-size:9px; }
+.loadout-equipment-slot em { color:#e4bd70; font-size:9px; font-style:normal; line-height:1.25; }.empty-loadout { min-height:90px; display:grid; place-items:center; color:#9fa8ad; text-align:center; }.enemy-card { cursor:zoom-in; }
+.creature-detail-stats { display:grid; gap:0.35rem; margin:0.8rem 0; padding:0.75rem; border:1px solid rgba(214,171,93,.3); border-radius:.65rem; background:rgba(7,12,16,.62); }.creature-detail-stats small { color:#d8c9ad; }
 @media (max-width:390px) { .loadout-overlay { padding:10px; }.loadout-modal { padding:10px; }.loadout-equipment-grid { gap:6px; }.loadout-equipment-slot { grid-template-rows:62px auto auto auto; padding:5px; }.loadout-equipment-slot strong { font-size:9px; } }
 
 /* Aliado de mesa: o herói não ocupa a mesa inteira e o dragão vira uma criatura viva no canto. */
@@ -275,3 +277,21 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .battle-gear { min-height:auto; }
 @media (min-width:761px) { .battle-table { min-height:412px; padding:18px 28px 22px; } .player-card { width:min(23%,168px); } .player-card>img { height:122px; } .battle-pet { right:25px; bottom:20px; width:94px; height:94px; background-size:182px auto; } .battle-pet span { font-size:8px; } }
 @media (max-width:390px) { .battle-table { min-height:278px; padding:10px 6px 12px; } .player-card { width:min(35%,118px); } .player-card>img { height:76px; } .battle-pet { right:8px; bottom:9px; width:52px; height:52px; background-size:104px auto; } }
+
+/* Skin premium: fundo vivo aplicado pela carta, sem gravar efeitos na ilustração. */
+.player-card:has(img[src*="guardian-eclipse"]) { overflow:visible; border-color:#dfb95d; box-shadow:0 0 0 2px #241a08,0 0 24px #d7842c88,0 10px 20px #000c; }
+.player-card:has(img[src*="guardian-eclipse"]):before { content:""; position:absolute; z-index:-1; inset:-11px; border-radius:16px; background:conic-gradient(from 0deg,#d6752e22,#f8d46f88,#3b78c755,#d6752e22); filter:blur(9px); animation:premium-card-aura 4s linear infinite; }
+.player-card:has(img[src*="guardian-eclipse"]):after { content:""; position:absolute; z-index:1; inset:0; pointer-events:none; border-radius:10px; background:radial-gradient(circle at 20% 82%,#ffba5044 0 1px,transparent 2px) 0 0/24px 24px; mix-blend-mode:screen; animation:premium-embers 3.6s linear infinite; }
+@keyframes premium-card-aura { to { transform:rotate(1turn); } } @keyframes premium-embers { to { background-position:12px -36px; } }
+
+/* Cartas de criatura: a moldura é responsiva e a arte nunca carrega texto. */
+.enemy-card { position:relative; display:grid; grid-template-rows:auto 1fr; isolation:isolate; border:4px solid #665342; border-radius:11px; background:linear-gradient(180deg,#1a1714,#080b0e); box-shadow:inset 0 0 0 1px #d1ae6a44,0 7px 14px #000c; }
+.enemy-card:after { content:""; position:absolute; z-index:2; inset:3px; pointer-events:none; border:1px solid #d9b66b55; border-radius:6px; }
+.enemy-card>img { width:100%; height:78px; object-fit:cover; object-position:center 22%; filter:saturate(.94) contrast(1.08); }
+.enemy-card>div:not(.monster-art) { display:grid; gap:4px; padding:6px 7px 8px; background:linear-gradient(180deg,#15181dd9,#090b0ee8); }
+.enemy-card strong { min-height:1.25em; color:#f0e5cf; font-size:10px; text-align:center; text-shadow:0 1px 2px #000; }
+.enemy-card .enemy-drop-preview { display:none; }
+.enemy-card .combat-effects { justify-content:center; }
+.enemy-card .battle-resource { margin:0; }.enemy-card .battle-resource span { display:none; }.enemy-card .battle-resource i { height:5px; border:1px solid #000; }
+.enemy-card.rarity-common { border-color:#716152; }.enemy-card.rarity-rare { border-color:#96515d; box-shadow:inset 0 0 0 1px #f0a0b244,0 0 13px #8f2b413d; }.enemy-card.rarity-boss { border-color:#d2a143; box-shadow:inset 0 0 0 1px #ffe09a77,0 0 20px #b879294d; }
+@media (min-width:761px) { .enemy-card>img { height:140px; }.enemy-card strong { font-size:13px; }.enemy-card>div:not(.monster-art) { padding:9px; } }

@@ -60,6 +60,14 @@ export const equipment: EquipmentItem[] = [
   { id: "mist-lord-blade", name: "Lâmina do Lorde da Névoa", slot: "weapon", rarity: "legendary", itemLevel: 30, upgradeLevel: 0, power: 104, modifiers: { physicalDamage: 30, criticalChance: 7, bleedChance: 20 }, statusEffects: [{ kind: "bleed", chance: 20, turns: 4, percentMaxHp: 2 }], keywords: ["Sangramento forte: +20 pp de chance", "2% Vida máxima por 4 turnos"], affixes: ["+30 Ataque Físico", "+7 pp Crítico", "+20 pp Sangramento"] },
 ];
 
+const creatureFeaturedItems: EquipmentItem[] = [
+  { id: "raider-rust-sword", name: "Espada Roubada", slot: "weapon", rarity: "common", family: "sword", allowedProfiles: ["raider"], appearanceChance: 55, breakChance: 15, itemLevel: 30, upgradeLevel: 0, power: 18, modifiers: { physicalDamage: 11 }, affixes: ["+11 Ataque FÃ­sico"] },
+  { id: "vampire-velvet-dagger", name: "Adaga de Veludo", slot: "weapon", rarity: "rare", family: "dagger", allowedProfiles: ["vampire"], appearanceChance: 30, breakChance: 25, itemLevel: 30, upgradeLevel: 0, power: 43, modifiers: { physicalDamage: 18, criticalChance: 4 }, affixes: ["+18 Ataque FÃ­sico", "+4 pp CrÃ­tico"] },
+  { id: "crimson-blood-orb", name: "Orbe de Sangue", slot: "trinket", rarity: "epic", family: "orb", allowedProfiles: ["vampire"], appearanceChance: 15, breakChance: 40, itemLevel: 30, upgradeLevel: 0, power: 70, modifiers: { magicalDamage: 16, burnChance: 12 }, statusEffects: [{ kind: "burn", chance: 12, turns: 2, percentMaxHp: 2 }], keywords: ["Queimadura leve: 12 pp", "Brasa de sangue"], affixes: ["+16 Poder MÃ¡gico", "+12 pp Queimadura"] },
+  { id: "mist-rapier", name: "Rapieira da Névoa", slot: "weapon", rarity: "legendary", family: "rapier", allowedProfiles: ["vampire"], appearanceChance: 7, breakChance: 60, itemLevel: 30, upgradeLevel: 0, power: 108, modifiers: { physicalDamage: 32, criticalChance: 8, bleedChance: 18 }, statusEffects: [{ kind: "bleed", chance: 18, turns: 4, percentMaxHp: 2 }], uniqueKeyword: "Duelos sob névoa ampliam Sangramento.", keywords: ["Sangramento forte: 18 pp", "Duelo da névoa"], affixes: ["+32 Ataque FÃ­sico", "+8 pp CrÃ­tico"] },
+];
+equipment.push(...creatureFeaturedItems);
+
 export const kingdoms = ["Eldravia", "FiorDeValle", "Dustfall"];
 
 export const emberDragonCompanion: HuntCompanion = {
@@ -80,10 +88,22 @@ export const battleBoardsByRegion: Record<string, string> = {
 
 export const huntCreatures: HuntCreatureDefinition[] = [
   { id: "vampire-wanderer", name: "Vampiro Errante", description: "Criatura noturna de FiorDeValle. À noite, a névoa oculta seus passos.", portraitPath: "/art/creatures/fiordevalle-vampire-common.jpeg", rarity: "common", regionId: "fiordevalle", level: 30, hpMax: 210, physicalDamage: 35, physicalDefense: 10, magicalDefense: 10, xpReward: 5, goldReward: 16, statusEffects: [{ kind: "bleed", chance: 8, turns: 2, percentMaxHp: 2 }], equippedItem: equipment.find((item) => item.id === "iron-gauntlets") },
-  { id: "raider", name: "Saqueador", description: "Um humano oportunista que explora as rotas isoladas da região.", rarity: "common", regionId: "fiordevalle", level: 30, hpMax: 210, physicalDamage: 35, physicalDefense: 10, magicalDefense: 10, xpReward: 5, goldReward: 16, statusEffects: [{ kind: "bleed", chance: 5, turns: 2, percentMaxHp: 2 }], equippedItem: equipment.find((item) => item.id === "iron-sword") },
+  { id: "raider", name: "Saqueador", description: "Um humano oportunista que explora as rotas isoladas da região.", portraitPath: "/art/creatures/fiordevalle-raider-v1.png", rarity: "common", regionId: "fiordevalle", level: 30, hpMax: 210, physicalDamage: 35, physicalDefense: 10, magicalDefense: 10, xpReward: 5, goldReward: 16, statusEffects: [{ kind: "bleed", chance: 5, turns: 2, flatDamage: 10 }], equippedItem: equipment.find((item) => item.id === "iron-sword") },
+  { id: "ash-wolf", name: "Lobo da Cinza", description: "Predador das colinas que caça em alcateia e deixa brasas nas pegadas.", portraitPath: "/art/creatures/fiordevalle-ash-wolf-v1.png", rarity: "common", regionId: "fiordevalle", level: 30, hpMax: 198, physicalDamage: 39, physicalDefense: 9, magicalDefense: 8, xpReward: 8, goldReward: 19, statusEffects: [{ kind: "bleed", chance: 18, turns: 3, flatDamage: 10 }], equippedItem: equipment.find((item) => item.id === "traveler-boots") },
+  { id: "rotted-knight", name: "Cavaleiro Apodrecido", description: "Sentinela morta-viva que segura a rota mesmo quando sua armadura já não protege um corpo vivo.", portraitPath: "/art/creatures/fiordevalle-rotted-knight-v1.png", rarity: "common", regionId: "fiordevalle", level: 30, hpMax: 260, physicalDamage: 31, physicalDefense: 24, magicalDefense: 17, xpReward: 10, goldReward: 23, equippedItem: equipment.find((item) => item.id === "iron-helm") },
   { id: "crimson-herald", name: "Arauto Carmesim", description: "Vampiro raro que conduz a magia do sangue pelas rotas isoladas.", portraitPath: "/art/creatures/fiordevalle-vampire-rare.jpeg", rarity: "rare", regionId: "fiordevalle", level: 30, hpMax: 210, physicalDamage: 35, physicalDefense: 10, magicalDefense: 10, xpReward: 12, goldReward: 46, statusEffects: [{ kind: "blind", chance: 15, turns: 2 }], equippedItem: equipment.find((item) => item.id === "serrated-blade") },
   { id: "mist-captain", name: "Lorde da Névoa", description: "Boss vampírico que sai da névoa para tomar FiorDeValle.", portraitPath: "/art/creatures/fiordevalle-vampire-boss.jpeg", rarity: "boss", regionId: "fiordevalle", level: 30, hpMax: 210, physicalDamage: 35, physicalDefense: 10, magicalDefense: 10, xpReward: 10, goldReward: 36, statusEffects: [{ kind: "bleed", chance: 18, turns: 3, percentMaxHp: 4 }, { kind: "blind", chance: 12, turns: 2 }], equippedItem: equipment.find((item) => item.id === "mist-lord-blade") },
 ];
+
+const creature = (id: string) => huntCreatures.find((entry) => entry.id === id)!;
+creature("raider").equipmentProfileId = "raider";
+creature("raider").featuredItemCandidates = creatureFeaturedItems.filter((item) => item.id === "raider-rust-sword");
+creature("vampire-wanderer").equipmentProfileId = "vampire";
+creature("vampire-wanderer").featuredItemCandidates = creatureFeaturedItems.filter((item) => item.id === "vampire-velvet-dagger");
+creature("crimson-herald").equipmentProfileId = "vampire";
+creature("crimson-herald").featuredItemCandidates = creatureFeaturedItems.filter((item) => item.id === "crimson-blood-orb");
+creature("mist-captain").equipmentProfileId = "vampire";
+creature("mist-captain").featuredItemCandidates = creatureFeaturedItems.filter((item) => item.id === "mist-rapier" || item.id === "crimson-blood-orb");
 
 export const fiordevalleJourneyNodes = [
   { id: "fiordevalle", name: "FiorDeValle", icon: "⌂", column: 2, row: 1 },
@@ -117,8 +137,8 @@ export function rollFiordevalleEncounter(random: () => number = Math.random) {
   return Array.from({ length: count }, () => {
     const rare = random() < 0.10;
     const miniboss = !rare && random() < 0.16;
-    const vampire = random() < 0.38;
-    const id = rare ? "crimson-herald" : miniboss ? "mist-captain" : vampire ? "vampire-wanderer" : "raider";
+    const creatureRoll = random();
+    const id = rare ? "crimson-herald" : miniboss ? "mist-captain" : creatureRoll < 0.30 ? "vampire-wanderer" : creatureRoll < 0.52 ? "ash-wolf" : creatureRoll < 0.68 ? "rotted-knight" : "raider";
     const source = huntCreatures.find((creature) => creature.id === id)!;
     return { ...source, hpMax: 30 + level * 6, physicalDamage: 5 + level, physicalDefense: level / 3, magicalDefense: level / 3 };
   });

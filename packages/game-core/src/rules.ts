@@ -30,7 +30,16 @@ export function activePreset(character: GameCharacter): CharacterPreset { return
 const battleId = () => globalThis.crypto?.randomUUID?.() ?? `hunt-${Date.now()}`;
 const emptyEffects = (): CombatStatusEffect[] => [];
 const statusResistance = (stats: CharacterCombatStats, kind: StatusEffectKind) => stats[`${kind}Resistance` as keyof CharacterCombatStats] as number;
-const effectDotDamage = (effect: CombatStatusEffect, maxHp: number) => Math.max(1, Math.round(maxHp * (effect.percentMaxHp ?? 2) / 100));
+const effectDotDamage = (effect: CombatStatusEffect, maxHp: number) => {
+  if (effect.flatDamage !== undefined) return Math.max(1, effect.flatDamage);
+  // Condições precisam importar mesmo em lutas curtas. O valor fixo é a regra
+  // padrão; percentMaxHp permanece apenas como compatibilidade de conteúdo legado.
+  const severity = effect.percentMaxHp ?? 2;
+  if (severity >= 5) return 25;
+  if (severity >= 4) return 20;
+  if (severity >= 3) return 15;
+  return 10;
+};
 
 function tickEffects(combatant: HuntCombatant, turn: number, logs: HuntBattleLog[]) {
   let hpCurrent = combatant.hpCurrent;
@@ -55,7 +64,12 @@ function applyEffects(target: HuntCombatant, applications: StatusEffectApplicati
     if (Math.random() * 100 >= finalChance) continue;
     const effect: CombatStatusEffect = { ...application, sourceName };
     const existing = activeEffects.findIndex((entry) => entry.kind === application.kind);
-    if (existing >= 0) activeEffects[existing] = { ...effect, turns: Math.max(effect.turns, activeEffects[existing].turns), percentMaxHp: Math.max(effect.percentMaxHp ?? 0, activeEffects[existing].percentMaxHp ?? 0) };
+    if (existing >= 0) activeEffects[existing] = {
+      ...effect,
+      turns: Math.max(effect.turns, activeEffects[existing].turns),
+      flatDamage: Math.max(effect.flatDamage ?? 0, activeEffects[existing].flatDamage ?? 0) || undefined,
+      percentMaxHp: Math.max(effect.percentMaxHp ?? 0, activeEffects[existing].percentMaxHp ?? 0),
+    };
     else activeEffects.push(effect);
     logs.push({ turn, tone: "system", text: `${sourceName} aplica ${statusEffectLabels[application.kind]} em ${target.name} por ${effect.turns} turno(s).` });
   }
@@ -76,32 +90,73 @@ function attack(input: { attacker: HuntCombatant; defender: HuntCombatant; rawDa
   return { defender, dealt, critical };
 }
 
-export const dropBreakChanceByRarity = { common: 0, rare: 12, epic: 28, legendary: 45 } as const;
+export const featuredItemAppearanceByRarity = { common: 55, rare: 30, epic: 15, legendary: 7, mythic: 2 } as const;
+export const dropBreakChanceByRarity = { common: 15, rare: 25, epic: 40, legendary: 60, mythic: 75 } as const;
+export const featuredItemXpBonusByRarity = { common: 5, rare: 10, epic: 20, legendary: 40, mythic: 75 } as const;
+const memorySurvivalBonusByRarity = { common: 0, rare: 0, epic: 5, legendary: 10, mythic: 15 } as const;
+
+function materialReward(item: EquipmentItem) {
+  const ranges = { common: [1, 1], rare: [1, 2], epic: [2, 3], legendary: [3, 5], mythic: [4, 6] } as const;
+  const [min, max] = ranges[item.rarity];
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function featuredItemsFor(creature: HuntCreatureDefinition, memories: Record<string, number>) {
+  const cap = creature.rarity === "boss" ? 2 : 1;
+  const candidates = creature.featuredItemCandidates ?? (creature.equippedItem ? [creature.equippedItem] : []);
+  return candidates
+    .filter((item) => !item.allowedProfiles?.length || item.allowedProfiles.includes(creature.equipmentProfileId ?? ""))
+    .filter((item) => Math.random() * 100 < (item.appearanceChance ?? featuredItemAppearanceByRarity[item.rarity]))
+    .slice(0, cap)
+    .map((item) => {
+      const memoryStacks = Math.min(3, memories[item.id] ?? 0);
+      const baseBreakChance = item.breakChance ?? dropBreakChanceByRarity[item.rarity];
+      const survivalBonus = memoryStacks * memorySurvivalBonusByRarity[item.rarity];
+      return { ...item, breakChance: Math.max(0, baseBreakChance - survivalBonus) };
+    });
+}
 
 function rewardFor(state: HuntBattleState, turn: number) {
   const itemIds: string[] = [];
   const logs: HuntBattleLog[] = [];
+  const fragments: Array<{ rarity: EquipmentItem["rarity"]; amount: number }> = [];
+  const memoryUpdates: Array<{ itemId: string; stacks: number }> = [];
   state.creatures.forEach((creature) => {
-    if (!creature.equippedItem) return;
-    const chance = dropBreakChanceByRarity[creature.equippedItem.rarity];
-    if (Math.random() * 100 < chance) {
-      logs.push({ turn, tone: "system", text: `${creature.equippedItem.name} se quebrou durante a luta (${chance}% de risco).` });
-      return;
-    }
-    itemIds.push(creature.equippedItem.id);
-    logs.push({ turn, tone: "victory", text: `Drop obtido: ${creature.equippedItem.name}.` });
+    (creature.equippedItems ?? (creature.equippedItem ? [creature.equippedItem] : [])).forEach((item) => {
+      const chance = item.breakChance ?? dropBreakChanceByRarity[item.rarity];
+      if (Math.random() * 100 < chance) {
+        const amount = materialReward(item);
+        fragments.push({ rarity: item.rarity, amount });
+        if (item.rarity === "epic" || item.rarity === "legendary" || item.rarity === "mythic") {
+          memoryUpdates.push({ itemId: item.id, stacks: 1 });
+        }
+        logs.push({ turn, tone: "system", text: `${item.name} foi danificado. +${amount} Fragmento${amount > 1 ? "s" : ""} ${item.rarity}.` });
+        return;
+      }
+      itemIds.push(item.id);
+      memoryUpdates.push({ itemId: item.id, stacks: 0 });
+      logs.push({ turn, tone: "victory", text: `Drop intacto: ${item.name}.` });
+    });
   });
-  return { reward: { xp: state.creatures.reduce((sum, creature) => sum + creature.xpReward, 0), gold: state.creatures.reduce((sum, creature) => sum + creature.goldReward, 0), itemIds }, logs };
+  const xp = state.creatures.reduce((sum, creature) => {
+    const bonus = (creature.equippedItems ?? []).reduce((total, item) => total + featuredItemXpBonusByRarity[item.rarity], 0);
+    return sum + Math.round(creature.xpReward * (1 + bonus / 100));
+  }, 0);
+  return { reward: { xp, gold: state.creatures.reduce((sum, creature) => sum + creature.goldReward, 0), itemIds, fragments, memoryUpdates }, logs };
 }
 
-export function createHuntBattle(input: { regionId: string; player: HuntCombatant; creatures: HuntCreatureDefinition[]; companion?: HuntCompanion | null }): HuntBattleState {
-  const enemies: HuntCombatant[] = input.creatures.map((creature, index) => {
-    const item = creature.equippedItem;
-    const itemModifiers = item?.modifiers ?? {};
-    const hpMax = creature.hpMax + (itemModifiers.hpMax ?? 0);
-    return { id: `${creature.id}-${index}`, name: creature.name, portraitPath: creature.portraitPath, hpCurrent: hpMax, hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: [...(creature.statusEffects ?? []), ...(item?.statusEffects ?? [])], stats: { physicalDamage: creature.physicalDamage + (itemModifiers.physicalDamage ?? 0), magicalDamage: itemModifiers.magicalDamage ?? 0, physicalDefense: creature.physicalDefense + (itemModifiers.physicalDefense ?? 0), magicalDefense: creature.magicalDefense + (itemModifiers.magicalDefense ?? 0), criticalChance: (creature.rarity === "boss" ? 12 : creature.rarity === "rare" ? 7 : 4) + (itemModifiers.criticalChance ?? 0), dodgeChance: (creature.rarity === "rare" ? 5 : 2) + (itemModifiers.dodgeChance ?? 0), bleedChance: itemModifiers.bleedChance ?? 0, burnChance: itemModifiers.burnChance ?? 0, poisonChance: itemModifiers.poisonChance ?? 0, blindChance: itemModifiers.blindChance ?? 0, bleedResistance: itemModifiers.bleedResistance ?? 0, burnResistance: itemModifiers.burnResistance ?? 0, poisonResistance: itemModifiers.poisonResistance ?? 0, blindResistance: itemModifiers.blindResistance ?? 0 } };
+export function createHuntBattle(input: { regionId: string; player: HuntCombatant; creatures: HuntCreatureDefinition[]; companion?: HuntCompanion | null; itemMemories?: Record<string, number> }): HuntBattleState {
+  const creatures = input.creatures.map((creature) => {
+    const equippedItems = featuredItemsFor(creature, input.itemMemories ?? {});
+    return { ...creature, equippedItems, equippedItem: equippedItems[0] };
   });
-  return { id: battleId(), regionId: input.regionId, creatures: input.creatures, player: { ...input.player, activeEffects: input.player.activeEffects ?? emptyEffects(), onHitEffects: input.player.onHitEffects ?? [] }, companion: input.companion ?? null, enemies, lastPetTargetId: null, lastPetDamage: 0, cooldowns: {}, turn: 1, status: "active", reward: null, log: [{ turn: 0, tone: "system", text: input.creatures.length > 1 ? `Emboscada: ${input.creatures.length} inimigos bloqueiam o caminho.` : `${input.creatures[0].name} bloqueia o caminho.` }] };
+  const enemies: HuntCombatant[] = creatures.map((creature, index) => {
+    const itemModifiers = creature.equippedItems?.reduce((total, item) => ({ ...total, ...Object.fromEntries(Object.entries(item.modifiers).map(([key, value]) => [key, (total[key as keyof typeof total] ?? 0) + (value ?? 0)])) }), {} as EquipmentItem["modifiers"]) ?? {};
+    const hpMax = creature.hpMax + (itemModifiers.hpMax ?? 0);
+    const itemEffects = creature.equippedItems?.flatMap((item) => item.statusEffects ?? []) ?? [];
+    return { id: `${creature.id}-${index}`, name: creature.name, portraitPath: creature.portraitPath, hpCurrent: hpMax, hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: [...(creature.statusEffects ?? []), ...itemEffects], stats: { physicalDamage: creature.physicalDamage + (itemModifiers.physicalDamage ?? 0), magicalDamage: itemModifiers.magicalDamage ?? 0, physicalDefense: creature.physicalDefense + (itemModifiers.physicalDefense ?? 0), magicalDefense: creature.magicalDefense + (itemModifiers.magicalDefense ?? 0), criticalChance: (creature.rarity === "boss" ? 12 : creature.rarity === "rare" ? 7 : 4) + (itemModifiers.criticalChance ?? 0), dodgeChance: (creature.rarity === "rare" ? 5 : 2) + (itemModifiers.dodgeChance ?? 0), bleedChance: itemModifiers.bleedChance ?? 0, burnChance: itemModifiers.burnChance ?? 0, poisonChance: itemModifiers.poisonChance ?? 0, blindChance: itemModifiers.blindChance ?? 0, bleedResistance: itemModifiers.bleedResistance ?? 0, burnResistance: itemModifiers.burnResistance ?? 0, poisonResistance: itemModifiers.poisonResistance ?? 0, blindResistance: itemModifiers.blindResistance ?? 0 } };
+  });
+  return { id: battleId(), regionId: input.regionId, creatures, player: { ...input.player, activeEffects: input.player.activeEffects ?? emptyEffects(), onHitEffects: input.player.onHitEffects ?? [] }, companion: input.companion ?? null, enemies, lastPetTargetId: null, lastPetDamage: 0, cooldowns: {}, turn: 1, status: "active", reward: null, log: [{ turn: 0, tone: "system", text: creatures.length > 1 ? `Emboscada: ${creatures.length} inimigos bloqueiam o caminho.` : `${creatures[0].name} bloqueia o caminho.` }] };
 }
 
 export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefinition): HuntBattleState {

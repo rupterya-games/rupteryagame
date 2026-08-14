@@ -4,7 +4,8 @@ export type AbilitySlotKind = "skill" | "ultimate" | "stance" | "passive";
 export type SecretArtPath = "martial" | "mystic" | "arcane";
 export type AbilitySource = "class" | "lineage" | "school" | "secret_art" | "creature";
 export type EquipmentSlot = "weapon" | "head" | "chest" | "hands" | "feet" | "trinket";
-export type ItemRarity = "common" | "rare" | "epic" | "legendary";
+export type ItemRarity = "common" | "rare" | "epic" | "legendary" | "mythic";
+export type EquipmentFamily = "sword" | "dagger" | "rapier" | "claws" | "greatsword" | "greataxe" | "staff" | "orb" | "book" | "shield" | "bow" | "quiver" | "katana" | "sheath" | "armor";
 
 export interface AdventureAttributes {
   perception: number;
@@ -34,6 +35,8 @@ export interface StatusEffectApplication {
   kind: StatusEffectKind;
   chance: number;
   turns: number;
+  /** Dano fixo aplicado ao fim de cada turno. Prioritário sobre percentual. */
+  flatDamage?: number;
   percentMaxHp?: number;
 }
 
@@ -115,6 +118,12 @@ export interface EquipmentItem {
   statusEffects?: StatusEffectApplication[];
   keywords?: string[];
   affixes?: string[];
+  family?: EquipmentFamily;
+  allowedProfiles?: string[];
+  requiredHands?: 1 | 2;
+  appearanceChance?: number;
+  breakChance?: number;
+  uniqueKeyword?: string;
 }
 
 export interface EquippedItems {
@@ -157,6 +166,8 @@ export interface GameCharacter {
   presets: CharacterPreset[];
   activePresetId: string;
   inventoryItemIds: string[];
+  itemMemories?: Record<string, number>;
+  fragments?: Partial<Record<ItemRarity, number>>;
 }
 
 export interface DevAccount {
@@ -183,6 +194,9 @@ export interface HuntCreatureDefinition {
   goldReward: number;
   statusEffects?: StatusEffectApplication[];
   equippedItem?: EquipmentItem;
+  equippedItems?: EquipmentItem[];
+  featuredItemCandidates?: EquipmentItem[];
+  equipmentProfileId?: string;
 }
 
 export interface HuntRegionDefinition {
@@ -234,7 +248,13 @@ export interface HuntBattleState {
   turn: number;
   status: "active" | "victory" | "defeat";
   log: HuntBattleLog[];
-  reward: { xp: number; gold: number; itemIds: string[] } | null;
+  reward: {
+    xp: number;
+    gold: number;
+    itemIds: string[];
+    fragments: Array<{ rarity: ItemRarity; amount: number }>;
+    memoryUpdates: Array<{ itemId: string; stacks: number }>;
+  } | null;
 }
 
 export type GridIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;

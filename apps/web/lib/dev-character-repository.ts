@@ -32,7 +32,7 @@ export class DevCharacterRepository {
         const compatible = Object.values(preset.loadout).every((abilityId) => abilityId === null || ownedAbilityIds.includes(abilityId));
         return { ...preset, loadout: compatible ? preset.loadout : defaultLoadout(definition.id) };
       });
-      return { ...character, classId: definition.id, inventoryItemIds: character.inventoryItemIds ?? starterItemIds, ownedAbilityIds: [...new Set([...ownedAbilityIds, "school-fire", "lineage-vampire", "secret-predatory-charge"])], presets };
+      return { ...character, classId: definition.id, inventoryItemIds: character.inventoryItemIds ?? starterItemIds, itemMemories: character.itemMemories ?? {}, fragments: character.fragments ?? {}, ownedAbilityIds: [...new Set([...ownedAbilityIds, "school-fire", "lineage-vampire", "secret-predatory-charge"])], presets };
     });
     return { ...stored, characters };
   }
@@ -49,7 +49,7 @@ export class DevCharacterRepository {
     const name = input.name.trim();
     if (name.length < 3) throw new Error("Use um nome com ao menos 3 caracteres.");
     const preset: CharacterPreset = { id: id(), name: "Caça", loadout: defaultLoadout(definition.id), equipment: emptyEquipment() };
-    const character: GameCharacter = { id: id(), name, classId: definition.id, kingdom: input.kingdom, lineageId: null, schoolId: null, skinId: "default", vitals: { hpCurrent: definition.baseVitals.hpMax, hpMax: definition.baseVitals.hpMax, mpCurrent: definition.baseVitals.mpMax, mpMax: definition.baseVitals.mpMax, morale: definition.baseVitals.morale, gold: definition.baseVitals.gold }, equipment: preset.equipment, inventoryItemIds: starterItemIds, ownedAbilityIds: [...abilities.filter((ability) => ability.id.startsWith(`${definition.id}-`)).map((ability) => ability.id), "school-fire", "lineage-vampire", "secret-predatory-charge"], presets: [preset], activePresetId: preset.id };
+    const character: GameCharacter = { id: id(), name, classId: definition.id, kingdom: input.kingdom, lineageId: null, schoolId: null, skinId: "default", vitals: { hpCurrent: definition.baseVitals.hpMax, hpMax: definition.baseVitals.hpMax, mpCurrent: definition.baseVitals.mpMax, mpMax: definition.baseVitals.mpMax, morale: definition.baseVitals.morale, gold: definition.baseVitals.gold }, equipment: preset.equipment, inventoryItemIds: starterItemIds, itemMemories: {}, fragments: {}, ownedAbilityIds: [...abilities.filter((ability) => ability.id.startsWith(`${definition.id}-`)).map((ability) => ability.id), "school-fire", "lineage-vampire", "secret-predatory-charge"], presets: [preset], activePresetId: preset.id };
     return this.save({ ...account, characters: [...account.characters, character] });
   }
 
@@ -105,21 +105,26 @@ export class DevCharacterRepository {
     const summary = this.summary(account, character);
     const definition = classes.find((entry) => entry.id === character.classId)!;
     const onHitEffects = Object.values(character.equipment).flatMap((itemId) => equipment.find((item) => item.id === itemId)?.statusEffects ?? []);
-    return createHuntBattle({ regionId, creatures, companion: emberDragonCompanion, player: { id: character.id, name: character.name, portraitPath: definition.portraitPath, hpCurrent: character.vitals.hpCurrent, hpMax: summary.hpMax, mpCurrent: character.vitals.mpCurrent, mpMax: summary.mpMax, stats: summary.stats, activeEffects: [], onHitEffects } });
+    return createHuntBattle({ regionId, creatures, itemMemories: character.itemMemories, companion: emberDragonCompanion, player: { id: character.id, name: character.name, portraitPath: summary.portraitPath, hpCurrent: character.vitals.hpCurrent, hpMax: summary.hpMax, mpCurrent: character.vitals.mpCurrent, mpMax: summary.mpMax, stats: summary.stats, activeEffects: [], onHitEffects } });
   }
 
   settleHunt(account: DevAccount, character: GameCharacter, battle: HuntBattleState): DevAccount {
     if (battle.status === "active") return account;
     const gold = character.vitals.gold + (battle.status === "victory" ? battle.reward?.gold ?? 0 : 0);
     const inventoryItemIds = battle.status === "victory" ? [...new Set([...character.inventoryItemIds, ...(battle.reward?.itemIds ?? [])])] : character.inventoryItemIds;
-    const updated = { ...character, inventoryItemIds, vitals: { ...character.vitals, hpCurrent: battle.player.hpCurrent, hpMax: battle.player.hpMax, mpCurrent: battle.player.mpCurrent, mpMax: battle.player.mpMax, gold } };
+    const itemMemories = { ...(character.itemMemories ?? {}) };
+    if (battle.status === "victory") battle.reward?.memoryUpdates.forEach(({ itemId, stacks }) => { itemMemories[itemId] = stacks === 0 ? 0 : Math.min(3, (itemMemories[itemId] ?? 0) + stacks); });
+    const fragments = { ...(character.fragments ?? {}) };
+    if (battle.status === "victory") battle.reward?.fragments.forEach(({ rarity, amount }) => { fragments[rarity] = (fragments[rarity] ?? 0) + amount; });
+    const updated = { ...character, inventoryItemIds, itemMemories, fragments, vitals: { ...character.vitals, hpCurrent: battle.player.hpCurrent, hpMax: battle.player.hpMax, mpCurrent: battle.player.mpCurrent, mpMax: battle.player.mpMax, gold } };
     return this.save({ ...account, globalXp: account.globalXp + (battle.status === "victory" ? battle.reward?.xp ?? 0 : 0), characters: account.characters.map((entry) => entry.id === character.id ? updated : entry) });
   }
 
   summary(account: DevAccount, character: GameCharacter) {
     const base = classes.find((entry) => entry.id === character.classId)!;
     const computed = applyEquipment(base, character.equipment, equipment);
-    return { name: character.name, className: base.name, classRole: base.role, portraitPath: base.portraitPath, kingdom: character.kingdom, level: account.globalLevel, power: characterPower(base, character.equipment, equipment), hpCurrent: character.vitals.hpCurrent, hpMax: computed.hpMax, mpCurrent: character.vitals.mpCurrent, mpMax: computed.mpMax, morale: character.vitals.morale, gold: character.vitals.gold, stats: computed.stats, adventure: base.adventure };
+    const premiumSkin = character.classId === "guardian" && character.skinId === "guardian-eclipse";
+    return { name: character.name, className: base.name, classRole: base.role, portraitPath: premiumSkin ? "/art/skins/guardian-eclipse-premium-v1.png" : base.portraitPath, kingdom: character.kingdom, level: account.globalLevel, power: characterPower(base, character.equipment, equipment), hpCurrent: character.vitals.hpCurrent, hpMax: computed.hpMax, mpCurrent: character.vitals.mpCurrent, mpMax: computed.mpMax, morale: character.vitals.morale, gold: character.vitals.gold, stats: computed.stats, adventure: base.adventure };
   }
 }
 

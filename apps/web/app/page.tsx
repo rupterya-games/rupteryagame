@@ -109,6 +109,7 @@ export default function HomePage() {
   };
   const startJourney = () => {
     if (!selected || selected.vitals.hpCurrent <= 0) { setMessage("Seu personagem está sem HP. Descanse na Estalagem antes de caçar."); return; }
+    void musicDirector.playJourneyCue();
     const plannedRoute = fiordevalleJourneyRoutes[journeyNodeId] ?? ["fiordevalle"];
     setJourneyOutcome(null);
     setTraveledRoute([plannedRoute[0]]);

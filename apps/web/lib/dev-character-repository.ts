@@ -24,6 +24,14 @@ import type { AdventureCityId } from "./world";
 import { supabase } from "./supabase";
 
 const allAbilities = [...abilities, ...sharedAbilities];
+const classSkinIds: Record<string, readonly string[]> = {
+  guardian: ["default", "guardian-eclipse"],
+  archer: ["default", "archer-shadowwood"],
+  samurai: ["default", "samurai-moonblossom"],
+  duelist: ["default"],
+  mage: ["default"],
+};
+const validSkinForClass = (classId: string, skinId?: string) => classSkinIds[classId]?.includes(skinId ?? "default") ? skinId ?? "default" : "default";
 const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
 export const emptyWorldProgress = (): CharacterWorldProgress => ({
@@ -152,6 +160,7 @@ export class DevCharacterRepository {
       return withWorldProgress({
         ...character,
         classId: definition.id,
+        skinId: validSkinForClass(definition.id, character.skinId),
         equipment: normalizedEquipment,
         inventoryItemIds: [...new Set([...(character.inventoryItemIds ?? []), ...starterIds])],
         itemMemories: character.itemMemories ?? {},
@@ -261,7 +270,10 @@ export class DevCharacterRepository {
 
   setLineage(character: GameCharacter, lineageId: string | null): GameCharacter { return { ...character, lineageId }; }
   setSchool(character: GameCharacter, schoolId: string | null): GameCharacter { return { ...character, schoolId }; }
-  setSkin(character: GameCharacter, skinId: string): GameCharacter { return { ...character, skinId }; }
+  setSkin(character: GameCharacter, skinId: string): GameCharacter {
+    if (!classSkinIds[character.classId]?.includes(skinId)) throw new Error("Esta skin não pertence à classe do personagem.");
+    return { ...character, skinId };
+  }
 
   restAtInn(character: GameCharacter, cost = 0): GameCharacter {
     if (character.vitals.gold < cost) throw new Error(`Ouro insuficiente para a Estalagem. Faltam ${cost - character.vitals.gold}.`);
@@ -518,7 +530,11 @@ export class DevCharacterRepository {
     const counterAttackActive = character.classId === "samurai" && preset.loadout.passive === "samurai-passive";
     const counterAttackChance = counterAttackActive ? Math.min(70, 30 + equippedItems.reduce((sum, item) => sum + (item.counterAttackChanceBonus ?? 0), 0)) : 0;
     const counterAttackScaling = counterAttackActive ? Math.min(1.25, 0.65 + equippedItems.reduce((sum, item) => sum + (item.counterAttackScalingBonus ?? 0), 0)) : 0;
-    const premiumSkin = character.classId === "guardian" && character.skinId === "guardian-eclipse";
+    const skinPortraits: Record<string, string> = {
+      "guardian-eclipse": "/art/skins/guardian-eclipse-premium-v1.png",
+      "archer-shadowwood": "/art/skins/archer-shadowwood-premium.jpg",
+      "samurai-moonblossom": "/art/skins/samurai-moonblossom-premium.jpg",
+    };
     return {
       name: character.name,
       className: base.name,
@@ -526,7 +542,7 @@ export class DevCharacterRepository {
       classId: base.id,
       counterAttackChance,
       counterAttackScaling,
-      portraitPath: premiumSkin ? "/art/skins/guardian-eclipse-premium-v1.png" : base.portraitPath,
+      portraitPath: skinPortraits[character.skinId] ?? base.portraitPath,
       kingdom: character.kingdom,
       level: account.globalLevel,
       power: characterPower(base, character.equipment, equipment),

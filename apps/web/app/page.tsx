@@ -83,6 +83,11 @@ const slotLabels: Record<string, string> = {
   trinket: "Amuleto",
 };
 const equipmentSlotIds = ["weapon", "secondary", "head", "chest", "hands", "feet", "trinket"] as const;
+const premiumSkins = [
+  { id: "guardian-eclipse", classId: "guardian", name: "Guardião do Eclipse", image: "/art/skins/guardian-eclipse-premium-v1.png" },
+  { id: "archer-shadowwood", classId: "archer", name: "Arqueiro da Floresta Sombria", image: "/art/skins/archer-shadowwood-premium.jpg" },
+  { id: "samurai-moonblossom", classId: "samurai", name: "Samurai da Lua Florida", image: "/art/skins/samurai-moonblossom-premium.jpg" },
+] as const;
 
 function EquipmentLoadoutModal({
   character,
@@ -398,6 +403,7 @@ function BattleCooldownPanel({
 export default function HomePage() {
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [profileTab, setProfileTab] = useState<"stats" | "appearance">("stats");
   const [account, setAccount] = useState(() => repository.emptyAccount());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<View>("slots");
@@ -571,7 +577,11 @@ export default function HomePage() {
           Object.values(preset.loadout)
             .flatMap((abilityId) =>
               ownedAbilities.filter(
-                (ability) => ability.id === abilityId && ability.damageFamily,
+                (ability) =>
+                  ability.id === abilityId &&
+                  ability.damageFamily &&
+                  ability.slotKind !== "passive" &&
+                  ability.slotKind !== "stance",
               ),
             )
             .map((ability) => [ability.id, ability]),
@@ -1227,7 +1237,11 @@ export default function HomePage() {
               Conta Nv. {summary!.level}
             </p>
           </div>
-          <div className="stats-grid">
+          <div className="profile-tabs">
+            <button className={profileTab === "stats" ? "selected" : ""} onClick={() => setProfileTab("stats")}>Atributos</button>
+            <button className={profileTab === "appearance" ? "selected" : ""} onClick={() => setProfileTab("appearance")}>Aparência & Skins</button>
+          </div>
+          {profileTab === "stats" && <div className="stats-grid">
             {Object.entries({
               "Dano físico": summary!.stats.physicalDamage,
               "Dano mágico": summary!.stats.magicalDamage,
@@ -1257,7 +1271,24 @@ export default function HomePage() {
                 <strong>{value}</strong>
               </div>
             ))}
-          </div>
+          </div>}
+          {profileTab === "appearance" && (
+            <section className="appearance-panel">
+              <div className="section-title"><span>Skins de {summary!.className}</span><small>Cosmético · não altera Poder</small></div>
+              <div className="skin-grid">
+                <button className={`skin-card ${selected.skinId === "default" ? "selected" : ""}`} onClick={() => persist(repository.setSkin(selected, "default"))}>
+                  <img src={classes.find((entry) => entry.id === selected.classId)?.portraitPath} alt="Visual padrão" />
+                  <span>PADRÃO</span><strong>Visual clássico</strong><small>{selected.skinId === "default" ? "Equipada" : "Equipar"}</small>
+                </button>
+                {premiumSkins.filter((skin) => skin.classId === selected.classId).map((skin) => (
+                  <button className={`skin-card premium ${selected.skinId === skin.id ? "selected" : ""}`} key={skin.id} onClick={() => persist(repository.setSkin(selected, skin.id))}>
+                    <img src={skin.image} alt={skin.name} />
+                    <span>PREMIUM</span><strong>{skin.name}</strong><small>{selected.skinId === skin.id ? "Equipada" : "Equipar skin"}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
         </section>
       )}
       {view === "equipment" && (
@@ -1367,21 +1398,8 @@ export default function HomePage() {
               >
                 Escola: {selected.schoolId ? "Fogo" : "Nenhuma"}
               </button>
-              <button
-                className={selected.skinId === "guardian-eclipse" ? "selected" : ""}
-                onClick={() =>
-                  persist(
-                    repository.setSkin(
-                      selected,
-                      selected.skinId === "guardian-eclipse" ? "default" : "guardian-eclipse",
-                    ),
-                  )
-                }
-              >
-                Guardião do Eclipse (premium)
-              </button>
             </div>
-            <small>Skin não modifica Poder. Linhagem máxima: uma.</small>
+            <small>Linhagem máxima: uma. Skins agora ficam em Perfil → Aparência & Skins.</small>
           </section>
         </section>
       )}

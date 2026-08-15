@@ -1571,11 +1571,13 @@ export default function HomePage() {
                               <button
                                 key={creature.id}
                                 disabled={!discovered}
-                                className={`${discovered ? creatureFrameClassName(creature.family, creature.rarity) : "creature-family-frame frame-unknown"} ${inspectedBestiaryCreatureId === creature.id ? "selected" : ""} ${!discovered ? "unknown" : ""} ${mastered ? "mastered" : ""}`}
+                                className={`${inspectedBestiaryCreatureId === creature.id ? "selected" : ""} ${!discovered ? "unknown" : ""} ${mastered ? "mastered" : ""}`}
                                 onClick={() => discovered && setInspectedBestiaryCreatureId(creature.id)}
                               >
-                                {discovered ? (creature.portraitPath ? <img src={creature.portraitPath} alt={creature.name} /> : <div className="unknown-creature-art">✦</div>) : <div className="unknown-creature-art">?</div>}
-                                {discovered && <CreatureFrameOverlay family={creature.family} rarity={creature.rarity} />}
+                                <div className={discovered ? creatureFrameClassName(creature.family, creature.rarity) : "creature-family-frame frame-unknown"}>
+                                  {discovered ? (creature.portraitPath ? <img src={creature.portraitPath} alt={creature.name} /> : <div className="unknown-creature-art">✦</div>) : <div className="unknown-creature-art">?</div>}
+                                  {discovered && <CreatureFrameOverlay family={creature.family} rarity={creature.rarity} />}
+                                </div>
                                 <span>{discovered ? creature.name : "Desconhecido"}</span>
                                 <small>{discovered ? `${kills}/${creature.codexKills} abates${mastered ? " · Dominado" : ""}` : "Encontre para revelar"}</small>
                               </button>
@@ -1835,7 +1837,6 @@ export default function HomePage() {
                           }
                         }}
                       >
-                        <CreatureFrameOverlay family={creature.family} rarity={creature.rarity} />
                         {selectedTarget && !defeated && (
                           <span className="battle-v6-target-reticle" aria-hidden="true">⌖</span>
                         )}
@@ -1845,11 +1846,14 @@ export default function HomePage() {
                             aria-hidden="true"
                           >{battleEffect.damage ? `-${battleEffect.damage}` : ""}</span>
                         )}
-                        {enemy.portraitPath ? (
-                          <img src={enemy.portraitPath} alt={`Retrato de ${enemy.name}`} />
-                        ) : (
-                          <div className="monster-art">✦</div>
-                        )}
+                        <div className="battle-v6-portrait">
+                          {enemy.portraitPath ? (
+                            <img src={enemy.portraitPath} alt={`Retrato de ${enemy.name}`} />
+                          ) : (
+                            <div className="monster-art">✦</div>
+                          )}
+                          <CreatureFrameOverlay family={creature.family} rarity={creature.rarity} />
+                        </div>
                         <div className="battle-v6-card-copy">
                           <strong>{enemy.name}</strong>
                           <CombatEffects effects={enemy.activeEffects} />

@@ -623,12 +623,14 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease,filter .15s ease;
 }
 .battle-v6-unit-card.creature-family-frame { border:none; box-shadow:0 0 0 1px color-mix(in srgb,var(--rarity-accent) 45%,transparent),0 0 16px var(--rarity-glow),0 8px 20px #000a; }
-.battle-v6-unit-card>img,.battle-v6-unit-card>.monster-art { display:block; width:100%; max-height:205px; aspect-ratio:1.15; object-fit:cover; object-position:center 18%; border-radius:9px 9px 0 0; background:#0b0e0d; }
-/* Retratos de inimigo (bestiário) já trazem nome/categoria no rodapé da própria imagem;
-   ancorar no topo com um aspect-ratio mais baixo garante que essa faixa nunca vaze,
-   independente do tamanho de tela (fixed-height não bastava em telas estreitas). */
-.battle-v6-enemy-card>img { object-position:center top; }
-.battle-v6-unit-card>.monster-art { display:grid; place-items:center; font-size:46px; }
+.battle-v6-unit-card>img,.battle-v6-unit-card>.monster-art,.battle-v6-portrait>img,.battle-v6-portrait>.monster-art { display:block; width:100%; max-height:205px; aspect-ratio:1.15; object-fit:cover; object-position:center 18%; border-radius:9px 9px 0 0; background:#0b0e0d; }
+/* A moldura de inimigo envolve só a área do retrato (não o card inteiro), pra não
+   tampar nome/HP com a borda grossa da arte. Retratos "generated" já trazem
+   nome/categoria no rodapé da própria imagem; ancorar no topo com um aspect-ratio
+   mais baixo garante que essa faixa nunca vaze, em qualquer tamanho de tela. */
+.battle-v6-portrait { position:relative; }
+.battle-v6-enemy-card .battle-v6-portrait>img { object-position:center top; }
+.battle-v6-unit-card>.monster-art,.battle-v6-portrait>.monster-art { display:grid; place-items:center; font-size:46px; }
 .battle-v6-enemy-card { cursor:crosshair; }
 .battle-v6-enemy-card:hover:not(.unit-defeated),.battle-v6-enemy-card:focus-visible:not(.unit-defeated) { transform:translateY(-3px); border-color:#cf9d4e; box-shadow:0 11px 24px #000c,0 0 18px #d6a54b2b; outline:none; }
 .battle-v6-enemy-card.target-selected { transform:translateY(-4px); border-color:#ff453f; box-shadow:0 0 0 2px #7c1919,0 0 25px #ef2e2e70,0 12px 26px #000d; }

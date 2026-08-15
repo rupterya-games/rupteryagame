@@ -810,17 +810,20 @@ export default function HomePage() {
   };
   const exploreSpot = (spotId: string, spotName: string) => {
     if (!selected || !activeExit || !activeLevel) return;
+    if (adventureAlert || pendingEncounterSpot) {
+      setMessage("Resolva o encontro atual antes de explorar outro ponto.");
+      return;
+    }
     const roll = Math.random();
     const eventText = activeLevel.eventPool[Math.floor(Math.random() * activeLevel.eventPool.length)] ?? `${spotName} permanece em silêncio.`;
     if (roll < 0.62) {
       const creatures = createInstanceEncounter(activeLevel.creaturePool, account.globalLevel);
-      setAccount(repository.discoverCreatures(account, selected, creatures.map((entry) => entry.id)));
       setPendingEncounter(creatures);
       setPendingEncounterSpot({ levelId: activeLevel.id, spotId, spotName });
       setAdventureAlert({
         kind: "encounter",
         title: `${spotName} · ameaça detectada`,
-        text: `Uma ameaça surgiu em ${activeLevel.name}. Inimigos vistos: ${creatures.map((entry) => entry.name).join(", ")}. O spot só será concluído se você vencer o combate.`,
+        text: `Uma ameaça desconhecida surgiu em ${activeLevel.name}. Entre em combate para descobrir quem está à sua frente. O spot só será concluído se você vencer.`,
         actionLabel: "Entrar em combate",
       });
       setMessage(`Encontro encontrado em ${activeLevel.name}.`);
@@ -853,7 +856,10 @@ export default function HomePage() {
   };
   const consumeAdventureAction = () => {
     if (adventureAlert?.kind === "encounter" && pendingEncounter && selected) {
-      setBattle(repository.beginHunt(account, selected, activeCityId, pendingEncounter));
+      const discoveredAccount = repository.discoverCreatures(account, selected, pendingEncounter.map((entry) => entry.id));
+      const discoveredCharacter = discoveredAccount.characters.find((entry) => entry.id === selected.id) ?? selected;
+      setAccount(discoveredAccount);
+      setBattle(repository.beginHunt(discoveredAccount, discoveredCharacter, activeCityId, pendingEncounter));
       setAdventureAlert(null);
       setPendingEncounter(null);
       return;
@@ -1495,6 +1501,7 @@ export default function HomePage() {
                         selectedLevelId={selectedInstanceLevelId}
                         exploredSpotsByLevel={worldProgress.exploredSpotsByLevel}
                         discoveredCreatureIds={worldProgress.discoveredCreatureIds}
+                        explorationLocked={Boolean(adventureAlert || pendingEncounterSpot)}
                         creatureName={(creatureId) => bestiaryById.get(creatureId)?.name ?? huntCreatures.find((creature) => creature.id === creatureId)?.name ?? creatureId}
                         onSelectExit={openExit}
                         onSelectLevel={openInstanceLevel}

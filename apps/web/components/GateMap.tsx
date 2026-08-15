@@ -29,6 +29,7 @@ export function GateMap({
   selectedLevelId,
   exploredSpotsByLevel,
   discoveredCreatureIds,
+  explorationLocked,
   creatureName,
   onSelectExit,
   onSelectLevel,
@@ -39,6 +40,7 @@ export function GateMap({
   selectedLevelId: string | null;
   exploredSpotsByLevel: Record<string, string[]>;
   discoveredCreatureIds: readonly string[];
+  explorationLocked: boolean;
   creatureName: (id: string) => string;
   onSelectExit: (exitId: string) => void;
   onSelectLevel: (levelId: string) => void;
@@ -143,8 +145,9 @@ export function GateMap({
                   key={spot.id}
                   style={style}
                   className={`instance-spot-pin ${done ? "explored" : ""}`}
+                  disabled={explorationLocked}
                   onClick={() => onExploreSpot(spot.id, spot.name)}
-                  title={done ? `Explorar ${spot.name} novamente` : `Explorar ${spot.name}`}
+                  title={explorationLocked ? "Resolva o encontro atual antes de continuar" : done ? `Explorar ${spot.name} novamente` : `Explorar ${spot.name}`}
                 >
                   <b>{index + 1}</b>
                   <span>{spot.name}</span>

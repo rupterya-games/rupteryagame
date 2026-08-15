@@ -143,9 +143,8 @@ export function GateMap({
                   key={spot.id}
                   style={style}
                   className={`instance-spot-pin ${done ? "explored" : ""}`}
-                  disabled={done}
                   onClick={() => onExploreSpot(spot.id, spot.name)}
-                  title={done ? `${spot.name} já explorado` : `Explorar ${spot.name}`}
+                  title={done ? `Explorar ${spot.name} novamente` : `Explorar ${spot.name}`}
                 >
                   <b>{index + 1}</b>
                   <span>{spot.name}</span>

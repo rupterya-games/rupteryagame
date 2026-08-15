@@ -810,8 +810,6 @@ export default function HomePage() {
   };
   const exploreSpot = (spotId: string, spotName: string) => {
     if (!selected || !activeExit || !activeLevel) return;
-    const explored = worldProgress.exploredSpotsByLevel[activeLevel.id] ?? [];
-    if (explored.includes(spotId)) return;
     const roll = Math.random();
     const eventText = activeLevel.eventPool[Math.floor(Math.random() * activeLevel.eventPool.length)] ?? `${spotName} permanece em silêncio.`;
     if (roll < 0.62) {

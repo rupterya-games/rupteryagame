@@ -430,16 +430,34 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .encounter-gallery-title { display:flex; justify-content:space-between; gap:12px; align-items:end; margin-top:3px; }
 .encounter-gallery-title strong { color:#f1d18b; font-size:12px; }
 .encounter-gallery-title small { color:#8f9b9e; font-size:10px; }
+.creature-family-frame { --rarity-accent:#789a68; --rarity-glow:#789a6833; --family-frame:#625b4c; --family-edge:#aaa087; --family-medallion:#171a16; position:relative; overflow:visible; border:2px solid var(--family-frame); background-color:#0d1110; box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--rarity-accent) 52%,transparent),0 7px 16px #0008; }
+.creature-family-frame:before { content:""; position:absolute; z-index:6; inset:4px; border-radius:inherit; pointer-events:none; background:radial-gradient(circle at 3px 3px,var(--rarity-accent) 0 1.5px,transparent 2px),radial-gradient(circle at calc(100% - 3px) 3px,var(--rarity-accent) 0 1.5px,transparent 2px),radial-gradient(circle at 3px calc(100% - 3px),var(--rarity-accent) 0 1.5px,transparent 2px),radial-gradient(circle at calc(100% - 3px) calc(100% - 3px),var(--rarity-accent) 0 1.5px,transparent 2px); opacity:.74; }
+.creature-family-badge { --rarity-accent:#789a68; --rarity-glow:#789a6833; --family-frame:#625b4c; --family-edge:#aaa087; --family-medallion:#171a16; position:absolute; z-index:9; top:-12px; left:50%; translate:-50% 0; display:grid; place-items:center; width:32px; height:32px; border:2px solid var(--family-frame); border-radius:50%; background:radial-gradient(circle at 45% 35%,color-mix(in srgb,var(--rarity-accent) 16%,var(--family-medallion)),var(--family-medallion) 70%); color:var(--rarity-accent); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--family-edge) 65%,transparent),0 0 9px var(--rarity-glow),0 3px 7px #000c; pointer-events:none; }
+.creature-family-badge svg { width:22px; height:22px; overflow:visible; filter:drop-shadow(0 0 3px var(--rarity-glow)); }
+.family-beast { --family-frame:#6b5a43; --family-edge:#b4a080; --family-medallion:#211b13; }
+.family-undead { --family-frame:#59615d; --family-edge:#a9b0a7; --family-medallion:#121916; }
+.family-humanoid { --family-frame:#665e50; --family-edge:#aaa087; --family-medallion:#1c1914; }
+.family-aberration { --family-frame:#514d5f; --family-edge:#9991ad; --family-medallion:#15131d; }
+.family-construct { --family-frame:#5f6970; --family-edge:#a9b1b5; --family-medallion:#13191c; }
+.family-elemental { --family-frame:#5c625a; --family-edge:#a7ad9f; --family-medallion:#141914; }
+.family-insect { --family-frame:#635243; --family-edge:#a88d73; --family-medallion:#1d1712; }
+.family-dragonkin { --family-frame:#514f49; --family-edge:#9c998f; --family-medallion:#171714; }
+.rarity-common { --rarity-accent:#789a68; --rarity-glow:#789a6838; }
+.rarity-rare { --rarity-accent:#4d82c2; --rarity-glow:#4d82c245; }
+.rarity-elite { --rarity-accent:#8a5fc4; --rarity-glow:#8a5fc44d; }
+.rarity-boss { --rarity-accent:#b8444d; --rarity-glow:#b8444d55; }
+.rarity-worldboss { --rarity-accent:#d2a64b; --rarity-glow:#d2a64b66; }
+.frame-unknown { --rarity-accent:#6c7473; --rarity-glow:#0000; --family-frame:#454b49; --family-edge:#737c79; --family-medallion:#121615; }
 .encounter-creature-gallery { display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:8px; }
-.encounter-creature-gallery button { overflow:hidden; padding:0; text-align:left; border:1px solid #4b4439; border-radius:12px; background:#0e1418; color:#ece2ca; box-shadow:0 7px 16px #0007; }
+.encounter-creature-gallery button { overflow:visible; padding:0; text-align:left; border-radius:12px; background:#0e1418; color:#ece2ca; }
 .encounter-creature-gallery button.selected { border-color:#d8a952; box-shadow:0 0 0 2px #d8a95233,0 8px 18px #0009; }
 .encounter-creature-gallery button.unknown { cursor:default; opacity:.82; }
 .encounter-creature-gallery .unknown-creature-art { width:100%; height:136px; display:grid; place-items:center; background:linear-gradient(145deg,#11171a,#25231f); color:#d8a952; font-size:48px; font-weight:900; }
-.encounter-creature-gallery img { width:100%; height:136px; object-fit:cover; display:block; }
+.encounter-creature-gallery img { width:100%; height:136px; object-fit:cover; display:block; border-radius:10px 10px 0 0; }
 .encounter-creature-gallery span,.encounter-creature-gallery small { display:block; padding:0 8px; }
 .encounter-creature-gallery span { margin-top:7px; font-size:11px; font-weight:900; }
 .encounter-creature-gallery small { padding-bottom:8px; margin-top:2px; color:#aeb5b7; font-size:9px; }
-.instance-creature-preview { display:grid; grid-template-columns:150px 1fr; gap:12px; padding:10px; border:1px solid #73583b; border-radius:14px; background:linear-gradient(135deg,#211a14,#10161a); }
+.instance-creature-preview { display:grid; grid-template-columns:150px 1fr; gap:12px; padding:10px; border-radius:14px; background:linear-gradient(135deg,#211a14,#10161a); }
 .instance-creature-preview>img { width:150px; height:185px; object-fit:cover; border-radius:10px; border:1px solid #6e583a; }
 .instance-creature-preview>div { display:grid; align-content:center; gap:6px; }
 .instance-creature-preview small { color:#c7a65d; text-transform:uppercase; letter-spacing:.07em; font-size:9px; }
@@ -567,6 +585,7 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   box-shadow:0 8px 20px #000a,inset 0 0 0 1px #f2c66f12;
   transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease,filter .15s ease;
 }
+.battle-v6-unit-card.creature-family-frame { border-width:2px; border-color:var(--family-frame); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--rarity-accent) 52%,transparent),0 8px 20px #000a; }
 .battle-v6-unit-card>img,.battle-v6-unit-card>.monster-art { display:block; width:100%; height:clamp(112px,27vw,205px); object-fit:cover; object-position:center 18%; border-radius:9px 9px 0 0; background:#0b0e0d; }
 .battle-v6-unit-card>.monster-art { display:grid; place-items:center; font-size:46px; }
 .battle-v6-enemy-card { cursor:crosshair; }
@@ -574,7 +593,7 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .battle-v6-enemy-card.target-selected { transform:translateY(-4px); border-color:#ff453f; box-shadow:0 0 0 2px #7c1919,0 0 25px #ef2e2e70,0 12px 26px #000d; }
 .battle-v6-enemy-card.target-selected:after { content:""; position:absolute; inset:-5px; border:1px solid #e4a94d; border-radius:13px; pointer-events:none; opacity:.75; }
 .battle-v6-enemy-card.unit-defeated { filter:grayscale(.9) brightness(.46); cursor:not-allowed; }
-.battle-v6-target-reticle { position:absolute; z-index:7; top:-16px; left:50%; translate:-50% 0; display:grid; place-items:center; width:34px; height:34px; border:2px solid #f7b445; border-radius:50%; background:#35100eeb; color:#ffcc68; font-size:25px; line-height:1; box-shadow:0 0 12px #ff433b88; animation:battle-target-pulse 1.1s ease-in-out infinite alternate; }
+.battle-v6-target-reticle { position:absolute; z-index:8; top:-12px; right:-10px; display:grid; place-items:center; width:34px; height:34px; border:2px solid #f7b445; border-radius:50%; background:#35100eeb; color:#ffcc68; font-size:25px; line-height:1; box-shadow:0 0 12px #ff433b88; animation:battle-target-pulse 1.1s ease-in-out infinite alternate; }
 @keyframes battle-target-pulse { from { transform:scale(.94); filter:brightness(.9); } to { transform:scale(1.08); filter:brightness(1.35); } }
 .battle-v6-card-copy { display:grid; gap:4px; padding:7px 8px 8px; }
 .battle-v6-card-copy>small { color:#9e927d; font-size:8px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
@@ -657,7 +676,7 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   .battle-v6-card-copy>strong { font-size:11px; }
   .battle-v6-card-footer>span { font-size:6px; letter-spacing:.03em; }
   .battle-v6-card-footer>button { width:22px; min-height:22px; font-size:9px; }
-  .battle-v6-target-reticle { top:-12px; width:28px; height:28px; font-size:20px; }
+  .battle-v6-target-reticle { top:-9px; right:-7px; width:28px; height:28px; font-size:20px; }
   .battle-v6-versus { grid-template-columns:1fr 38px 1fr; }
   .battle-v6-versus b { width:38px; height:38px; font-size:16px; }
   .battle-v6-team-grid.solo { grid-template-columns:minmax(150px,42%) auto; }

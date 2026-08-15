@@ -46,6 +46,7 @@ import {
 } from "@/lib/world";
 import { musicDirector } from "@/lib/music";
 import { CityHub } from "@/components/CityHub";
+import { CreatureFamilyBadge, creatureFrameClassName, creatureRarityLabels, resolveCreatureRarity } from "@/components/CreatureFamilyBadge";
 import { GateMap } from "@/components/GateMap";
 import { QuestBoard } from "@/components/QuestBoard";
 import { MarketPanels } from "@/components/MarketPanels";
@@ -137,7 +138,7 @@ function CreatureLoadoutModal({
         </div>
         <p>{creature.name} · dados táticos da criatura avistada.</p>
         <div className="creature-detail-stats">
-          <small>Classificação: {creature.rarity === "boss" ? "Chefe" : creature.rarity === "rare" ? "Raro" : "Comum"}</small>
+          <small>Classificação: {creatureRarityLabels[resolveCreatureRarity(creature.rarity)]}</small>
           <small>Nível {creature.level} · HP {creature.hpMax}</small>
           <small>Ataque {creature.physicalDamage} · Defesa {creature.physicalDefense}/{creature.magicalDefense}</small>
           {creature.statusEffects?.length ? <small>Perigo: {creature.statusEffects.map((effect) => statusEffectLabels[effect.kind]).join(", ")}</small> : <small>Perigo: ataque direto</small>}
@@ -311,17 +312,17 @@ type AdventureAlert = {
   actionLabel: string;
 };
 
-function bestiaryCreatureForHunt(creatureId: string) {
+function bestiaryCreatureForHunt(creatureId: string): HuntCreatureDefinition {
   const source = bestiaryById.get(creatureId);
   const legacy = huntCreatures.find((entry) => entry.id === creatureId);
   if (!source) return legacy ?? huntCreatures[0];
-  const rarity: HuntCreatureDefinition["rarity"] = source.rarity === "common" ? "common" : source.rarity === "rare" ? "rare" : "boss";
   return {
     id: source.id,
     name: source.name,
     description: source.description,
     portraitPath: source.portraitPath ?? legacy?.portraitPath,
-    rarity,
+    rarity: source.rarity,
+    family: source.family,
     regionId: source.regionId,
     level: source.level,
     hpMax: source.stats.hpMax,
@@ -1557,7 +1558,7 @@ export default function HomePage() {
                     const creature = battle.creatures[index];
                     return (
                       <article
-                        className={`battle-v6-unit-card battle-v6-enemy-card rarity-${creature.rarity} ${selectedTarget ? "target-selected" : ""} ${defeated ? "unit-defeated" : ""} ${battleEffect?.targetId === enemy.id ? `hit-${battleEffect.kind}` : ""}`}
+                        className={`battle-v6-unit-card battle-v6-enemy-card ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${defeated ? "unit-defeated" : ""} ${battleEffect?.targetId === enemy.id ? `hit-${battleEffect.kind}` : ""}`}
                         key={enemy.id}
                         role="button"
                         tabIndex={defeated ? -1 : 0}
@@ -1577,6 +1578,7 @@ export default function HomePage() {
                           }
                         }}
                       >
+                        <CreatureFamilyBadge family={creature.family} rarity={creature.rarity} />
                         {selectedTarget && !defeated && (
                           <span className="battle-v6-target-reticle" aria-hidden="true">⌖</span>
                         )}
@@ -1592,7 +1594,7 @@ export default function HomePage() {
                           <div className="monster-art">✦</div>
                         )}
                         <div className="battle-v6-card-copy">
-                          <small>{creature.rarity === "boss" ? "CHEFE" : creature.rarity === "rare" ? "RARO" : `NV. ${creature.level}`}</small>
+                          <small>{creature.rarity === "common" ? `NV. ${creature.level}` : creatureRarityLabels[resolveCreatureRarity(creature.rarity)].toUpperCase()}</small>
                           <strong>{enemy.name}</strong>
                           <CombatEffects effects={enemy.activeEffects} />
                           <div className="battle-v6-bar hp" aria-label={`HP ${enemy.hpCurrent} de ${enemy.hpMax}`}>

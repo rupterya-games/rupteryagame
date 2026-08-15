@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import type { AdventureCityDefinition } from "@/lib/world";
 import { isAdventureLevelUnlocked } from "@/lib/world";
 import { bestiaryById } from "@/lib/bestiary";
+import { CreatureFamilyBadge, creatureFamilyLabels, creatureFrameClassName, creatureRarityLabels, resolveCreatureFamily, resolveCreatureRarity } from "@/components/CreatureFamilyBadge";
 
 const exitPositions: Record<string, { left: string; top: string }> = {
   north: { left: "50%", top: "13%" },
@@ -167,21 +168,23 @@ export function GateMap({
               <button
                 key={creature.id}
                 disabled={!discovered}
-                className={`${inspectedCreatureId === creature.id ? "selected" : ""} ${!discovered ? "unknown" : ""}`}
+                className={`${discovered ? creatureFrameClassName(creature.family, creature.rarity) : "creature-family-frame frame-unknown"} ${inspectedCreatureId === creature.id ? "selected" : ""} ${!discovered ? "unknown" : ""}`}
                 onClick={() => discovered && setInspectedCreatureId(creature.id)}
               >
+                {discovered && <CreatureFamilyBadge family={creature.family} rarity={creature.rarity} />}
                 {discovered ? <img src={creature.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={creature.name} /> : <div className="unknown-creature-art">?</div>}
                 <span>{discovered ? creature.name : "Desconhecido"}</span>
-                <small>{discovered ? `Nv. ${creature.level} · ${creature.rarity}` : "Encontre para revelar"}</small>
+                <small>{discovered ? `Nv. ${creature.level} · ${creatureRarityLabels[resolveCreatureRarity(creature.rarity)]}` : "Encontre para revelar"}</small>
               </button>
             )})}
           </div>
 
           {inspectedCreature && (
-            <article className="instance-creature-preview">
+            <article className={`instance-creature-preview ${creatureFrameClassName(inspectedCreature.family, inspectedCreature.rarity)}`}>
+              <CreatureFamilyBadge family={inspectedCreature.family} rarity={inspectedCreature.rarity} />
               <img src={inspectedCreature.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={inspectedCreature.name} />
               <div>
-                <small>{inspectedCreature.family} · {inspectedCreature.rarity} · Nv. {inspectedCreature.level}</small>
+                <small>{creatureFamilyLabels[resolveCreatureFamily(inspectedCreature.family)]} · {creatureRarityLabels[resolveCreatureRarity(inspectedCreature.rarity)]} · Nv. {inspectedCreature.level}</small>
                 <strong>{inspectedCreature.name}</strong>
                 <p>{inspectedCreature.description}</p>
                 <span>HP {inspectedCreature.stats.hpMax} · ATQ {Math.max(inspectedCreature.stats.physicalDamage, inspectedCreature.stats.magicalDamage)} · DEF {inspectedCreature.stats.physicalDefense}/{inspectedCreature.stats.magicalDefense}</span>

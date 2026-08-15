@@ -204,7 +204,8 @@ export interface HuntCreatureDefinition {
   name: string;
   description: string;
   portraitPath?: string;
-  rarity: "common" | "rare" | "boss";
+  rarity: "common" | "rare" | "elite" | "boss" | "worldboss";
+  family?: "beast" | "undead" | "humanoid" | "aberration" | "construct" | "elemental" | "insect" | "dragonkin";
   regionId: string;
   level: number;
   hpMax: number;

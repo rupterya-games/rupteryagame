@@ -16,16 +16,15 @@ import type {
   HuntCreatureDefinition,
   LoadoutSlot,
 } from "@rupterya/game-core";
-import { abilities, classes, emberDragonCompanion, equipment, sharedAbilities } from "./catalog";
+import { abilities, classes, emberDragonCompanion, equipment, sharedAbilities, starterSetsByClass } from "./catalog";
 import { bestiaryById } from "./bestiary";
 import { consumablesById, materialResaleValue } from "./economy";
 import { questsById, questIsReady, questPrerequisitesMet } from "./quests";
 import type { AdventureCityId } from "./world";
 
-const STORAGE_KEY = "rupterya-browser-dev-account-v3";
-const LEGACY_KEYS = ["rupterya-browser-dev-account-v2", "rupterya-browser-dev-account-v1"];
+const STORAGE_KEY = "rupterya-browser-dev-account-v4";
+const LEGACY_KEYS = ["rupterya-browser-dev-account-v3", "rupterya-browser-dev-account-v2", "rupterya-browser-dev-account-v1"];
 const allAbilities = [...abilities, ...sharedAbilities];
-const starterItemIds = ["iron-sword", "iron-helm", "leather-coat", "traveler-boots"];
 const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
 export const emptyWorldProgress = (): CharacterWorldProgress => ({
@@ -55,6 +54,29 @@ const defaultLoadout = (classId: string) => {
     stance: find("stance"),
     passive: find("passive"),
   };
+};
+
+
+const starterItemIdsForClass = (classId: string) => starterSetsByClass[classId] ?? [];
+
+const starterEquipmentForClass = (classId: string) => {
+  const state = emptyEquipment();
+  for (const itemId of starterItemIdsForClass(classId)) {
+    const item = equipment.find((entry) => entry.id === itemId);
+    if (item) state[item.slot] = item.id;
+  }
+  return state;
+};
+
+const normalizeEquipmentForClass = (classId: string, current?: Partial<GameCharacter["equipment"]>) => {
+  const starter = starterEquipmentForClass(classId);
+  const normalized = { ...emptyEquipment(), ...(current ?? {}) };
+  // Migração segura: preserva todo item já equipado e só completa slots vazios
+  // com o set inicial da classe, incluindo o novo slot de arma secundária.
+  for (const slot of Object.keys(starter) as Array<keyof typeof starter>) {
+    if (!normalized[slot] && starter[slot]) normalized[slot] = starter[slot];
+  }
+  return normalized;
 };
 
 function normalizeWorldProgress(progress?: CharacterWorldProgress): CharacterWorldProgress {
@@ -108,18 +130,34 @@ export class DevCharacterRepository {
       const classId = legacyClasses[character.classId] ?? character.classId;
       const definition = classes.find((entry) => entry.id === classId) ?? classes[0];
       const ownedAbilityIds = abilities.filter((ability) => ability.id.startsWith(`${definition.id}-`)).map((ability) => ability.id);
+      const starterIds = starterItemIdsForClass(definition.id);
       const presets = character.presets.map((preset) => {
         const compatible = Object.values(preset.loadout).every((abilityId) => abilityId === null || ownedAbilityIds.includes(abilityId));
-        return { ...preset, loadout: compatible ? preset.loadout : defaultLoadout(definition.id) };
+        return {
+          ...preset,
+          loadout: compatible ? preset.loadout : defaultLoadout(definition.id),
+          equipment: normalizeEquipmentForClass(definition.id, preset.equipment),
+        };
       });
+      const activePreset = presets.find((preset) => preset.id === character.activePresetId) ?? presets[0];
+      const normalizedEquipment = activePreset?.equipment ?? normalizeEquipmentForClass(definition.id, character.equipment);
+      const computed = applyEquipment(definition, normalizedEquipment, equipment);
       return withWorldProgress({
         ...character,
         classId: definition.id,
-        inventoryItemIds: character.inventoryItemIds ?? starterItemIds,
+        equipment: normalizedEquipment,
+        inventoryItemIds: [...new Set([...(character.inventoryItemIds ?? []), ...starterIds])],
         itemMemories: character.itemMemories ?? {},
         fragments: character.fragments ?? {},
         ownedAbilityIds: [...new Set([...ownedAbilityIds, "school-fire", "lineage-vampire", "secret-predatory-charge"])],
         presets,
+        vitals: {
+          ...character.vitals,
+          hpMax: computed.hpMax,
+          hpCurrent: Math.min(character.vitals.hpCurrent, computed.hpMax),
+          mpMax: computed.mpMax,
+          mpCurrent: Math.min(character.vitals.mpCurrent, computed.mpMax),
+        },
       });
     });
     const migrated = { ...stored, characters };
@@ -138,7 +176,9 @@ export class DevCharacterRepository {
     if (!definition) throw new Error("Classe inválida.");
     const name = input.name.trim();
     if (name.length < 3) throw new Error("Use um nome com ao menos 3 caracteres.");
-    const preset: CharacterPreset = { id: id(), name: "Caça", loadout: defaultLoadout(definition.id), equipment: emptyEquipment() };
+    const starterEquipment = starterEquipmentForClass(definition.id);
+    const computedStarter = applyEquipment(definition, starterEquipment, equipment);
+    const preset: CharacterPreset = { id: id(), name: "Caça", loadout: defaultLoadout(definition.id), equipment: starterEquipment };
     const character: GameCharacter = {
       id: id(),
       name,
@@ -148,15 +188,15 @@ export class DevCharacterRepository {
       schoolId: null,
       skinId: "default",
       vitals: {
-        hpCurrent: definition.baseVitals.hpMax,
-        hpMax: definition.baseVitals.hpMax,
-        mpCurrent: definition.baseVitals.mpMax,
-        mpMax: definition.baseVitals.mpMax,
+        hpCurrent: computedStarter.hpMax,
+        hpMax: computedStarter.hpMax,
+        mpCurrent: computedStarter.mpMax,
+        mpMax: computedStarter.mpMax,
         morale: definition.baseVitals.morale,
         gold: definition.baseVitals.gold,
       },
       equipment: preset.equipment,
-      inventoryItemIds: starterItemIds,
+      inventoryItemIds: starterItemIdsForClass(definition.id),
       itemMemories: {},
       fragments: {},
       ownedAbilityIds: [
@@ -178,6 +218,7 @@ export class DevCharacterRepository {
 
   equip(character: GameCharacter, item: EquipmentItem): GameCharacter {
     if (!character.inventoryItemIds.includes(item.id)) throw new Error("Esse item ainda não pertence ao inventário.");
+    if (item.allowedClassIds?.length && !item.allowedClassIds.includes(character.classId)) throw new Error(`${item.name} não pode ser equipado por esta classe.`);
     const preset = activePreset(character);
     const equipmentState = { ...preset.equipment, [item.slot]: preset.equipment[item.slot] === item.id ? null : item.id };
     const updated = { ...preset, equipment: equipmentState };
@@ -293,10 +334,15 @@ export class DevCharacterRepository {
     return this.save(replaceCharacter(account, updated));
   }
 
-  recordSpot(account: DevAccount, character: GameCharacter, levelId: string, spotId: string, discoveredCreatureIds: readonly string[] = []): DevAccount {
+  recordSpot(account: DevAccount, character: GameCharacter, levelId: string, spotId: string): DevAccount {
     const progress = normalizeWorldProgress(character.worldProgress);
     progress.exploredSpotsByLevel[levelId] = [...new Set([...(progress.exploredSpotsByLevel[levelId] ?? []), spotId])];
-    progress.discoveredCreatureIds = [...new Set([...progress.discoveredCreatureIds, ...discoveredCreatureIds])];
+    return this.save(replaceCharacter(account, { ...character, worldProgress: progress }));
+  }
+
+  discoverCreatures(account: DevAccount, character: GameCharacter, creatureIds: string[]): DevAccount {
+    const progress = normalizeWorldProgress(character.worldProgress);
+    progress.discoveredCreatureIds = [...new Set([...progress.discoveredCreatureIds, ...creatureIds])];
     return this.save(replaceCharacter(account, { ...character, worldProgress: progress }));
   }
 
@@ -342,7 +388,7 @@ export class DevCharacterRepository {
   }
 
   addPreset(character: GameCharacter, name: string): GameCharacter {
-    const preset: CharacterPreset = { id: id(), name: name.trim() || `Preset ${character.presets.length + 1}`, loadout: defaultLoadout(character.classId), equipment: emptyEquipment() };
+    const preset: CharacterPreset = { id: id(), name: name.trim() || `Preset ${character.presets.length + 1}`, loadout: defaultLoadout(character.classId), equipment: starterEquipmentForClass(character.classId) };
     return { ...character, presets: [...character.presets, preset], activePresetId: preset.id, equipment: preset.equipment };
   }
 
@@ -371,7 +417,17 @@ export class DevCharacterRepository {
 
   beginHunt(account: DevAccount, character: GameCharacter, regionId: string, creatures: HuntCreatureDefinition[]): HuntBattleState {
     const summary = this.summary(account, character);
-    const onHitEffects = Object.values(character.equipment).flatMap((itemId) => equipment.find((item) => item.id === itemId)?.statusEffects ?? []);
+    const equippedItems = Object.values(character.equipment).flatMap((itemId) => equipment.filter((item) => item.id === itemId));
+    const onHitEffects = equippedItems.flatMap((item) => item.statusEffects ?? []);
+    const preset = activePreset(character);
+    const samuraiPassiveActive = character.classId === "samurai" && preset.loadout.passive === "samurai-passive";
+    const counterAttack = samuraiPassiveActive
+      ? {
+          chance: Math.min(70, 30 + equippedItems.reduce((sum, item) => sum + (item.counterAttackChanceBonus ?? 0), 0)),
+          scaling: Math.min(1.25, 0.65 + equippedItems.reduce((sum, item) => sum + (item.counterAttackScalingBonus ?? 0), 0)),
+          sourceName: "Retaliação Iai",
+        }
+      : undefined;
     return createHuntBattle({
       regionId,
       creatures,
@@ -388,6 +444,7 @@ export class DevCharacterRepository {
         stats: summary.stats,
         activeEffects: [],
         onHitEffects,
+        counterAttack,
       },
     });
   }
@@ -440,11 +497,19 @@ export class DevCharacterRepository {
   summary(account: DevAccount, character: GameCharacter) {
     const base = classes.find((entry) => entry.id === character.classId)!;
     const computed = applyEquipment(base, character.equipment, equipment);
+    const equippedItems = Object.values(character.equipment).flatMap((itemId) => equipment.filter((item) => item.id === itemId));
+    const preset = activePreset(character);
+    const counterAttackActive = character.classId === "samurai" && preset.loadout.passive === "samurai-passive";
+    const counterAttackChance = counterAttackActive ? Math.min(70, 30 + equippedItems.reduce((sum, item) => sum + (item.counterAttackChanceBonus ?? 0), 0)) : 0;
+    const counterAttackScaling = counterAttackActive ? Math.min(1.25, 0.65 + equippedItems.reduce((sum, item) => sum + (item.counterAttackScalingBonus ?? 0), 0)) : 0;
     const premiumSkin = character.classId === "guardian" && character.skinId === "guardian-eclipse";
     return {
       name: character.name,
       className: base.name,
       classRole: base.role,
+      classId: base.id,
+      counterAttackChance,
+      counterAttackScaling,
       portraitPath: premiumSkin ? "/art/skins/guardian-eclipse-premium-v1.png" : base.portraitPath,
       kingdom: character.kingdom,
       level: account.globalLevel,

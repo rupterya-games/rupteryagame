@@ -71,14 +71,15 @@ type JourneyOutcome = {
   text: string;
 };
 const slotLabels: Record<string, string> = {
-  weapon: "Arma",
+  weapon: "Arma principal",
+  secondary: "Arma secundária",
   head: "Cabeça",
   chest: "Peito",
   hands: "Mãos",
   feet: "Pés",
   trinket: "Amuleto",
 };
-const equipmentSlotIds = ["weapon", "head", "chest", "hands", "feet", "trinket"] as const;
+const equipmentSlotIds = ["weapon", "secondary", "head", "chest", "hands", "feet", "trinket"] as const;
 
 function EquipmentLoadoutModal({
   character,
@@ -283,15 +284,17 @@ function JourneyOutcomePanel({
   kind,
   actionLabel,
   onAction,
+  inline = false,
 }: {
   title: string;
   text: string;
   kind: "event" | "quiet" | "encounter";
   actionLabel: string;
   onAction: () => void;
+  inline?: boolean;
 }) {
   return (
-    <section className={`journey-outcome-panel ${kind}`}>
+    <section className={`journey-outcome-panel ${kind} ${inline ? "inline" : ""}`}>
       <strong>{title}</strong>
       <small>{text}</small>
       <button className="primary" onClick={onAction}>
@@ -336,14 +339,30 @@ function bestiaryCreatureForHunt(creatureId: string) {
   };
 }
 
-function createInstanceEncounter(creaturePool: readonly string[]) {
+function createInstanceEncounter(creaturePool: readonly string[], playerLevel: number) {
   const firstId = creaturePool[Math.floor(Math.random() * creaturePool.length)] ?? creaturePool[0] ?? huntCreatures[0].id;
   const source = bestiaryById.get(firstId);
-  const min = source?.solitary ? 1 : Math.max(1, source?.packMin ?? 1);
-  const max = source?.solitary ? 1 : Math.min(5, Math.max(min, source?.packMax ?? 2));
+  const creatureLevel = source?.level ?? playerLevel;
+  let min = source?.solitary ? 1 : Math.max(1, source?.packMin ?? 1);
+  let max = source?.solitary ? 1 : Math.min(5, Math.max(min, source?.packMax ?? 2));
+
+  // Balanceamento por diferença de nível: grupos existem para serem perigosos
+  // na faixa recomendada, não para fazer um personagem Nv.30 apanhar de uma
+  // alcateia Nv.1. O monstro não ganha scaling oculto para alcançar o jogador.
+  const gap = playerLevel - creatureLevel;
+  if (gap >= 15) { min = 1; max = 1; }
+  else if (gap >= 8) { min = 1; max = Math.min(2, max); }
+  else if (gap >= 4) { min = 1; max = Math.min(3, max); }
+  if (creatureLevel >= playerLevel + 6) { min = 1; max = Math.min(2, max); }
+
   const count = min + Math.floor(Math.random() * (max - min + 1));
   return Array.from({ length: count }, (_, index) => {
-    const creatureId = index === 0 ? firstId : (creaturePool[Math.floor(Math.random() * creaturePool.length)] ?? firstId);
+    const candidates = creaturePool.filter((id) => {
+      const candidate = bestiaryById.get(id);
+      return !candidate || Math.abs(candidate.level - creatureLevel) <= 5;
+    });
+    const pool = candidates.length ? candidates : [...creaturePool];
+    const creatureId = index === 0 ? firstId : (pool[Math.floor(Math.random() * pool.length)] ?? firstId);
     return bestiaryCreatureForHunt(creatureId);
   });
 }
@@ -386,6 +405,7 @@ export default function HomePage() {
   const [journeyNodeId, setJourneyNodeId] = useState("fiordevalle");
   const [journeyStartNodeId, setJourneyStartNodeId] = useState("fiordevalle");
   const [battle, setBattle] = useState<HuntBattleState | null>(null);
+  const [selectedEnemyId, setSelectedEnemyId] = useState<string | null>(null);
   const [battleEffect, setBattleEffect] = useState<BattleEffect>(null);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [showBattleLoadout, setShowBattleLoadout] = useState(false);
@@ -400,6 +420,7 @@ export default function HomePage() {
   const [selectedInstanceLevelId, setSelectedInstanceLevelId] = useState<string | null>(null);
   const [adventureAlert, setAdventureAlert] = useState<AdventureAlert | null>(null);
   const [pendingEncounter, setPendingEncounter] = useState<ReturnType<typeof createInstanceEncounter> | null>(null);
+  const [pendingEncounterSpot, setPendingEncounterSpot] = useState<{ levelId: string; spotId: string; spotName: string } | null>(null);
 
   useEffect(() => {
     const stored = repository.load();
@@ -425,6 +446,21 @@ export default function HomePage() {
     window.addEventListener("pointerdown", unlockMusic, { once: true });
     return () => window.removeEventListener("pointerdown", unlockMusic);
   }, [musicMode]);
+
+  useEffect(() => {
+    if (!battle || battle.status !== "active") {
+      setSelectedEnemyId(null);
+      return;
+    }
+    const selectedAlive = battle.enemies.some(
+      (enemy) => enemy.id === selectedEnemyId && enemy.hpCurrent > 0,
+    );
+    if (!selectedAlive) {
+      setSelectedEnemyId(
+        battle.enemies.find((enemy) => enemy.hpCurrent > 0)?.id ?? null,
+      );
+    }
+  }, [battle, selectedEnemyId]);
 
   useEffect(() => {
     document
@@ -654,6 +690,7 @@ export default function HomePage() {
     setSelectedInstanceLevelId(null);
     setAdventureAlert(null);
     setPendingEncounter(null);
+    setPendingEncounterSpot(null);
     setMessage(`Você entrou em ${adventureCities[cityId].name}.`);
   };
   const buyEquipmentListing = (item: (typeof equipment)[number], price: number, blackMarket = false) => {
@@ -738,6 +775,7 @@ export default function HomePage() {
     setSelectedInstanceLevelId(destinationLevelId);
     setAdventureAlert(null);
     setPendingEncounter(null);
+    setPendingEncounterSpot(null);
     setMessage(`Rota do contrato aberta: ${quest.title}.`);
   };
   const openCitySection = (sectionId: string) => {
@@ -746,7 +784,8 @@ export default function HomePage() {
     if (sectionId !== "portoes") {
       setSelectedExitId(null);
       setSelectedInstanceLevelId(null);
-        setPendingEncounter(null);
+      setPendingEncounter(null);
+      setPendingEncounterSpot(null);
     }
   };
   const openExit = (exitId: string) => {
@@ -755,6 +794,7 @@ export default function HomePage() {
     setSelectedInstanceLevelId(null);
     setAdventureAlert(null);
     setPendingEncounter(null);
+    setPendingEncounterSpot(null);
   };
   const openInstanceLevel = (levelId: string) => {
     if (!isAdventureLevelUnlocked(adventureCity, levelId, exploredSpotsByLevel)) {
@@ -766,19 +806,7 @@ export default function HomePage() {
     setSelectedInstanceLevelId(levelId);
     setAdventureAlert(null);
     setPendingEncounter(null);
-  };
-  const returnFromAdventureScreen = () => {
-    setAdventureAlert(null);
-    setPendingEncounter(null);
-    if (selectedInstanceLevelId) {
-      setSelectedInstanceLevelId(null);
-      return;
-    }
-    if (selectedExitId) {
-      setSelectedExitId(null);
-      return;
-    }
-    setCitySectionId("hub");
+    setPendingEncounterSpot(null);
   };
   const exploreSpot = (spotId: string, spotName: string) => {
     if (!selected || !activeExit || !activeLevel) return;
@@ -787,13 +815,22 @@ export default function HomePage() {
     const roll = Math.random();
     const eventText = activeLevel.eventPool[Math.floor(Math.random() * activeLevel.eventPool.length)] ?? `${spotName} permanece em silêncio.`;
     if (roll < 0.62) {
-      const creatures = createInstanceEncounter(activeLevel.creaturePool);
-      setAccount(repository.recordSpot(account, selected, activeLevel.id, spotId, creatures.map((creature) => creature.id)));
-      setBattle(repository.beginHunt(account, selected, activeCityId, creatures));
+      const creatures = createInstanceEncounter(activeLevel.creaturePool, account.globalLevel);
+      setAccount(repository.discoverCreatures(account, selected, creatures.map((entry) => entry.id)));
+      setPendingEncounter(creatures);
+      setPendingEncounterSpot({ levelId: activeLevel.id, spotId, spotName });
+      setAdventureAlert({
+        kind: "encounter",
+        title: `${spotName} · ameaça detectada`,
+        text: `Uma ameaça surgiu em ${activeLevel.name}. Inimigos vistos: ${creatures.map((entry) => entry.name).join(", ")}. O spot só será concluído se você vencer o combate.`,
+        actionLabel: "Entrar em combate",
+      });
       setMessage(`Encontro encontrado em ${activeLevel.name}.`);
+      window.setTimeout(() => document.querySelector<HTMLElement>(".journey-outcome-panel.inline")?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
       return;
     }
     setAccount(repository.recordSpot(account, selected, activeLevel.id, spotId));
+    setPendingEncounterSpot(null);
     if (roll < 0.87) {
       setPendingEncounter(null);
       setAdventureAlert({
@@ -803,6 +840,7 @@ export default function HomePage() {
         actionLabel: "Continuar exploração",
       });
       setMessage(`Evento encontrado em ${activeLevel.name}.`);
+      window.setTimeout(() => document.querySelector<HTMLElement>(".journey-outcome-panel.inline")?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
       return;
     }
     setPendingEncounter(null);
@@ -813,6 +851,7 @@ export default function HomePage() {
       actionLabel: "Continuar exploração",
     });
     setMessage(`Spot explorado em ${activeLevel.name} sem combate.`);
+    window.setTimeout(() => document.querySelector<HTMLElement>(".journey-outcome-panel.inline")?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
   };
   const consumeAdventureAction = () => {
     if (adventureAlert?.kind === "encounter" && pendingEncounter && selected) {
@@ -822,6 +861,15 @@ export default function HomePage() {
       return;
     }
     setAdventureAlert(null);
+    setPendingEncounterSpot(null);
+  };
+  const returnFromAdventureScreen = () => {
+    setAdventureAlert(null);
+    setPendingEncounter(null);
+    setPendingEncounterSpot(null);
+    if (selectedInstanceLevelId) return setSelectedInstanceLevelId(null);
+    if (selectedExitId) return setSelectedExitId(null);
+    setCitySectionId("hub");
   };
   const takeTurn = (ability: AbilityDefinition) => {
     if (!battle || !selected) return;
@@ -830,8 +878,12 @@ export default function HomePage() {
       setMessage(`${ability.name} estará disponível em ${cooldown} turno(s).`);
       return;
     }
-    const target = battle.enemies.find((enemy) => enemy.hpCurrent > 0);
-    const next = resolveHuntTurn(battle, ability);
+    const target =
+      battle.enemies.find(
+        (enemy) => enemy.id === selectedEnemyId && enemy.hpCurrent > 0,
+      ) ?? battle.enemies.find((enemy) => enemy.hpCurrent > 0);
+    if (target && target.id !== selectedEnemyId) setSelectedEnemyId(target.id);
+    const next = resolveHuntTurn(battle, ability, target?.id);
     setBattle(next);
     if (target) {
       setBattleEffect({
@@ -853,11 +905,17 @@ export default function HomePage() {
       window.setTimeout(() => setBattleEffect(null), 1120);
     }
     if (next.status !== "active") {
-      setAccount(repository.settleHunt(account, selected, next));
+      let settled = repository.settleHunt(account, selected, next);
+      if (next.status === "victory" && pendingEncounterSpot) {
+        const settledCharacter = settled.characters.find((entry) => entry.id === selected.id);
+        if (settledCharacter) settled = repository.recordSpot(settled, settledCharacter, pendingEncounterSpot.levelId, pendingEncounterSpot.spotId);
+      }
+      setAccount(settled);
+      setPendingEncounterSpot(null);
       setMessage(
         next.status === "victory"
-          ? "Vitória registrada: XP global e ouro foram adicionados."
-          : "Derrota registrada: sua vida permanece em 0 até receber cura.",
+          ? "Vitória registrada: XP, ouro e o spot da instância foram concluídos."
+          : "Derrota registrada: o spot não foi consumido e poderá ser tentado novamente após a cura.",
       );
     }
   };
@@ -885,7 +943,7 @@ export default function HomePage() {
           <span className="eyebrow">SLOTS DE PERSONAGEM · DEV</span>
           <h1>Escolha seu aventureiro</h1>
           <p>
-            Os quatro arquétipos usam retratos e cartas próprias. Todos herdam o
+            Os cinco arquétipos usam retratos e cartas próprias. Todos herdam o
             nível global da conta.
           </p>
         </section>
@@ -963,15 +1021,6 @@ export default function HomePage() {
             </button>
           </section>
         )}
-        {view === "hunt" && !battle && adventureAlert && (
-          <JourneyOutcomePanel
-            title={adventureAlert.title}
-            text={adventureAlert.text}
-            kind={adventureAlert.kind}
-            actionLabel={adventureAlert.actionLabel}
-            onAction={consumeAdventureAction}
-          />
-        )}
         {battle && view === "hunt" && (
           <BattleCooldownPanel
             battle={battle}
@@ -988,26 +1037,29 @@ export default function HomePage() {
 
   return (
     <main className="shell">
-      <header className="topbar">
-        <button
-          className="back"
-          onClick={() => {
-            setBattle(null);
-            setView("slots");
-          }}
-        >
-          Slots
-        </button>
-        <div>
-          <span className="brand">RUPTERYA</span>
-          <small>
-            Conta Nv. {account.globalLevel} · XP {account.globalXp}
-          </small>
-        </div>
-        <span className="badge">
-          Poder {summary!.power.toLocaleString("pt-BR")}
-        </span>
-      </header>
+      {!(view === "hunt" && battle) && (
+        <header className="topbar">
+          <button
+            className="back"
+            onClick={() => {
+              setBattle(null);
+              setSelectedEnemyId(null);
+              setView("slots");
+            }}
+          >
+            Slots
+          </button>
+          <div>
+            <span className="brand">RUPTERYA</span>
+            <small>
+              Conta Nv. {account.globalLevel} · XP {account.globalXp}
+            </small>
+          </div>
+          <span className="badge">
+            Poder {summary!.power.toLocaleString("pt-BR")}
+          </span>
+        </header>
+      )}
       {view === "lobby" && (
         <>
           <section className="hero-card">
@@ -1149,6 +1201,10 @@ export default function HomePage() {
               "Resist. queimadura": `${summary!.stats.burnResistance}%`,
               "Resist. veneno": `${summary!.stats.poisonResistance}%`,
               "Resist. cegueira": `${summary!.stats.blindResistance}%`,
+              ...(summary!.counterAttackChance > 0 ? {
+                "Chance de contra-ataque": `${summary!.counterAttackChance}%`,
+                "Escala do contra-ataque": `${Math.round(summary!.counterAttackScaling * 100)}% do Dano Físico`,
+              } : {}),
               Percepção: summary!.adventure.perception,
               Conhecimento: summary!.adventure.knowledge,
               Força: summary!.adventure.strength,
@@ -1180,10 +1236,12 @@ export default function HomePage() {
                   className={`item-card ${active ? "selected" : ""}`}
                   key={item.id}
                   onClick={() => {
-                    persist(repository.equip(selected, item));
-                    setMessage(
-                      `${active ? "Desequipado" : "Equipado"}: ${item.name}.`,
-                    );
+                    try {
+                      persist(repository.equip(selected, item));
+                      setMessage(`${active ? "Desequipado" : "Equipado"}: ${item.name}.`);
+                    } catch (error) {
+                      setMessage(error instanceof Error ? error.message : "Não foi possível equipar este item.");
+                    }
                   }}
                 >
                   <small>
@@ -1432,214 +1490,278 @@ export default function HomePage() {
                   )}
 
                   {selectedCitySection.id === "portoes" && (
-                    <GateMap
-                      city={adventureCity}
-                      selectedExitId={selectedExitId}
-                      selectedLevelId={selectedInstanceLevelId}
-                      exploredSpotsByLevel={worldProgress.exploredSpotsByLevel}
-                      discoveredCreatureIds={worldProgress.discoveredCreatureIds}
-                      creatureName={(creatureId) => bestiaryById.get(creatureId)?.name ?? huntCreatures.find((creature) => creature.id === creatureId)?.name ?? creatureId}
-                      onSelectExit={openExit}
-                      onSelectLevel={openInstanceLevel}
-                      onExploreSpot={exploreSpot}
-                    />
+                    <>
+                      <GateMap
+                        city={adventureCity}
+                        selectedExitId={selectedExitId}
+                        selectedLevelId={selectedInstanceLevelId}
+                        exploredSpotsByLevel={worldProgress.exploredSpotsByLevel}
+                        discoveredCreatureIds={worldProgress.discoveredCreatureIds}
+                        creatureName={(creatureId) => bestiaryById.get(creatureId)?.name ?? huntCreatures.find((creature) => creature.id === creatureId)?.name ?? creatureId}
+                        onSelectExit={openExit}
+                        onSelectLevel={openInstanceLevel}
+                        onExploreSpot={exploreSpot}
+                      />
+                      {adventureAlert && (
+                        <JourneyOutcomePanel
+                          title={adventureAlert.title}
+                          text={adventureAlert.text}
+                          kind={adventureAlert.kind}
+                          actionLabel={adventureAlert.actionLabel}
+                          onAction={consumeAdventureAction}
+                          inline
+                        />
+                      )}
+                    </>
                   )}
                 </section>}
               </section>
             </>
           ) : (
-            <section className="battle-screen">
-              <div className="section-title">
-                <span>Caça solo · {battle.enemies.length} inimigo(s)</span>
+            <section className="battle-screen battle-screen-v6">
+              <header className="battle-v6-header">
                 <button
+                  className="battle-v6-back"
+                  aria-label="Recuar da batalha"
                   onClick={() => {
                     setShowBattleLoadout(false);
                     setBattle(null);
+                    setSelectedEnemyId(null);
+                    setPendingEncounterSpot(null);
                   }}
                 >
-                  Recuar
+                  ←
                 </button>
-              </div>
-              <div className="battle-table" style={battleBoardStyle}>
-                <article
-                  className={`battle-card player-card ${battleEffect?.targetId === battle.player.id ? `hit-${battleEffect.kind}` : ""}`}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Abrir equipamentos do herói"
-                  onDoubleClick={() => setShowBattleLoadout(true)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") setShowBattleLoadout(true);
-                  }}
-                >
-                  {battleEffect?.targetId === battle.player.id && (
-                    <span
-                      className={`battle-impact ${battleEffect.kind}`}
-                      aria-hidden="true"
-                    >{battleEffect.damage ? `-${battleEffect.damage}` : ""}</span>
-                  )}
-                  <img src={summary!.portraitPath} alt="" />
-                  <div>
-                    <small>
-                      {summary!.className} · Nv. {summary!.level}
-                    </small>
-                    <strong>{summary!.name}</strong>
-                    <CombatEffects effects={battle.player.activeEffects} />
-                    <div className="battle-resource">
-                      <span>
-                        HP {battle.player.hpCurrent}/{battle.player.hpMax}
-                      </span>
-                      <i>
-                        <b
-                          style={{
-                            width: `${(battle.player.hpCurrent / battle.player.hpMax) * 100}%`,
-                          }}
-                        />
-                      </i>
-                    </div>
-                    <div className="battle-resource mana">
-                      <span>
-                        MP {battle.player.mpCurrent}/{battle.player.mpMax}
-                      </span>
-                      <i>
-                        <b
-                          style={{
-                            width: `${(battle.player.mpCurrent / battle.player.mpMax) * 100}%`,
-                          }}
-                        />
-                      </i>
-                    </div>
-                  </div>
-                </article>
-                {battle.companion && (
-                  <div
-                    className="battle-pet"
-                    role="img"
-                    aria-label={`${battle.companion.name}, aliado lendário`}
-                  >
-                    <span>ALIADO</span>
-                  </div>
-                )}
-                <div className="enemy-pack">
-                  {battle.enemies.map((enemy, index) => (
-                    <article
-                      className={`battle-card enemy-card rarity-${battle.creatures[index].rarity} ${battleEffect?.targetId === enemy.id ? `hit-${battleEffect.kind}` : ""}`}
-                      key={enemy.id}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Ver equipamento de ${enemy.name}`}
-                      onClick={() => setInspectedCreatureIndex(index)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") setInspectedCreatureIndex(index);
-                      }}
-                    >
-                      {battleEffect?.targetId === enemy.id && (
-                        <span
-                          className={`battle-impact ${battleEffect.kind}`}
-                          aria-hidden="true"
-                        >{battleEffect.damage ? `-${battleEffect.damage}` : ""}</span>
-                      )}
-                      {enemy.portraitPath ? (
-                        <img
-                          src={enemy.portraitPath}
-                          alt={`Carta de ${enemy.name}`}
-                        />
-                      ) : (
-                        <div className="monster-art">✦</div>
-                      )}
-                      <div>
-                        <strong>{enemy.name}</strong>
-                        {(battle.creatures[index].equippedItems ?? []).map((item) => <small className="enemy-drop-preview" key={item.id}>⌁ {item.name} · {item.rarity} · integridade {100 - (item.breakChance ?? dropBreakChanceByRarity[item.rarity])}%</small>)}
-                        <CombatEffects effects={enemy.activeEffects} />
-                        <div className="battle-resource">
-                          <i>
-                            <b
-                              style={{
-                                width: `${(enemy.hpCurrent / enemy.hpMax) * 100}%`,
+                <div className="battle-v6-title">
+                  <span>CAÇA SOLO</span>
+                  <small>Turno {battle.turn}</small>
+                </div>
+                <div className="battle-v6-party-pill" title="O mesmo campo suporta equipe co-op de até 3 jogadores">
+                  ♟ 1/1 <i />
+                </div>
+              </header>
+
+              <div className="battle-v6-arena" style={battleBoardStyle}>
+                <div className="battle-v6-section-title">
+                  <span>INIMIGOS</span>
+                </div>
+                <div className={`battle-v6-enemy-grid enemy-count-${Math.min(3, battle.enemies.length)}`}>
+                  {battle.enemies.map((enemy, index) => {
+                    const selectedTarget = enemy.id === selectedEnemyId;
+                    const defeated = enemy.hpCurrent <= 0;
+                    const creature = battle.creatures[index];
+                    return (
+                      <article
+                        className={`battle-v6-unit-card battle-v6-enemy-card rarity-${creature.rarity} ${selectedTarget ? "target-selected" : ""} ${defeated ? "unit-defeated" : ""} ${battleEffect?.targetId === enemy.id ? `hit-${battleEffect.kind}` : ""}`}
+                        key={enemy.id}
+                        role="button"
+                        tabIndex={defeated ? -1 : 0}
+                        aria-pressed={selectedTarget}
+                        aria-label={`${selectedTarget ? "Alvo atual" : "Selecionar"} ${enemy.name}`}
+                        onClick={() => {
+                          if (!defeated) {
+                            setSelectedEnemyId(enemy.id);
+                            setMessage(`${enemy.name} selecionado como alvo.`);
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if (!defeated && (event.key === "Enter" || event.key === " ")) {
+                            event.preventDefault();
+                            setSelectedEnemyId(enemy.id);
+                            setMessage(`${enemy.name} selecionado como alvo.`);
+                          }
+                        }}
+                      >
+                        {selectedTarget && !defeated && (
+                          <span className="battle-v6-target-reticle" aria-hidden="true">⌖</span>
+                        )}
+                        {battleEffect?.targetId === enemy.id && (
+                          <span
+                            className={`battle-impact ${battleEffect.kind}`}
+                            aria-hidden="true"
+                          >{battleEffect.damage ? `-${battleEffect.damage}` : ""}</span>
+                        )}
+                        {enemy.portraitPath ? (
+                          <img src={enemy.portraitPath} alt={`Retrato de ${enemy.name}`} />
+                        ) : (
+                          <div className="monster-art">✦</div>
+                        )}
+                        <div className="battle-v6-card-copy">
+                          <small>{creature.rarity === "boss" ? "CHEFE" : creature.rarity === "rare" ? "RARO" : `NV. ${creature.level}`}</small>
+                          <strong>{enemy.name}</strong>
+                          <CombatEffects effects={enemy.activeEffects} />
+                          <div className="battle-v6-bar hp" aria-label={`HP ${enemy.hpCurrent} de ${enemy.hpMax}`}>
+                            <b style={{ width: `${Math.max(0, (enemy.hpCurrent / enemy.hpMax) * 100)}%` }} />
+                          </div>
+                          <div className="battle-v6-card-footer">
+                            <span>{defeated ? "DERROTADO" : selectedTarget ? "ALVO" : "TOQUE PARA MIRAR"}</span>
+                            <button
+                              type="button"
+                              aria-label={`Inspecionar ${enemy.name}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setInspectedCreatureIndex(index);
                               }}
-                            />
-                          </i>
+                            >
+                              i
+                            </button>
+                          </div>
                         </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                <div className="battle-v6-versus" aria-hidden="true">
+                  <span />
+                  <b>VS</b>
+                  <span />
+                </div>
+
+                <div className="battle-v6-section-title team-title">
+                  <span>EQUIPE</span>
+                </div>
+                <div className="battle-v6-team-grid solo">
+                  <article
+                    className={`battle-v6-unit-card battle-v6-player-card ${battleEffect?.targetId === battle.player.id ? `hit-${battleEffect.kind}` : ""}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Abrir equipamentos do herói"
+                    onDoubleClick={() => setShowBattleLoadout(true)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") setShowBattleLoadout(true);
+                    }}
+                  >
+                    <span className="battle-v6-turn-ribbon">SUA VEZ</span>
+                    {battleEffect?.targetId === battle.player.id && (
+                      <span className={`battle-impact ${battleEffect.kind}`} aria-hidden="true">
+                        {battleEffect.damage ? `-${battleEffect.damage}` : ""}
+                      </span>
+                    )}
+                    <img src={summary!.portraitPath} alt={`Retrato de ${summary!.name}`} />
+                    <div className="battle-v6-card-copy">
+                      <small>{summary!.className} · Nv. {summary!.level}</small>
+                      <strong>{summary!.name} <i className="online-dot" /></strong>
+                      <CombatEffects effects={battle.player.activeEffects} />
+                      <div className="battle-v6-bar hp">
+                        <b style={{ width: `${Math.max(0, (battle.player.hpCurrent / battle.player.hpMax) * 100)}%` }} />
+                      </div>
+                      <div className="battle-v6-bar mp">
+                        <b style={{ width: `${Math.max(0, (battle.player.mpCurrent / battle.player.mpMax) * 100)}%` }} />
+                      </div>
+                    </div>
+                  </article>
+                  {battle.companion && (
+                    <article className="battle-v6-companion-card" title={battle.companion.description}>
+                      <img src={battle.companion.portraitPath} alt={battle.companion.name} />
+                      <div>
+                        <small>COMPANHEIRO</small>
+                        <strong>{battle.companion.name}</strong>
                       </div>
                     </article>
-                  ))}
+                  )}
                 </div>
+                <div className="battle-v6-mode-note">♟ Solo · estrutura preparada para Co-op 2–3 jogadores</div>
               </div>
-              <section className="combat-log">
-                {battle.log.slice(-4).map((line, index) => (
-                  <p className={line.tone} key={`${line.turn}-${index}`}>
-                    {line.text}
-                  </p>
-                ))}
-              </section>
-              {battle.status === "active" ? (
-                <section className="battle-actions">
-                  <span>
-                    Turno {battle.turn} · +{PLAYER_MP_REGEN_PER_TURN} MP no início do turno · recargas descem no início do seu turno
-                  </span>
-                  <div>
-                    {battleAbilities.map((ability) => {
-                      const cooldown = battle.cooldowns[ability.id] ?? 0;
-                      const manaCost = ability.manaCost ?? 0;
-                      const blockedByMana = battle.player.mpCurrent < manaCost;
-                      const disabled = cooldown > 0 || blockedByMana;
-                      return (
-                        <button
-                          key={ability.id}
-                          onClick={() => takeTurn(ability)}
-                          disabled={disabled}
-                          className={disabled ? "combat-action-disabled" : ""}
-                        >
-                          <strong>{ability.name}</strong>
-                          <small>
-                            {manaCost ? `${manaCost} MP` : "Sem custo"} · {ability.damageFamily === "magical" ? "Mágico" : "Físico"}
-                          </small>
-                          {cooldown > 0 && <em>Recarga: {cooldown}T</em>}
-                          {cooldown === 0 && blockedByMana && <em>MP insuficiente</em>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              ) : (
-                <section className={`battle-result ${battle.status}`}>
-                  <h2>
-                    {battle.status === "victory"
-                      ? "Vitória na Caça"
-                      : "Você foi derrotado"}
-                  </h2>
-                  <p>
-                    {battle.status === "victory"
-                      ? `+${battle.reward?.xp} XP global · +${battle.reward?.gold} ouro`
-                      : "Procure cura antes da próxima caçada."}
-                  </p>
-                  {battle.status === "victory" && battle.reward?.itemIds.length ? <small className="loot-result">Itens preservados: {battle.reward.itemIds.map((itemId) => equipment.find((item) => item.id === itemId)?.name ?? itemId).join(", ")}</small> : null}
-                  {battle.status === "victory" && battle.reward?.fragments.length ? <small className="loot-result">Fragmentos: {battle.reward.fragments.map((entry) => `${entry.amount} ${entry.rarity}`).join(" · ")}</small> : null}
-                  <button className="primary" onClick={() => {
-                    setShowBattleLoadout(false);
-                    setBattle(null);
-                  }}>
-                    Voltar às rotas
+
+              <section className="battle-v6-command-panel">
+                <div className="battle-v6-active-hero">
+                  <button
+                    className="battle-v6-avatar-button"
+                    onClick={() => setShowBattleLoadout(true)}
+                    aria-label="Abrir equipamentos"
+                  >
+                    <img src={summary!.portraitPath} alt="" />
                   </button>
-                </section>
-              )}
+                  <div className="battle-v6-active-copy">
+                    <strong>{summary!.name} <span>· {summary!.className} · Nv. {summary!.level}</span></strong>
+                    <small>+{PLAYER_MP_REGEN_PER_TURN} MP no início do turno · CD reduz no início do seu turno</small>
+                    <em>
+                      Alvo: {battle.enemies.find((enemy) => enemy.id === selectedEnemyId)?.name ?? "selecione um inimigo"}
+                    </em>
+                  </div>
+                  <div className="battle-v6-resource-pills">
+                    <span className="hp-pill">♥ HP {battle.player.hpCurrent}/{battle.player.hpMax}</span>
+                    <span className="mp-pill">◆ MP {battle.player.mpCurrent}/{battle.player.mpMax}</span>
+                  </div>
+                </div>
+
+                {battle.status === "active" ? (
+                  <section className="battle-v6-actions">
+                    <div className="battle-v6-skill-grid">
+                      {battleAbilities.map((ability, abilityIndex) => {
+                        const cooldown = battle.cooldowns[ability.id] ?? 0;
+                        const manaCost = ability.manaCost ?? 0;
+                        const blockedByMana = battle.player.mpCurrent < manaCost;
+                        const noTarget = !selectedEnemyId;
+                        const disabled = cooldown > 0 || blockedByMana || noTarget;
+                        const icon = ability.damageFamily === "magical"
+                          ? "✦"
+                          : abilityIndex === 0
+                            ? "➶"
+                            : abilityIndex === 1
+                              ? "➷"
+                              : abilityIndex === 2
+                                ? "➹"
+                                : "◎";
+                        return (
+                          <button
+                            key={ability.id}
+                            onClick={() => takeTurn(ability)}
+                            disabled={disabled}
+                            className={`battle-v6-skill ${disabled ? "combat-action-disabled" : ""}`}
+                          >
+                            <b className="battle-v6-skill-icon" aria-hidden="true">{icon}</b>
+                            <span>
+                              <strong>{ability.name}</strong>
+                              <small>{ability.damageFamily === "magical" ? "Dano mágico" : "Dano físico"}</small>
+                            </span>
+                            <em className="battle-v6-cost">{manaCost} MP</em>
+                            {cooldown > 0 && <i className="battle-v6-cd">CD {cooldown}</i>}
+                            {cooldown === 0 && blockedByMana && <i className="battle-v6-cd">SEM MP</i>}
+                            {cooldown === 0 && !blockedByMana && noTarget && <i className="battle-v6-cd">SEM ALVO</i>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : (
+                  <section className={`battle-result ${battle.status}`}>
+                    <h2>{battle.status === "victory" ? "Vitória na Caça" : "Você foi derrotado"}</h2>
+                    <p>
+                      {battle.status === "victory"
+                        ? `+${battle.reward?.xp} XP global · +${battle.reward?.gold} ouro`
+                        : "Procure cura antes da próxima caçada."}
+                    </p>
+                    {battle.status === "victory" && battle.reward?.itemIds.length ? (
+                      <small className="loot-result">Itens preservados: {battle.reward.itemIds.map((itemId) => equipment.find((item) => item.id === itemId)?.name ?? itemId).join(", ")}</small>
+                    ) : null}
+                    {battle.status === "victory" && battle.reward?.fragments.length ? (
+                      <small className="loot-result">Fragmentos: {battle.reward.fragments.map((entry) => `${entry.amount} ${entry.rarity}`).join(" · ")}</small>
+                    ) : null}
+                    <button className="primary" onClick={() => {
+                      setShowBattleLoadout(false);
+                      setBattle(null);
+                      setSelectedEnemyId(null);
+                      setPendingEncounterSpot(null);
+                    }}>
+                      Voltar às rotas
+                    </button>
+                  </section>
+                )}
+
+                <details className="battle-v6-log">
+                  <summary>▤ Registro de combate <span>⌄</span></summary>
+                  <div>
+                    {battle.log.slice(-8).map((line, index) => (
+                      <p className={line.tone} key={`${line.turn}-${index}`}>{line.text}</p>
+                    ))}
+                  </div>
+                </details>
+              </section>
             </section>
           )}
         </section>
-      )}
-      {view === "hunt" && !battle && adventureAlert && (
-        <JourneyOutcomePanel
-          title={adventureAlert.title}
-          text={adventureAlert.text}
-          kind={adventureAlert.kind}
-          actionLabel={adventureAlert.actionLabel}
-          onAction={consumeAdventureAction}
-        />
-      )}
-      {battle && view === "hunt" && (
-        <BattleCooldownPanel battle={battle} abilities={[...battleAbilities]} />
-      )}
-      {battle && view === "hunt" && selected && (
-        <BattleLoadout character={selected} />
       )}
       {showBattleLoadout && battle && view === "hunt" && selected && (
         <EquipmentLoadoutModal
@@ -1653,9 +1775,9 @@ export default function HomePage() {
           onClose={() => setInspectedCreatureIndex(null)}
         />
       )}
-      <MusicToggle enabled={musicEnabled} onToggle={toggleMusic} />
-      <p className="notice">{message}</p>
-      <nav className="bottom-nav">
+      {!(battle && view === "hunt") && <MusicToggle enabled={musicEnabled} onToggle={toggleMusic} />}
+      {!(battle && view === "hunt") && <p className="notice">{message}</p>}
+      {!(battle && view === "hunt") && <nav className="bottom-nav">
         <button
           className={view === "lobby" ? "active" : ""}
           onClick={() => {
@@ -1695,7 +1817,7 @@ export default function HomePage() {
         >
           Presets
         </button>
-      </nav>
+      </nav>}
     </main>
   );
 }

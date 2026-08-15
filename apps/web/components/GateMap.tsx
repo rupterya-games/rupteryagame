@@ -45,6 +45,7 @@ export function GateMap({
   onExploreSpot: (spotId: string, spotName: string) => void;
 }) {
   const [inspectedCreatureId, setInspectedCreatureId] = useState<string | null>(null);
+  const discoveredCreatures = useMemo(() => new Set(discoveredCreatureIds), [discoveredCreatureIds]);
   const activeExit = city.exits.find((entry) => entry.id === selectedExitId) ?? null;
   const activeLevel = activeExit?.levels.find((entry) => entry.id === selectedLevelId) ?? null;
   const spotLabels = ["Entrada", "Trilha", "Ruína", "Clareira", "Acampamento", "Marco", "Profundezas"];
@@ -56,20 +57,14 @@ export function GateMap({
     : [];
   const explored = activeLevel ? exploredSpotsByLevel[activeLevel.id] ?? [] : [];
   const inspectedCreature = inspectedCreatureId ? bestiaryById.get(inspectedCreatureId) ?? null : null;
-  const discoveredCreatures = useMemo(() => new Set(discoveredCreatureIds), [discoveredCreatureIds]);
   const visibleCreatures = useMemo(() => {
     if (!activeLevel) return [];
     return activeLevel.creaturePool
       .map((id) => bestiaryById.get(id))
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
   }, [activeLevel]);
-
-  useEffect(() => {
-    setInspectedCreatureId(null);
-  }, [selectedLevelId]);
-
-  const knownCreatureName = (creatureId: string) =>
-    discoveredCreatures.has(creatureId) ? creatureName(creatureId) : "Desconhecido";
+  useEffect(() => setInspectedCreatureId(null), [selectedLevelId]);
+  const knownCreatureName = (id: string) => discoveredCreatures.has(id) ? creatureName(id) : "Desconhecido";
 
   return (
     <div className="gate-map-stack">
@@ -161,28 +156,23 @@ export function GateMap({
 
           <div className="encounter-gallery-title">
             <strong>Criaturas possíveis nesta instância</strong>
-            <small>As criaturas são reveladas somente depois de um encontro.</small>
+            <small>Clique na imagem para inspecionar antes de explorar.</small>
           </div>
           <div className="encounter-creature-gallery">
             {visibleCreatures.map((creature) => {
               const discovered = discoveredCreatures.has(creature.id);
               return (
-                <button
-                  key={creature.id}
-                  className={`${inspectedCreatureId === creature.id ? "selected" : ""} ${!discovered ? "unknown" : ""}`}
-                  disabled={!discovered}
-                  onClick={() => setInspectedCreatureId(creature.id)}
-                >
-                  {discovered ? (
-                    <img src={creature.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={creature.name} />
-                  ) : (
-                    <span className="unknown-creature-art" aria-hidden="true">?</span>
-                  )}
-                  <span>{discovered ? creature.name : "Desconhecido"}</span>
-                  <small>{discovered ? `Nv. ${creature.level} · ${creature.rarity}` : "Encontre para revelar"}</small>
-                </button>
-              );
-            })}
+              <button
+                key={creature.id}
+                disabled={!discovered}
+                className={`${inspectedCreatureId === creature.id ? "selected" : ""} ${!discovered ? "unknown" : ""}`}
+                onClick={() => discovered && setInspectedCreatureId(creature.id)}
+              >
+                {discovered ? <img src={creature.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={creature.name} /> : <div className="unknown-creature-art">?</div>}
+                <span>{discovered ? creature.name : "Desconhecido"}</span>
+                <small>{discovered ? `Nv. ${creature.level} · ${creature.rarity}` : "Encontre para revelar"}</small>
+              </button>
+            )})}
           </div>
 
           {inspectedCreature && (

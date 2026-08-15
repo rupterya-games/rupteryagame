@@ -5,7 +5,7 @@ export const LOADOUT_SLOTS: ReadonlyArray<{ key: LoadoutSlot; label: string; kin
 ];
 
 export const emptyLoadout = (): CombatLoadout => ({ skill1: null, skill2: null, skill3: null, skill4: null, ultimate: null, stance: null, passive: null });
-export const emptyEquipment = (): EquippedItems => ({ weapon: null, head: null, chest: null, hands: null, feet: null, trinket: null });
+export const emptyEquipment = (): EquippedItems => ({ weapon: null, secondary: null, head: null, chest: null, hands: null, feet: null, trinket: null });
 export const statusEffectLabels: Record<StatusEffectKind, string> = { bleed: "Sangramento", burn: "Queimadura", poison: "Envenenamento", blind: "Cegueira" };
 
 export function abilityRawDamage(ability: AbilityDefinition, stats: CharacterCombatStats): number { return Math.max(0, Math.round(stats.physicalDamage * (ability.physicalScaling ?? 0) + stats.magicalDamage * (ability.magicalScaling ?? 0))); }
@@ -177,7 +177,7 @@ export function createHuntBattle(input: { regionId: string; player: HuntCombatan
   return { id: battleId(), regionId: input.regionId, creatures, player: initialTurn.player, companion: input.companion ?? null, enemies, lastPetTargetId: null, lastPetDamage: 0, cooldowns: initialTurn.cooldowns, turn: 1, status: "active", reward: null, log: [{ turn: 0, tone: "system", text: creatures.length > 1 ? `Emboscada: ${creatures.length} inimigos bloqueiam o caminho.` : `${creatures[0].name} bloqueia o caminho.` }] };
 }
 
-export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefinition): HuntBattleState {
+export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefinition, targetId?: string): HuntBattleState {
   if (state.status !== "active") return state;
   const logs = [...state.log];
   let player = tickEffects(state.player, state.turn, logs);
@@ -189,7 +189,7 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
   if (!ability.damageFamily || ability.slotKind === "passive" || ability.slotKind === "stance") return { ...state, player, enemies, log: [...logs, { turn: state.turn, tone: "system", text: `${ability.name} não causa dano nesta rodada.` }] };
   const manaCost = ability.manaCost ?? 0;
   if (player.mpCurrent < manaCost) return { ...state, player, enemies, log: [...logs, { turn: state.turn, tone: "system", text: `MP insuficiente para ${ability.name}.` }] };
-  const primaryEnemy = enemies.find((enemy) => enemy.hpCurrent > 0)!;
+  const primaryEnemy = enemies.find((enemy) => enemy.id === targetId && enemy.hpCurrent > 0) ?? enemies.find((enemy) => enemy.hpCurrent > 0)!;
   const kind = ability.damageFamily === "magical" ? "magical" : "physical";
   const hit = attack({ attacker: player, defender: primaryEnemy, rawDamage: abilityRawDamage(ability, player.stats), kind, effects: [...(ability.statusEffects ?? []), ...player.onHitEffects], sourceName: `${player.name} usa ${ability.name}`, turn: state.turn, logs });
   enemies = enemies.map((enemy) => enemy.id === primaryEnemy.id ? hit.defender : enemy);
@@ -205,6 +205,34 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
     player = counter.defender;
     if (counter.dealt) logs.push({ turn: state.turn, tone: "enemy", text: `${enemy.name} causa ${counter.dealt} de dano${counter.critical ? " crítico" : ""}.` });
     if (player.hpCurrent === 0) return { ...state, player, enemies, cooldowns, status: "defeat", log: [...logs, { turn: state.turn, tone: "defeat", text: `${player.name} caiu. HP permanece em 0 até receber cura.` }] };
+
+    // Reação do Samurai: só pode acontecer depois de um ataque direto que acertou.
+    // Ela não consome ação e não chama nenhuma outra reação, preservando o contrato
+    // de combate "reação não dispara reação".
+    if (counter.dealt > 0 && player.counterAttack && Math.random() * 100 < player.counterAttack.chance) {
+      const retaliation = attack({
+        attacker: player,
+        defender: enemy,
+        rawDamage: Math.max(1, Math.round(player.stats.physicalDamage * player.counterAttack.scaling)),
+        kind: "physical",
+        effects: [],
+        sourceName: player.counterAttack.sourceName,
+        turn: state.turn,
+        logs,
+      });
+      enemies = enemies.map((entry) => entry.id === enemy.id ? retaliation.defender : entry);
+      logs.push({
+        turn: state.turn,
+        tone: "player",
+        text: retaliation.dealt
+          ? `${player.counterAttack.sourceName}: ${player.name} contra-ataca ${enemy.name} e causa ${retaliation.dealt} de dano${retaliation.critical ? " crítico" : ""}.`
+          : `${player.counterAttack.sourceName}: ${player.name} tenta contra-atacar, mas não acerta.`,
+      });
+    }
+  }
+  if (enemies.every((enemy) => enemy.hpCurrent === 0)) {
+    const loot = rewardFor(state, state.turn);
+    return { ...state, player, enemies, cooldowns, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `Os contra-ataques encerraram a emboscada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] };
   }
   if (!state.companion) {
     const prepared = preparePlayerTurn(player, cooldowns);

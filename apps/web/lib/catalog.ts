@@ -1,12 +1,13 @@
 import type { AbilityDefinition, ClassDefinition, EquipmentItem, HuntCompanion, HuntCreatureDefinition, HuntRegionDefinition, StatusEffectApplication } from "@rupterya/game-core";
 
-const remoteClassArt = (name: string) => `https://rrbwdoaeozklumvscaei.supabase.co/storage/v1/object/public/rupterya-art/${name}.jpeg`;
+const classArt = (name: string) => `/art/classes/${name}.jpeg`;
 
 export const classes: ClassDefinition[] = [
-  { id: "guardian", name: "Guardião", role: "Espada e escudo", portraitPath: remoteClassArt("guardian"), description: "Linha de frente de FiorDeValle. Protege a rota e suporta ataques pesados.", baseVitals: { hpMax: 360, mpMax: 54, morale: 100, gold: 780 }, baseStats: { physicalDamage: 49, magicalDamage: 10, physicalDefense: 46, magicalDefense: 20, criticalChance: 5, dodgeChance: 3, bleedChance: 4, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 10, burnResistance: 4, poisonResistance: 8, blindResistance: 6 }, adventure: { perception: 6, knowledge: 4, strength: 10, agility: 4 } },
-  { id: "duelist", name: "Duelista", role: "Duas espadas", portraitPath: remoteClassArt("duelist"), description: "Caçador marcial veloz, criado para abrir brechas antes que o inimigo reaja.", baseVitals: { hpMax: 292, mpMax: 62, morale: 100, gold: 780 }, baseStats: { physicalDamage: 61, magicalDamage: 12, physicalDefense: 27, magicalDefense: 19, criticalChance: 12, dodgeChance: 8, bleedChance: 10, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 4, burnResistance: 3, poisonResistance: 5, blindResistance: 7 }, adventure: { perception: 7, knowledge: 3, strength: 8, agility: 10 } },
-  { id: "archer", name: "Arqueiro", role: "Arco longo", portraitPath: remoteClassArt("archer"), description: "Batedor de fronteira que converte distância e percepção em dano preciso.", baseVitals: { hpMax: 258, mpMax: 72, morale: 100, gold: 780 }, baseStats: { physicalDamage: 56, magicalDamage: 15, physicalDefense: 23, magicalDefense: 23, criticalChance: 11, dodgeChance: 9, bleedChance: 7, burnChance: 0, poisonChance: 4, blindChance: 6, bleedResistance: 4, burnResistance: 4, poisonResistance: 7, blindResistance: 10 }, adventure: { perception: 11, knowledge: 5, strength: 5, agility: 10 } },
-  { id: "mage", name: "Mago", role: "Cajado arcano", portraitPath: remoteClassArt("mage"), description: "Erudito de Rupterya que domina dano arcano e controle de campo.", baseVitals: { hpMax: 225, mpMax: 132, morale: 100, gold: 780 }, baseStats: { physicalDamage: 13, magicalDamage: 70, physicalDefense: 16, magicalDefense: 37, criticalChance: 6, dodgeChance: 4, bleedChance: 0, burnChance: 10, poisonChance: 0, blindChance: 4, bleedResistance: 3, burnResistance: 10, poisonResistance: 4, blindResistance: 5 }, adventure: { perception: 7, knowledge: 12, strength: 3, agility: 6 } },
+  { id: "guardian", name: "Guardião", role: "Espada e escudo", portraitPath: classArt("guardian"), description: "Linha de frente de FiorDeValle. Protege a rota e suporta ataques pesados.", baseVitals: { hpMax: 360, mpMax: 54, morale: 100, gold: 780 }, baseStats: { physicalDamage: 49, magicalDamage: 10, physicalDefense: 46, magicalDefense: 20, criticalChance: 5, dodgeChance: 3, bleedChance: 4, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 10, burnResistance: 4, poisonResistance: 8, blindResistance: 6 }, adventure: { perception: 6, knowledge: 4, strength: 10, agility: 4 } },
+  { id: "duelist", name: "Duelista", role: "Duas lâminas", portraitPath: classArt("duelist"), description: "DPS marcial veloz que abre brechas com crítico, esquiva e pressão constante.", baseVitals: { hpMax: 292, mpMax: 62, morale: 100, gold: 780 }, baseStats: { physicalDamage: 61, magicalDamage: 12, physicalDefense: 27, magicalDefense: 19, criticalChance: 12, dodgeChance: 8, bleedChance: 10, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 4, burnResistance: 3, poisonResistance: 5, blindResistance: 7 }, adventure: { perception: 7, knowledge: 3, strength: 8, agility: 10 } },
+  { id: "archer", name: "Arqueiro", role: "Arco e aljava", portraitPath: classArt("archer"), description: "Batedor de fronteira que converte distância, munição e percepção em dano preciso.", baseVitals: { hpMax: 258, mpMax: 72, morale: 100, gold: 780 }, baseStats: { physicalDamage: 56, magicalDamage: 15, physicalDefense: 23, magicalDefense: 23, criticalChance: 11, dodgeChance: 9, bleedChance: 7, burnChance: 0, poisonChance: 4, blindChance: 6, bleedResistance: 4, burnResistance: 4, poisonResistance: 7, blindResistance: 10 }, adventure: { perception: 11, knowledge: 5, strength: 5, agility: 10 } },
+  { id: "mage", name: "Mago", role: "Cajado e foco arcano", portraitPath: classArt("mage"), description: "Erudito de Rupterya que domina dano arcano e controle de campo.", baseVitals: { hpMax: 225, mpMax: 132, morale: 100, gold: 780 }, baseStats: { physicalDamage: 13, magicalDamage: 70, physicalDefense: 16, magicalDefense: 37, criticalChance: 6, dodgeChance: 4, bleedChance: 0, burnChance: 10, poisonChance: 0, blindChance: 4, bleedResistance: 3, burnResistance: 10, poisonResistance: 4, blindResistance: 5 }, adventure: { perception: 7, knowledge: 12, strength: 3, agility: 6 } },
+  { id: "samurai", name: "Samurai", role: "Katana e bainha", portraitPath: classArt("samurai"), description: "DPS físico de precisão. Aguenta menos que um Guardião, mas transforma parte dos golpes recebidos em contra-ataques Iai.", baseVitals: { hpMax: 278, mpMax: 68, morale: 100, gold: 780 }, baseStats: { physicalDamage: 65, magicalDamage: 10, physicalDefense: 26, magicalDefense: 21, criticalChance: 11, dodgeChance: 7, bleedChance: 9, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 6, burnResistance: 4, poisonResistance: 5, blindResistance: 8 }, adventure: { perception: 7, knowledge: 4, strength: 9, agility: 9 } },
 ];
 
 const byClass = (classId: string, suffix: string) => `${classId}-${suffix}`;
@@ -18,6 +19,8 @@ const statusEffectsFor = (classId: string, index: number): StatusEffectApplicati
   if (classId === "archer" && index === 2) return [{ kind: "bleed", chance: 15, turns: 2, percentMaxHp: 2 }];
   if (classId === "archer" && index === 3) return [{ kind: "blind", chance: 20, turns: 2 }];
   if (classId === "guardian" && index === 3) return [{ kind: "bleed", chance: 12, turns: 2, percentMaxHp: 2 }];
+  if (classId === "samurai" && index === 0) return [{ kind: "bleed", chance: 12, turns: 2, percentMaxHp: 2 }];
+  if (classId === "samurai" && index === 3) return [{ kind: "bleed", chance: 22, turns: 3, percentMaxHp: 3 }];
   return [];
 };
 const classAbilityNames: Record<string, { skills: string[]; stance: string; ultimate: string; passive: string }> = {
@@ -25,18 +28,23 @@ const classAbilityNames: Record<string, { skills: string[]; stance: string; ulti
   duelist: { skills: ["Corte Geminado", "Passo de Cinza", "Dança das Lâminas", "Ruptura Carmesim"], stance: "Guarda da Serpente", ultimate: "Mil Cortes de Rupterya", passive: "Fome de Duelo" },
   archer: { skills: ["Flecha do Vigia", "Disparo Duplo", "Tiro Perfurante", "Marca do Caçador"], stance: "Olho de Falcão", ultimate: "Chuva de Fiordevalle", passive: "Passo Silencioso" },
   mage: { skills: ["Dardo de Éter", "Lança de Brasa", "Prisma Congelante", "Ruptura Arcana"], stance: "Véu de Vidro", ultimate: "Tempestade de Rupterya", passive: "Sintonia Arcana" },
+  samurai: { skills: ["Corte Iai", "Passo da Lua", "Corte Ascendente", "Lua Partida"], stance: "Postura Mushin", ultimate: "Lua Sem Retorno", passive: "Retaliação Iai" },
 };
 
 export const abilities: AbilityDefinition[] = classes.flatMap((entry) => {
   const names = classAbilityNames[entry.id];
   const magical = entry.id === "mage";
-  const physicalScale: number[] = magical ? [0, 0, 0, 0] : [1.05, 1.18, 1.3, 1.42];
+  const samurai = entry.id === "samurai";
+  const physicalScale: number[] = magical ? [0, 0, 0, 0] : samurai ? [1.10, 1.22, 1.36, 1.50] : [1.05, 1.18, 1.3, 1.42];
   const magicalScale: number[] = magical ? [1.05, 1.18, 1.3, 1.42] : [0, 0, 0, 0];
   return [
-    ...names.skills.map((name, index): AbilityDefinition => { const statusEffects = statusEffectsFor(entry.id, index); return { id: byClass(entry.id, `skill-${index + 1}`), name, description: `Técnica de ${entry.role.toLowerCase()} usada nas fronteiras de Rupterya.`, slotKind: "skill", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: physicalScale[index], magicalScaling: magicalScale[index], manaCost: [0, 8, 14, 20][index], cooldownTurns: [0, 1, 2, 2][index], statusEffects, keywords: statusEffects.map((effect) => `${effect.chance}% ${effect.kind}`) }; }),
-    { id: byClass(entry.id, "stance"), name: names.stance, description: "Postura preparada antes do combate.", slotKind: "stance", source: "class", manaCost: 10, cooldownTurns: 3 },
-    { id: byClass(entry.id, "ultimate"), name: names.ultimate, description: "Golpe máximo da classe, reservado para a caça mais perigosa.", slotKind: "ultimate", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: magical ? 0 : 1.85, magicalScaling: magical ? 1.85 : 0, manaCost: 32, cooldownTurns: 4 },
-    { id: byClass(entry.id, "passive"), name: names.passive, description: "Passiva da classe; ocupa o único slot de Passiva.", slotKind: "passive", source: "class" },
+    ...names.skills.map((name, index): AbilityDefinition => {
+      const statusEffects = statusEffectsFor(entry.id, index);
+      return { id: byClass(entry.id, `skill-${index + 1}`), name, description: `Técnica de ${entry.role.toLowerCase()} usada nas fronteiras de Rupterya.`, slotKind: "skill", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: physicalScale[index], magicalScaling: magicalScale[index], manaCost: [0, 8, 14, 20][index], cooldownTurns: [0, 1, 2, 2][index], statusEffects, keywords: statusEffects.map((effect) => `${effect.chance}% ${effect.kind}`) };
+    }),
+    { id: byClass(entry.id, "stance"), name: names.stance, description: entry.id === "samurai" ? "Postura de foco para preparar cortes e contra-ataques." : "Postura preparada antes do combate.", slotKind: "stance", source: "class", manaCost: 10, cooldownTurns: 3 },
+    { id: byClass(entry.id, "ultimate"), name: names.ultimate, description: "Golpe máximo da classe, reservado para a caça mais perigosa.", slotKind: "ultimate", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: magical ? 0 : samurai ? 1.95 : 1.85, magicalScaling: magical ? 1.85 : 0, manaCost: 32, cooldownTurns: 4 },
+    { id: byClass(entry.id, "passive"), name: names.passive, description: entry.id === "samurai" ? "Enquanto esta Passiva estiver equipada, ataques diretos que acertarem têm 30% de chance de provocar um contra-ataque de 65% do Dano Físico. Reação não consome ação e não dispara outra reação." : "Passiva da classe; ocupa o único slot de Passiva.", slotKind: "passive", source: "class" },
   ];
 });
 
@@ -47,6 +55,41 @@ export const sharedAbilities: AbilityDefinition[] = [
 ];
 
 export const equipment: EquipmentItem[] = [
+  // Sets iniciais. Todos começam com arma principal + arma secundária.
+  { id: "starter-guardian-sword", name: "Espada do Recruta", slot: "weapon", family: "sword", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 8, allowedClassIds: ["guardian"], modifiers: { physicalDamage: 5 }, affixes: ["+5 Dano Físico"] },
+  { id: "starter-guardian-shield", name: "Escudo de Carvalho Ferrado", slot: "secondary", family: "shield", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 8, allowedClassIds: ["guardian"], modifiers: { physicalDefense: 4, magicalDefense: 2, hpMax: 12 }, affixes: ["+4 Defesa Física", "+2 Defesa Mágica", "+12 Vida"] },
+  { id: "starter-guardian-helm", name: "Elmo do Bastião Jovem", slot: "head", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 5, allowedClassIds: ["guardian"], modifiers: { physicalDefense: 3, hpMax: 6 }, affixes: ["+3 Defesa Física", "+6 Vida"] },
+  { id: "starter-guardian-chest", name: "Cota do Bastião Jovem", slot: "chest", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 7, allowedClassIds: ["guardian"], modifiers: { physicalDefense: 4, magicalDefense: 2, hpMax: 10 }, affixes: ["+4 Defesa Física", "+2 Defesa Mágica", "+10 Vida"] },
+  { id: "starter-guardian-hands", name: "Manoplas do Bastião Jovem", slot: "hands", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["guardian"], modifiers: { physicalDefense: 2 }, affixes: ["+2 Defesa Física"] },
+  { id: "starter-guardian-feet", name: "Grevas do Bastião Jovem", slot: "feet", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["guardian"], modifiers: { physicalDefense: 1, magicalDefense: 1, hpMax: 6 }, affixes: ["+1 Defesas", "+6 Vida"] },
+
+  { id: "starter-duelist-blade", name: "Espada Leve de Treino", slot: "weapon", family: "sword", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 9, allowedClassIds: ["duelist"], modifiers: { physicalDamage: 6, criticalChance: 1 }, affixes: ["+6 Dano Físico", "+1 pp Crítico"] },
+  { id: "starter-duelist-offhand", name: "Lâmina de Mão Fraca", slot: "secondary", family: "dagger", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 7, allowedClassIds: ["duelist"], modifiers: { physicalDamage: 3, dodgeChance: 1 }, affixes: ["+3 Dano Físico", "+1 pp Esquiva"] },
+  { id: "starter-duelist-head", name: "Faixa do Duelista", slot: "head", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["duelist"], modifiers: { criticalChance: 1, physicalDefense: 1 }, affixes: ["+1 pp Crítico", "+1 Defesa Física"] },
+  { id: "starter-duelist-chest", name: "Gibão do Duelista", slot: "chest", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 6, allowedClassIds: ["duelist"], modifiers: { physicalDefense: 3, magicalDefense: 1, hpMax: 8 }, affixes: ["+3 Defesa Física", "+1 Defesa Mágica", "+8 Vida"] },
+  { id: "starter-duelist-hands", name: "Luvas de Empunhadura", slot: "hands", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["duelist"], modifiers: { physicalDamage: 1, physicalDefense: 1 }, affixes: ["+1 Dano Físico", "+1 Defesa Física"] },
+  { id: "starter-duelist-feet", name: "Botas de Passo Curto", slot: "feet", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 5, allowedClassIds: ["duelist"], modifiers: { dodgeChance: 1, physicalDefense: 2 }, affixes: ["+1 pp Esquiva", "+2 Defesa Física"] },
+
+  { id: "starter-archer-bow", name: "Arco de Freixo", slot: "weapon", family: "bow", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 9, allowedClassIds: ["archer"], modifiers: { physicalDamage: 6, criticalChance: 1 }, affixes: ["+6 Dano Físico", "+1 pp Crítico"] },
+  { id: "starter-archer-quiver", name: "Aljava de Flechas Simples", slot: "secondary", family: "quiver", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 7, allowedClassIds: ["archer"], modifiers: { physicalDamage: 4 }, keywords: ["Flechas Básicas · Nv. 1", "Munição inicial; futuras flechas podem possuir dano/efeitos próprios."], affixes: ["+4 Dano Físico"] },
+  { id: "starter-archer-head", name: "Capuz do Batedor", slot: "head", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["archer"], modifiers: { physicalDefense: 1, magicalDefense: 1 }, affixes: ["+1 Defesas"] },
+  { id: "starter-archer-chest", name: "Gibão do Batedor", slot: "chest", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 6, allowedClassIds: ["archer"], modifiers: { physicalDefense: 3, magicalDefense: 2, hpMax: 8 }, affixes: ["+3 Defesa Física", "+2 Defesa Mágica", "+8 Vida"] },
+  { id: "starter-archer-hands", name: "Braçadeiras do Arqueiro", slot: "hands", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["archer"], modifiers: { physicalDamage: 1, physicalDefense: 1 }, affixes: ["+1 Dano Físico", "+1 Defesa Física"] },
+  { id: "starter-archer-feet", name: "Botas do Rastreador", slot: "feet", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 5, allowedClassIds: ["archer"], modifiers: { dodgeChance: 1, physicalDefense: 2 }, affixes: ["+1 pp Esquiva", "+2 Defesa Física"] },
+
+  { id: "starter-mage-staff", name: "Cajado de Aprendiz", slot: "weapon", family: "staff", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 10, allowedClassIds: ["mage"], modifiers: { magicalDamage: 8, mpMax: 6 }, affixes: ["+8 Dano Mágico", "+6 MP"] },
+  { id: "starter-mage-focus", name: "Foco Arcano de Cobre", slot: "secondary", family: "orb", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 8, allowedClassIds: ["mage"], modifiers: { magicalDamage: 5, mpMax: 10 }, affixes: ["+5 Dano Mágico", "+10 MP"] },
+  { id: "starter-mage-head", name: "Capuz do Aprendiz", slot: "head", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["mage"], modifiers: { magicalDefense: 2 }, affixes: ["+2 Defesa Mágica"] },
+  { id: "starter-mage-chest", name: "Manto do Aprendiz", slot: "chest", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 6, allowedClassIds: ["mage"], modifiers: { magicalDefense: 4, physicalDefense: 1, hpMax: 8 }, affixes: ["+4 Defesa Mágica", "+1 Defesa Física", "+8 Vida"] },
+  { id: "starter-mage-hands", name: "Luvas de Canalização", slot: "hands", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["mage"], modifiers: { magicalDamage: 1, magicalDefense: 1 }, affixes: ["+1 Dano Mágico", "+1 Defesa Mágica"] },
+  { id: "starter-mage-feet", name: "Sapatos Rúnicos", slot: "feet", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["mage"], modifiers: { magicalDefense: 1, hpMax: 4 }, affixes: ["+1 Defesa Mágica", "+4 Vida"] },
+
+  { id: "starter-samurai-katana", name: "Katana de Aço Simples", slot: "weapon", family: "katana", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 10, allowedClassIds: ["samurai"], modifiers: { physicalDamage: 7, criticalChance: 1 }, affixes: ["+7 Dano Físico", "+1 pp Crítico"] },
+  { id: "starter-samurai-sheath", name: "Bainha de Madeira Laqueada", slot: "secondary", family: "sheath", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 8, allowedClassIds: ["samurai"], modifiers: { physicalDamage: 3 }, counterAttackChanceBonus: 5, counterAttackScalingBonus: 0.10, keywords: ["+5 pp chance de Contra-ataque", "+10 pp escala do Contra-ataque", "A bainha melhora a Retaliação Iai sem transformar o Samurai em tanque."], affixes: ["+3 Dano Físico"] },
+  { id: "starter-samurai-head", name: "Hachimaki do Peregrino", slot: "head", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["samurai"], modifiers: { criticalChance: 1, physicalDefense: 1 }, affixes: ["+1 pp Crítico", "+1 Defesa Física"] },
+  { id: "starter-samurai-chest", name: "Dô Laminar de Viagem", slot: "chest", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 7, allowedClassIds: ["samurai"], modifiers: { physicalDefense: 4, magicalDefense: 1, hpMax: 10 }, affixes: ["+4 Defesa Física", "+1 Defesa Mágica", "+10 Vida"] },
+  { id: "starter-samurai-hands", name: "Kote de Treino", slot: "hands", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 4, allowedClassIds: ["samurai"], modifiers: { physicalDamage: 1, physicalDefense: 1 }, affixes: ["+1 Dano Físico", "+1 Defesa Física"] },
+  { id: "starter-samurai-feet", name: "Suneate de Estrada", slot: "feet", family: "armor", rarity: "common", itemLevel: 1, upgradeLevel: 0, power: 5, allowedClassIds: ["samurai"], modifiers: { physicalDefense: 2, dodgeChance: 1, hpMax: 4 }, affixes: ["+2 Defesa Física", "+1 pp Esquiva", "+4 Vida"] },
   { id: "iron-sword", name: "Espada de Ferro", slot: "weapon", rarity: "common", itemLevel: 10, upgradeLevel: 0, power: 10, modifiers: { physicalDamage: 7 }, affixes: ["+7 Ataque Físico"] },
   { id: "iron-helm", name: "Elmo de Vigia", slot: "head", rarity: "common", itemLevel: 10, upgradeLevel: 0, power: 7, modifiers: { physicalDefense: 5, hpMax: 12 }, affixes: ["+5 Defesa Física", "+12 Vida"] },
   { id: "leather-coat", name: "Cota de Couro", slot: "chest", rarity: "common", itemLevel: 10, upgradeLevel: 0, power: 12, modifiers: { physicalDefense: 8, magicalDefense: 4 }, affixes: ["+8 Defesa Física", "+4 Defesa Mágica"] },
@@ -65,6 +108,14 @@ export const equipment: EquipmentItem[] = [
   { id: "dustfall-salt-plate", name: "Couraça das Salinas", slot: "chest", rarity: "epic", itemLevel: 40, upgradeLevel: 0, power: 84, modifiers: { hpMax: 58, physicalDefense: 22, magicalDefense: 14, poisonResistance: 10 }, affixes: ["+58 Vida", "+22 Defesa Física", "+14 Defesa Mágica", "+10% Resist. veneno"] },
   { id: "dustfall-crater-core", name: "Núcleo da Cratera", slot: "trinket", rarity: "legendary", itemLevel: 50, upgradeLevel: 0, power: 118, modifiers: { physicalDamage: 14, magicalDamage: 14, physicalDefense: 10, magicalDefense: 10, burnResistance: 16 }, keywords: ["Híbrido da Convergência", "+16% Resist. queimadura"], affixes: ["+14 Ataque Físico", "+14 Poder Mágico", "+10 Defesas"] },
 ];
+
+export const starterSetsByClass: Record<string, string[]> = {
+  guardian: ["starter-guardian-sword", "starter-guardian-shield", "starter-guardian-helm", "starter-guardian-chest", "starter-guardian-hands", "starter-guardian-feet"],
+  duelist: ["starter-duelist-blade", "starter-duelist-offhand", "starter-duelist-head", "starter-duelist-chest", "starter-duelist-hands", "starter-duelist-feet"],
+  archer: ["starter-archer-bow", "starter-archer-quiver", "starter-archer-head", "starter-archer-chest", "starter-archer-hands", "starter-archer-feet"],
+  mage: ["starter-mage-staff", "starter-mage-focus", "starter-mage-head", "starter-mage-chest", "starter-mage-hands", "starter-mage-feet"],
+  samurai: ["starter-samurai-katana", "starter-samurai-sheath", "starter-samurai-head", "starter-samurai-chest", "starter-samurai-hands", "starter-samurai-feet"],
+};
 
 const creatureFeaturedItems: EquipmentItem[] = [
   { id: "raider-rust-sword", name: "Espada Roubada", slot: "weapon", rarity: "common", family: "sword", allowedProfiles: ["raider"], appearanceChance: 55, breakChance: 15, itemLevel: 30, upgradeLevel: 0, power: 18, modifiers: { physicalDamage: 11 }, affixes: ["+11 Ataque FÃ­sico"] },

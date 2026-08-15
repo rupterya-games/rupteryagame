@@ -15,3 +15,16 @@
 - Campo de combate planejado: 3x3 espelhado, com cada carta representando um personagem/unidade, não um deckbuilder de compra de cartas.
 - Pets: vários possuídos, no máximo 1 equipado, oferecendo bônus/passivas/utilidade.
 - Skins são cosméticas e não concedem Poder.
+
+## Atualização V5 — equipamento, Samurai e reação
+
+- Todo herói possui **Arma Principal** (`weapon`) e **Arma Secundária** (`secondary`).
+- O set inicial de cada classe preenche Principal, Secundária, Cabeça, Peito, Mãos e Pés.
+- Arma secundária define parte da identidade da classe: Guardião usa Escudo; Duelista usa Lâmina Secundária; Arqueiro usa Aljava/Flechas; Mago usa Foco Arcano; Samurai usa Bainha.
+- Flechas Básicas são o primeiro tier de munição do Arqueiro e entram pela Aljava Nv.1. Tiers futuros podem aumentar dano e adicionar efeitos sem trocar o Arco.
+- **Samurai** é DPS físico, não tanque. Sua Passiva `Retaliação Iai` dá 30% de chance de contra-atacar um ataque direto que acerte, causando 65% do Dano Físico. A Bainha inicial eleva para 35% e 75% do Dano Físico.
+- Contra-ataque é **Reação**: não consome ação normal e **não dispara outra reação**.
+- Recarga continua descendo no início do turno do dono. Habilidade em recarga fica bloqueada.
+- O jogador recupera **6 MP no início de cada turno**, limitado ao MP máximo.
+- Encontros muito abaixo do nível do jogador reduzem o tamanho do grupo em vez de escalar monstros artificialmente para cima.
+- Em spots com combate, o spot só é marcado como explorado após vitória. Recuo/derrota deixam o spot disponível para nova tentativa.

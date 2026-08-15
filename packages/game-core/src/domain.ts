@@ -3,7 +3,7 @@ export type StatusEffectKind = "bleed" | "burn" | "poison" | "blind";
 export type AbilitySlotKind = "skill" | "ultimate" | "stance" | "passive";
 export type SecretArtPath = "martial" | "mystic" | "arcane";
 export type AbilitySource = "class" | "lineage" | "school" | "secret_art" | "creature";
-export type EquipmentSlot = "weapon" | "head" | "chest" | "hands" | "feet" | "trinket";
+export type EquipmentSlot = "weapon" | "secondary" | "head" | "chest" | "hands" | "feet" | "trinket";
 export type ItemRarity = "common" | "rare" | "epic" | "legendary" | "mythic";
 export type EquipmentFamily = "sword" | "dagger" | "rapier" | "claws" | "greatsword" | "greataxe" | "staff" | "orb" | "book" | "shield" | "bow" | "quiver" | "katana" | "sheath" | "armor";
 
@@ -124,10 +124,16 @@ export interface EquipmentItem {
   appearanceChance?: number;
   breakChance?: number;
   uniqueKeyword?: string;
+  /** Restrição opcional de classe para equipamento de identidade forte. */
+  allowedClassIds?: string[];
+  /** Bônus mecânicos usados por itens de contra-ataque, como bainhas de Samurai. */
+  counterAttackChanceBonus?: number;
+  counterAttackScalingBonus?: number;
 }
 
 export interface EquippedItems {
   weapon: string | null;
+  secondary: string | null;
   head: string | null;
   chest: string | null;
   hands: string | null;
@@ -235,6 +241,8 @@ export interface HuntCombatant {
   stats: CharacterCombatStats;
   activeEffects: CombatStatusEffect[];
   onHitEffects: StatusEffectApplication[];
+  /** Reação: não consome ação e nunca dispara outra reação. */
+  counterAttack?: { chance: number; scaling: number; sourceName: string };
 }
 
 export interface HuntCompanion {

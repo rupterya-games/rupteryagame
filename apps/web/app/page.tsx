@@ -50,6 +50,8 @@ import { CreatureFamilyBadge, creatureFrameClassName, creatureRarityLabels, reso
 import { GateMap } from "@/components/GateMap";
 import { QuestBoard } from "@/components/QuestBoard";
 import { MarketPanels } from "@/components/MarketPanels";
+import { LoginScreen } from "@/components/LoginScreen";
+import { supabase } from "@/lib/supabase";
 
 type View =
   | "slots"
@@ -394,6 +396,8 @@ function BattleCooldownPanel({
 }
 
 export default function HomePage() {
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [account, setAccount] = useState(() => repository.emptyAccount());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<View>("slots");
@@ -423,12 +427,40 @@ export default function HomePage() {
   const [pendingEncounter, setPendingEncounter] = useState<ReturnType<typeof createInstanceEncounter> | null>(null);
   const [pendingEncounterSpot, setPendingEncounterSpot] = useState<{ levelId: string; spotId: string; spotName: string } | null>(null);
 
-  useEffect(() => {
-    const stored = repository.load();
-    setAccount(stored);
-    setSelectedId(stored.characters[0]?.id ?? null);
-    setView(stored.characters.length ? "lobby" : "slots");
-  }, []);
+  const loadAuthenticatedAccount = async () => {
+    setAuthLoading(true);
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      setAuthUserId(null);
+      setAuthLoading(false);
+      return;
+    }
+    try {
+      const stored = await repository.loadForUser(data.user.id);
+      setAuthUserId(data.user.id);
+      setAccount(stored);
+      setSelectedId(stored.characters[0]?.id ?? null);
+      setView(stored.characters.length ? "lobby" : "slots");
+      setMessage("Progresso online carregado.");
+    } catch {
+      await supabase.auth.signOut();
+      setAuthUserId(null);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadAuthenticatedAccount(); }, []);
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    repository.clearUser();
+    setAuthUserId(null);
+    setAccount(repository.emptyAccount());
+    setSelectedId(null);
+    setBattle(null);
+    setView("slots");
+  };
 
   const musicMode = battle ? "combat" : "lobby";
   useEffect(() => {
@@ -934,9 +966,13 @@ export default function HomePage() {
     void musicDirector.setMode(musicMode);
   };
 
+  if (authLoading) return <main className="login-shell"><section className="login-card"><span className="brand">RUPTERYA</span><p>Carregando conta...</p></section></main>;
+  if (!authUserId) return <LoginScreen onLoggedIn={() => void loadAuthenticatedAccount()} />;
+
   if (!selected || view === "slots")
     return (
       <main className="shell">
+        <button className="account-logout" onClick={() => void logout()}>Sair</button>
         <header className="topbar">
           <div>
             <span className="brand">RUPTERYA</span>
@@ -1042,6 +1078,7 @@ export default function HomePage() {
 
   return (
     <main className="shell">
+      <button className="account-logout" onClick={() => void logout()}>Sair</button>
       {!(view === "hunt" && battle) && (
         <header className="topbar">
           <button

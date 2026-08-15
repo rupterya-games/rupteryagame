@@ -21,9 +21,8 @@ import { bestiaryById } from "./bestiary";
 import { consumablesById, materialResaleValue } from "./economy";
 import { questsById, questIsReady, questPrerequisitesMet } from "./quests";
 import type { AdventureCityId } from "./world";
+import { supabase } from "./supabase";
 
-const STORAGE_KEY = "rupterya-browser-dev-account-v4";
-const LEGACY_KEYS = ["rupterya-browser-dev-account-v3", "rupterya-browser-dev-account-v2", "rupterya-browser-dev-account-v1"];
 const allAbilities = [...abilities, ...sharedAbilities];
 const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
@@ -116,15 +115,23 @@ function replaceCharacter(account: DevAccount, character: GameCharacter) {
 }
 
 export class DevCharacterRepository {
-  emptyAccount(): DevAccount {
-    return { id: "dev-account", globalLevel: 30, globalXp: 0, characterSlots: 6, characters: [] };
+  private userId: string | null = null;
+  private saveQueue: Promise<unknown> = Promise.resolve();
+
+  emptyAccount(userId = this.userId ?? "offline"): DevAccount {
+    return { id: userId, globalLevel: 30, globalXp: 0, characterSlots: 6, characters: [] };
   }
 
-  load(): DevAccount {
-    if (typeof window === "undefined") return this.emptyAccount();
-    const raw = window.localStorage.getItem(STORAGE_KEY) ?? LEGACY_KEYS.map((key) => window.localStorage.getItem(key)).find(Boolean);
-    if (!raw) return this.emptyAccount();
-    const stored = JSON.parse(raw) as DevAccount;
+  async loadForUser(userId: string): Promise<DevAccount> {
+    this.userId = userId;
+    const { data, error } = await supabase.from("account_saves").select("game_state").eq("user_id", userId).maybeSingle();
+    if (error) throw error;
+    if (!data?.game_state || !Object.keys(data.game_state).length) {
+      const fresh = this.emptyAccount(userId);
+      await supabase.from("account_saves").upsert({ user_id: userId, game_state: fresh, updated_at: new Date().toISOString() });
+      return fresh;
+    }
+    const stored = data.game_state as DevAccount;
     const legacyClasses: Record<string, string> = { warrior: "guardian" };
     const characters = stored.characters.map((character) => {
       const classId = legacyClasses[character.classId] ?? character.classId;
@@ -160,15 +167,21 @@ export class DevCharacterRepository {
         },
       });
     });
-    const migrated = { ...stored, characters };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+    const migrated = { ...stored, id: userId, characters };
     return migrated;
   }
 
   save(account: DevAccount): DevAccount {
-    if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, JSON.stringify(account));
+    if (!this.userId) throw new Error("Nenhum jogador autenticado.");
+    const state = { ...account, id: this.userId };
+    this.saveQueue = this.saveQueue.then(async () => {
+      const { error } = await supabase.from("account_saves").upsert({ user_id: this.userId, game_state: state, updated_at: new Date().toISOString() });
+      if (error) console.error("Falha ao salvar progresso no Supabase", error.message);
+    });
     return account;
   }
+
+  clearUser() { this.userId = null; }
 
   create(account: DevAccount, input: { name: string; classId: string; kingdom: string }): DevAccount {
     if (account.characters.length >= account.characterSlots) throw new Error("Todos os slots de desenvolvimento estão ocupados.");
@@ -366,6 +379,9 @@ export class DevCharacterRepository {
     if (!questIsReady(quest, { ...progress, completedQuestIds: progress.completedQuestIds })) throw new Error("Objetivo do contrato ainda não foi concluído.");
     if (quest.objective.kind === "deliver") {
       progress.materials[quest.objective.materialId] = Math.max(0, (progress.materials[quest.objective.materialId] ?? 0) - quest.objective.target);
+    }
+    if (quest.objective.kind === "kill") {
+      progress.creatureKills[quest.objective.creatureId] = Math.max(0, (progress.creatureKills[quest.objective.creatureId] ?? 0) - quest.objective.target);
     }
     progress.activeQuestIds = progress.activeQuestIds.filter((id) => id !== questId);
     if (!progress.completedQuestIds.includes(questId)) progress.completedQuestIds.push(questId);

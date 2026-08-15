@@ -14,6 +14,10 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: radial-gradient(circle at top, #1d232b 0, var(--bg) 45%); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+.login-shell { min-height:100vh; display:grid; place-items:center; padding:20px; background:radial-gradient(circle at 50% 20%,#283420,#080c0e 64%); }
+.login-card { width:min(420px,100%); display:grid; gap:16px; padding:28px; border:1px solid #8a6a31; border-radius:18px; background:linear-gradient(145deg,#172019,#0b1013); box-shadow:0 24px 70px #000b; }
+.login-card h1,.login-card p { margin:0; }.login-card p,.login-card small { color:#aeb7b4; }.login-card label { display:grid; gap:7px; color:#dcc487; font-size:12px; font-weight:800; }.login-card input { min-height:46px; }.login-card button { min-height:48px; }
+.account-logout { position:fixed; z-index:50; top:12px; right:12px; min-height:34px; padding:7px 13px; border-color:#735b36; background:#17140f; color:#d9bd7d; }
 button { font: inherit; }
 button, select, input { min-height: 44px; }
 button { cursor: pointer; }

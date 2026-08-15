@@ -107,7 +107,7 @@ export const quests: QuestDefinition[] = adventureCityList.flatMap((city) =>
         rewardReputation: 4 + level.level * 3,
         rewardItemId: rewardItemByLevel[level.id],
         prerequisites: previous ? [previous] : [],
-        repeatable: objective.kind !== "boss",
+        repeatable: objective.kind === "kill" || objective.kind === "deliver",
       } satisfies QuestDefinition;
     }),
   ),

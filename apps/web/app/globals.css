@@ -476,15 +476,16 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .encounter-creature-gallery button.unknown { cursor:default; opacity:.82; }
 .encounter-creature-gallery button.mastered { box-shadow:inset 0 0 0 1px #d2a64baa,0 0 14px #d2a64b3d,0 8px 18px #0009; }
 .encounter-creature-gallery button.mastered small { color:#e6c377; font-weight:900; }
-.encounter-creature-gallery .unknown-creature-art { width:100%; height:136px; display:grid; place-items:center; background:linear-gradient(145deg,#11171a,#25231f); color:#d8a952; font-size:48px; font-weight:900; }
+.encounter-creature-gallery .unknown-creature-art { width:100%; aspect-ratio:1.15; display:grid; place-items:center; background:linear-gradient(145deg,#11171a,#25231f); color:#d8a952; font-size:48px; font-weight:900; }
 /* Retratos de criatura já trazem nome/categoria desenhados no rodapé da própria imagem;
-   ancorar no topo evita que essa faixa de texto vaze e duplique o texto que o app já mostra. */
-.encounter-creature-gallery img { width:100%; height:136px; object-fit:cover; object-position:center top; display:block; border-radius:10px 10px 0 0; }
+   um aspect-ratio baixo + ancoragem no topo garante que essa faixa nunca apareça,
+   em qualquer largura de card (fixed-height dependia da largura da coluna do grid). */
+.encounter-creature-gallery img { width:100%; aspect-ratio:1.15; object-fit:cover; object-position:center top; display:block; border-radius:10px 10px 0 0; }
 .encounter-creature-gallery span,.encounter-creature-gallery small { display:block; padding:0 8px; }
 .encounter-creature-gallery span { margin-top:7px; font-size:11px; font-weight:900; }
 .encounter-creature-gallery small { padding-bottom:8px; margin-top:2px; color:#aeb5b7; font-size:9px; }
 .instance-creature-preview { display:grid; grid-template-columns:150px 1fr; gap:12px; padding:10px; border-radius:14px; background:linear-gradient(135deg,#211a14,#10161a); }
-.instance-creature-preview>img,.instance-creature-preview>.unknown-creature-art { width:150px; height:185px; object-fit:cover; object-position:center top; border-radius:10px; border:1px solid #6e583a; }
+.instance-creature-preview>img,.instance-creature-preview>.unknown-creature-art { width:150px; aspect-ratio:1.15; object-fit:cover; object-position:center top; border-radius:10px; border:1px solid #6e583a; }
 .instance-creature-preview>.unknown-creature-art { display:grid; place-items:center; background:linear-gradient(145deg,#11171a,#25231f); color:#d8a952; font-size:40px; font-weight:900; }
 .instance-creature-preview>div { display:grid; align-content:center; gap:6px; }
 .instance-creature-preview small { color:#c7a65d; text-transform:uppercase; letter-spacing:.07em; font-size:9px; }
@@ -511,7 +512,7 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   .instance-spot-pin { width:72px; min-height:52px; }
   .instance-spot-pin span { font-size:8px; }
   .instance-creature-preview { grid-template-columns:105px 1fr; }
-  .instance-creature-preview>img { width:105px; height:145px; }
+  .instance-creature-preview>img,.instance-creature-preview>.unknown-creature-art { width:105px; }
 }
 
 /* V4 · estado de mana/recarga visível no combate */
@@ -621,9 +622,10 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease,filter .15s ease;
 }
 .battle-v6-unit-card.creature-family-frame { border-width:3px; border-color:var(--family-frame); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--family-edge) 45%,transparent),inset 0 0 0 4px color-mix(in srgb,var(--rarity-accent) 48%,transparent),inset 0 1px 0 color-mix(in srgb,var(--family-edge) 55%,transparent),inset 0 -1px 0 #00000090,0 8px 20px #000a; }
-.battle-v6-unit-card>img,.battle-v6-unit-card>.monster-art { display:block; width:100%; height:clamp(112px,27vw,205px); object-fit:cover; object-position:center 18%; border-radius:9px 9px 0 0; background:#0b0e0d; }
+.battle-v6-unit-card>img,.battle-v6-unit-card>.monster-art { display:block; width:100%; max-height:205px; aspect-ratio:1.15; object-fit:cover; object-position:center 18%; border-radius:9px 9px 0 0; background:#0b0e0d; }
 /* Retratos de inimigo (bestiário) já trazem nome/categoria no rodapé da própria imagem;
-   ancorar no topo evita vazar essa faixa e duplicar o texto que o card já mostra abaixo. */
+   ancorar no topo com um aspect-ratio mais baixo garante que essa faixa nunca vaze,
+   independente do tamanho de tela (fixed-height não bastava em telas estreitas). */
 .battle-v6-enemy-card>img { object-position:center top; }
 .battle-v6-unit-card>.monster-art { display:grid; place-items:center; font-size:46px; }
 .battle-v6-enemy-card { cursor:crosshair; }
@@ -738,7 +740,6 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   .battle-v6-party-pill { min-height:32px; padding:4px 6px; font-size:9px; }
   .battle-v6-arena { gap:6px; padding:10px 7px; }
   .battle-v6-enemy-grid { gap:6px; }
-  .battle-v6-unit-card>img,.battle-v6-unit-card>.monster-art { height:clamp(104px,34vw,148px); }
   .battle-v6-card-copy { gap:3px; padding:5px 5px 6px; }
   .battle-v6-card-copy>strong { font-size:11px; }
   .battle-v6-card-footer>span { font-size:6px; letter-spacing:.03em; }
@@ -766,8 +767,6 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   .battle-v6-party-pill { display:none; }
   .battle-v6-header { grid-template-columns:40px 1fr; }
   .battle-v6-enemy-grid { gap:4px; }
-  .battle-v6-unit-card>img,.battle-v6-unit-card>.monster-art { height:96px; }
-  .battle-v6-card-copy>small { display:none; }
   .battle-v6-card-footer>span { display:none; }
   .battle-v6-skill-grid { grid-template-columns:1fr; }
 }

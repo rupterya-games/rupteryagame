@@ -1849,7 +1849,6 @@ export default function HomePage() {
                           <div className="monster-art">✦</div>
                         )}
                         <div className="battle-v6-card-copy">
-                          <small>{creature.rarity === "common" ? `NV. ${creature.level}` : creatureRarityLabels[resolveCreatureRarity(creature.rarity)].toUpperCase()}</small>
                           <strong>{enemy.name}</strong>
                           <CombatEffects effects={enemy.activeEffects} />
                           <div className="battle-v6-bar hp" aria-label={`HP ${enemy.hpCurrent} de ${enemy.hpMax}`}>

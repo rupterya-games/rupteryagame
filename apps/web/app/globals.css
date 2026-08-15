@@ -451,10 +451,11 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .encounter-gallery-title { display:flex; justify-content:space-between; gap:12px; align-items:end; margin-top:3px; }
 .encounter-gallery-title strong { color:#f1d18b; font-size:12px; }
 .encounter-gallery-title small { color:#8f9b9e; font-size:10px; }
-.creature-family-frame { --rarity-accent:#789a68; --rarity-glow:#789a6833; --family-frame:#625b4c; --family-edge:#aaa087; --family-medallion:#171a16; position:relative; overflow:visible; border:2px solid var(--family-frame); background-color:#0d1110; box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--rarity-accent) 52%,transparent),0 7px 16px #0008; }
-.creature-family-frame:before { content:""; position:absolute; z-index:6; inset:4px; border-radius:inherit; pointer-events:none; background:radial-gradient(circle at 3px 3px,var(--rarity-accent) 0 1.5px,transparent 2px),radial-gradient(circle at calc(100% - 3px) 3px,var(--rarity-accent) 0 1.5px,transparent 2px),radial-gradient(circle at 3px calc(100% - 3px),var(--rarity-accent) 0 1.5px,transparent 2px),radial-gradient(circle at calc(100% - 3px) calc(100% - 3px),var(--rarity-accent) 0 1.5px,transparent 2px); opacity:.74; }
-.creature-family-badge { --rarity-accent:#789a68; --rarity-glow:#789a6833; --family-frame:#625b4c; --family-edge:#aaa087; --family-medallion:#171a16; position:absolute; z-index:9; top:-12px; left:50%; translate:-50% 0; display:grid; place-items:center; width:32px; height:32px; border:2px solid var(--family-frame); border-radius:50%; background:radial-gradient(circle at 45% 35%,color-mix(in srgb,var(--rarity-accent) 16%,var(--family-medallion)),var(--family-medallion) 70%); color:var(--rarity-accent); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--family-edge) 65%,transparent),0 0 9px var(--rarity-glow),0 3px 7px #000c; pointer-events:none; }
-.creature-family-badge svg { width:22px; height:22px; overflow:visible; filter:drop-shadow(0 0 3px var(--rarity-glow)); }
+.creature-family-frame { --rarity-accent:#789a68; --rarity-glow:#789a6833; --family-frame:#625b4c; --family-edge:#aaa087; --family-medallion:#171a16; position:relative; overflow:visible; border:3px solid var(--family-frame); background-color:#0d1110; box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--family-edge) 45%,transparent),inset 0 0 0 4px color-mix(in srgb,var(--rarity-accent) 48%,transparent),inset 0 1px 0 color-mix(in srgb,var(--family-edge) 55%,transparent),inset 0 -1px 0 #00000090,0 7px 16px #0008; }
+.creature-family-frame:before { content:""; position:absolute; z-index:6; inset:7px; border-radius:inherit; pointer-events:none; background:radial-gradient(circle at 4px 4px,#fff9 0 1px,var(--rarity-accent) 1px 2.6px,transparent 3.4px),radial-gradient(circle at calc(100% - 4px) 4px,#fff9 0 1px,var(--rarity-accent) 1px 2.6px,transparent 3.4px),radial-gradient(circle at 4px calc(100% - 4px),#fff9 0 1px,var(--rarity-accent) 1px 2.6px,transparent 3.4px),radial-gradient(circle at calc(100% - 4px) calc(100% - 4px),#fff9 0 1px,var(--rarity-accent) 1px 2.6px,transparent 3.4px); opacity:.85; }
+.creature-family-badge { --rarity-accent:#789a68; --rarity-glow:#789a6833; --family-frame:#625b4c; --family-edge:#aaa087; --family-medallion:#171a16; position:absolute; z-index:9; top:-15px; left:50%; translate:-50% 0; display:grid; place-items:center; width:36px; height:36px; border:2px solid var(--family-frame); border-radius:50%; background:radial-gradient(circle at 45% 35%,color-mix(in srgb,var(--rarity-accent) 16%,var(--family-medallion)),var(--family-medallion) 70%); color:var(--rarity-accent); box-shadow:0 0 0 2px var(--family-medallion),0 0 0 4px color-mix(in srgb,var(--rarity-accent) 55%,var(--family-frame)),inset 0 0 0 1px color-mix(in srgb,var(--family-edge) 65%,transparent),0 0 10px var(--rarity-glow),0 3px 7px #000c; pointer-events:none; }
+.creature-family-badge:before { content:""; position:absolute; z-index:-1; inset:-4px; border-radius:50%; background:repeating-conic-gradient(color-mix(in srgb,var(--family-edge) 70%,transparent) 0deg 7deg,transparent 7deg 16deg); opacity:.6; }
+.creature-family-badge svg { width:24px; height:24px; overflow:visible; filter:drop-shadow(0 0 3px var(--rarity-glow)); }
 .family-beast { --family-frame:#6b5a43; --family-edge:#b4a080; --family-medallion:#211b13; }
 .family-undead { --family-frame:#59615d; --family-edge:#a9b0a7; --family-medallion:#121916; }
 .family-humanoid { --family-frame:#665e50; --family-edge:#aaa087; --family-medallion:#1c1914; }
@@ -476,12 +477,15 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .encounter-creature-gallery button.mastered { box-shadow:inset 0 0 0 1px #d2a64baa,0 0 14px #d2a64b3d,0 8px 18px #0009; }
 .encounter-creature-gallery button.mastered small { color:#e6c377; font-weight:900; }
 .encounter-creature-gallery .unknown-creature-art { width:100%; height:136px; display:grid; place-items:center; background:linear-gradient(145deg,#11171a,#25231f); color:#d8a952; font-size:48px; font-weight:900; }
-.encounter-creature-gallery img { width:100%; height:136px; object-fit:cover; display:block; border-radius:10px 10px 0 0; }
+/* Retratos de criatura já trazem nome/categoria desenhados no rodapé da própria imagem;
+   ancorar no topo evita que essa faixa de texto vaze e duplique o texto que o app já mostra. */
+.encounter-creature-gallery img { width:100%; height:136px; object-fit:cover; object-position:center top; display:block; border-radius:10px 10px 0 0; }
 .encounter-creature-gallery span,.encounter-creature-gallery small { display:block; padding:0 8px; }
 .encounter-creature-gallery span { margin-top:7px; font-size:11px; font-weight:900; }
 .encounter-creature-gallery small { padding-bottom:8px; margin-top:2px; color:#aeb5b7; font-size:9px; }
 .instance-creature-preview { display:grid; grid-template-columns:150px 1fr; gap:12px; padding:10px; border-radius:14px; background:linear-gradient(135deg,#211a14,#10161a); }
-.instance-creature-preview>img { width:150px; height:185px; object-fit:cover; border-radius:10px; border:1px solid #6e583a; }
+.instance-creature-preview>img,.instance-creature-preview>.unknown-creature-art { width:150px; height:185px; object-fit:cover; object-position:center top; border-radius:10px; border:1px solid #6e583a; }
+.instance-creature-preview>.unknown-creature-art { display:grid; place-items:center; background:linear-gradient(145deg,#11171a,#25231f); color:#d8a952; font-size:40px; font-weight:900; }
 .instance-creature-preview>div { display:grid; align-content:center; gap:6px; }
 .instance-creature-preview small { color:#c7a65d; text-transform:uppercase; letter-spacing:.07em; font-size:9px; }
 .instance-creature-preview strong { color:#f7e8c5; font-size:19px; }
@@ -616,8 +620,11 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   box-shadow:0 8px 20px #000a,inset 0 0 0 1px #f2c66f12;
   transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease,filter .15s ease;
 }
-.battle-v6-unit-card.creature-family-frame { border-width:2px; border-color:var(--family-frame); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--rarity-accent) 52%,transparent),0 8px 20px #000a; }
+.battle-v6-unit-card.creature-family-frame { border-width:3px; border-color:var(--family-frame); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--family-edge) 45%,transparent),inset 0 0 0 4px color-mix(in srgb,var(--rarity-accent) 48%,transparent),inset 0 1px 0 color-mix(in srgb,var(--family-edge) 55%,transparent),inset 0 -1px 0 #00000090,0 8px 20px #000a; }
 .battle-v6-unit-card>img,.battle-v6-unit-card>.monster-art { display:block; width:100%; height:clamp(112px,27vw,205px); object-fit:cover; object-position:center 18%; border-radius:9px 9px 0 0; background:#0b0e0d; }
+/* Retratos de inimigo (bestiário) já trazem nome/categoria no rodapé da própria imagem;
+   ancorar no topo evita vazar essa faixa e duplicar o texto que o card já mostra abaixo. */
+.battle-v6-enemy-card>img { object-position:center top; }
 .battle-v6-unit-card>.monster-art { display:grid; place-items:center; font-size:46px; }
 .battle-v6-enemy-card { cursor:crosshair; }
 .battle-v6-enemy-card:hover:not(.unit-defeated),.battle-v6-enemy-card:focus-visible:not(.unit-defeated) { transform:translateY(-3px); border-color:#cf9d4e; box-shadow:0 11px 24px #000c,0 0 18px #d6a54b2b; outline:none; }
@@ -628,13 +635,14 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 @keyframes battle-target-pulse { from { transform:scale(.94); filter:brightness(.9); } to { transform:scale(1.08); filter:brightness(1.35); } }
 .battle-v6-card-copy { display:grid; gap:4px; padding:7px 8px 8px; }
 .battle-v6-card-copy>small { color:#9e927d; font-size:8px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
-.battle-v6-card-copy>strong { overflow:hidden; color:#eee5d3; font-family:Georgia,"Times New Roman",serif; font-size:clamp(12px,2.8vw,18px); text-overflow:ellipsis; white-space:nowrap; }
+.battle-v6-card-copy>strong { display:-webkit-box; overflow:hidden; color:#eee5d3; font-family:Georgia,"Times New Roman",serif; font-size:clamp(11px,2.6vw,18px); line-height:1.15; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .battle-v6-card-copy>strong .online-dot { margin-left:4px; vertical-align:middle; }
-.battle-v6-bar { position:relative; height:8px; overflow:hidden; border:1px solid #3f2726; border-radius:4px; background:#200f10; }
+.battle-v6-bar { position:relative; height:14px; overflow:hidden; border:1px solid #3f2726; border-radius:4px; background:#200f10; }
 .battle-v6-bar b { display:block; height:100%; transition:width .28s ease; }
 .battle-v6-bar.hp b { background:linear-gradient(90deg,#a92f39,#e55358); box-shadow:0 0 8px #e34c4c44; }
 .battle-v6-bar.mp { border-color:#173350; background:#081727; }
 .battle-v6-bar.mp b { background:linear-gradient(90deg,#2864b2,#4d94e7); box-shadow:0 0 8px #378be34d; }
+.battle-v6-bar em { position:absolute; inset:0; display:grid; place-items:center; color:#fff3e0; font-size:8px; font-weight:900; font-style:normal; letter-spacing:.02em; text-shadow:0 1px 2px #000,0 0 3px #000c; pointer-events:none; }
 .battle-v6-card-footer { display:flex; align-items:center; justify-content:space-between; min-height:24px; }
 .battle-v6-card-footer>span { color:#a79b82; font-size:7px; font-weight:900; letter-spacing:.08em; }
 .battle-v6-card-footer>button { display:grid; place-items:center; width:25px; min-height:25px; padding:0; border:1px solid #735b36; border-radius:50%; background:#181a14; color:#ddbd78; font-family:Georgia,serif; font-weight:900; }

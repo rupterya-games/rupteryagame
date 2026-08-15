@@ -1575,7 +1575,7 @@ export default function HomePage() {
                                 onClick={() => discovered && setInspectedBestiaryCreatureId(creature.id)}
                               >
                                 {discovered && <CreatureFamilyBadge family={creature.family} rarity={creature.rarity} />}
-                                {discovered ? <img src={creature.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={creature.name} /> : <div className="unknown-creature-art">?</div>}
+                                {discovered ? (creature.portraitPath ? <img src={creature.portraitPath} alt={creature.name} /> : <div className="unknown-creature-art">✦</div>) : <div className="unknown-creature-art">?</div>}
                                 <span>{discovered ? creature.name : "Desconhecido"}</span>
                                 <small>{discovered ? `${kills}/${creature.codexKills} abates${mastered ? " · Dominado" : ""}` : "Encontre para revelar"}</small>
                               </button>
@@ -1597,7 +1597,7 @@ export default function HomePage() {
             return (
               <article className={`instance-creature-preview ${creatureFrameClassName(inspected.family, inspected.rarity)}`}>
                 <CreatureFamilyBadge family={inspected.family} rarity={inspected.rarity} />
-                <img src={inspected.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={inspected.name} />
+                {inspected.portraitPath ? <img src={inspected.portraitPath} alt={inspected.name} /> : <div className="unknown-creature-art">✦</div>}
                 <div>
                   <small>{creatureRarityLabels[resolveCreatureRarity(inspected.rarity)]} · Nv. {inspected.level} · {inspectedKills}/{inspected.codexKills} abates{inspectedMastered ? " · Dominado (+10% dano)" : ""}</small>
                   <strong>{inspected.name}</strong>
@@ -1854,6 +1854,7 @@ export default function HomePage() {
                           <CombatEffects effects={enemy.activeEffects} />
                           <div className="battle-v6-bar hp" aria-label={`HP ${enemy.hpCurrent} de ${enemy.hpMax}`}>
                             <b style={{ width: `${Math.max(0, (enemy.hpCurrent / enemy.hpMax) * 100)}%` }} />
+                            <em>{enemy.hpCurrent}/{enemy.hpMax}</em>
                           </div>
                           <div className="battle-v6-card-footer">
                             <span>{defeated ? "DERROTADO" : selectedTarget ? "ALVO" : "TOQUE PARA MIRAR"}</span>
@@ -1906,11 +1907,13 @@ export default function HomePage() {
                       <small>{summary!.className} · Nv. {summary!.level}</small>
                       <strong>{summary!.name} <i className="online-dot" /></strong>
                       <CombatEffects effects={battle.player.activeEffects} />
-                      <div className="battle-v6-bar hp">
+                      <div className="battle-v6-bar hp" aria-label={`HP ${battle.player.hpCurrent} de ${battle.player.hpMax}`}>
                         <b style={{ width: `${Math.max(0, (battle.player.hpCurrent / battle.player.hpMax) * 100)}%` }} />
+                        <em>{battle.player.hpCurrent}/{battle.player.hpMax}</em>
                       </div>
-                      <div className="battle-v6-bar mp">
+                      <div className="battle-v6-bar mp" aria-label={`MP ${battle.player.mpCurrent} de ${battle.player.mpMax}`}>
                         <b style={{ width: `${Math.max(0, (battle.player.mpCurrent / battle.player.mpMax) * 100)}%` }} />
+                        <em>{battle.player.mpCurrent}/{battle.player.mpMax}</em>
                       </div>
                     </div>
                   </article>

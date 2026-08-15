@@ -433,7 +433,9 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .encounter-creature-gallery { display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:8px; }
 .encounter-creature-gallery button { overflow:hidden; padding:0; text-align:left; border:1px solid #4b4439; border-radius:12px; background:#0e1418; color:#ece2ca; box-shadow:0 7px 16px #0007; }
 .encounter-creature-gallery button.selected { border-color:#d8a952; box-shadow:0 0 0 2px #d8a95233,0 8px 18px #0009; }
+.encounter-creature-gallery button.unknown { cursor:default; border-color:#393d3d; background:#0b0e10; opacity:.82; }
 .encounter-creature-gallery img { width:100%; height:136px; object-fit:cover; display:block; }
+.encounter-creature-gallery .unknown-creature-art { display:grid; place-items:center; height:136px; margin:0; padding:0; color:#757d7f; background:radial-gradient(circle,#252b2d,#090c0e 68%); font-size:54px; font-weight:900; }
 .encounter-creature-gallery span,.encounter-creature-gallery small { display:block; padding:0 8px; }
 .encounter-creature-gallery span { margin-top:7px; font-size:11px; font-weight:900; }
 .encounter-creature-gallery small { padding-bottom:8px; margin-top:2px; color:#aeb5b7; font-size:9px; }

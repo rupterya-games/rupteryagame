@@ -30,6 +30,7 @@ const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.rand
 
 export const emptyWorldProgress = (): CharacterWorldProgress => ({
   exploredSpotsByLevel: {},
+  discoveredCreatureIds: [],
   creatureKills: {},
   defeatedBossIds: [],
   activeQuestIds: [],
@@ -61,6 +62,7 @@ function normalizeWorldProgress(progress?: CharacterWorldProgress): CharacterWor
     ...emptyWorldProgress(),
     ...(progress ?? {}),
     exploredSpotsByLevel: progress?.exploredSpotsByLevel ?? {},
+    discoveredCreatureIds: progress?.discoveredCreatureIds ?? Object.keys(progress?.creatureKills ?? {}),
     creatureKills: progress?.creatureKills ?? {},
     defeatedBossIds: progress?.defeatedBossIds ?? [],
     activeQuestIds: progress?.activeQuestIds ?? [],
@@ -291,9 +293,10 @@ export class DevCharacterRepository {
     return this.save(replaceCharacter(account, updated));
   }
 
-  recordSpot(account: DevAccount, character: GameCharacter, levelId: string, spotId: string): DevAccount {
+  recordSpot(account: DevAccount, character: GameCharacter, levelId: string, spotId: string, discoveredCreatureIds: readonly string[] = []): DevAccount {
     const progress = normalizeWorldProgress(character.worldProgress);
     progress.exploredSpotsByLevel[levelId] = [...new Set([...(progress.exploredSpotsByLevel[levelId] ?? []), spotId])];
+    progress.discoveredCreatureIds = [...new Set([...progress.discoveredCreatureIds, ...discoveredCreatureIds])];
     return this.save(replaceCharacter(account, { ...character, worldProgress: progress }));
   }
 

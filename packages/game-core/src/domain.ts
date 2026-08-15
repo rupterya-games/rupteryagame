@@ -155,6 +155,7 @@ export interface CharacterBuild {
 
 export interface CharacterWorldProgress {
   exploredSpotsByLevel: Record<string, string[]>;
+  discoveredCreatureIds: string[];
   creatureKills: Record<string, number>;
   defeatedBossIds: string[];
   activeQuestIds: string[];

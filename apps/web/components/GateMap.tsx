@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { AdventureCityDefinition } from "@/lib/world";
 import { isAdventureLevelUnlocked } from "@/lib/world";
@@ -28,6 +28,7 @@ export function GateMap({
   selectedExitId,
   selectedLevelId,
   exploredSpotsByLevel,
+  discoveredCreatureIds,
   creatureName,
   onSelectExit,
   onSelectLevel,
@@ -37,6 +38,7 @@ export function GateMap({
   selectedExitId: string | null;
   selectedLevelId: string | null;
   exploredSpotsByLevel: Record<string, string[]>;
+  discoveredCreatureIds: readonly string[];
   creatureName: (id: string) => string;
   onSelectExit: (exitId: string) => void;
   onSelectLevel: (levelId: string) => void;
@@ -54,6 +56,7 @@ export function GateMap({
     : [];
   const explored = activeLevel ? exploredSpotsByLevel[activeLevel.id] ?? [] : [];
   const inspectedCreature = inspectedCreatureId ? bestiaryById.get(inspectedCreatureId) ?? null : null;
+  const discoveredCreatures = useMemo(() => new Set(discoveredCreatureIds), [discoveredCreatureIds]);
   const visibleCreatures = useMemo(() => {
     if (!activeLevel) return [];
     return activeLevel.creaturePool
@@ -61,9 +64,16 @@ export function GateMap({
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
   }, [activeLevel]);
 
+  useEffect(() => {
+    setInspectedCreatureId(null);
+  }, [selectedLevelId]);
+
+  const knownCreatureName = (creatureId: string) =>
+    discoveredCreatures.has(creatureId) ? creatureName(creatureId) : "Desconhecido";
+
   return (
     <div className="gate-map-stack">
-      <section className="gate-overview-shell">
+      {!activeExit && <section className="gate-overview-shell">
         <div className="section-title">
           <span>Portões de {city.name}</span>
           <small>Escolha uma saída no próprio mapa</small>
@@ -86,9 +96,9 @@ export function GateMap({
             );
           })}
         </div>
-      </section>
+      </section>}
 
-      {activeExit && (
+      {activeExit && !activeLevel && (
         <section className="subpanel adventure-level-panel">
           <div className="section-title"><span>{activeExit.name}</span><small>Progressão 1 → 2 → 3</small></div>
           <div className="visual-level-grid">
@@ -123,8 +133,8 @@ export function GateMap({
             <small>{explored.length}/{spots.length} explorados</small>
           </div>
           <p>
-            Clique nos pontos do mapa para andar e procurar encontros. Assinatura: <strong>{creatureName(activeLevel.signatureCreatureId)}</strong>
-            {activeLevel.bossId ? <> · Chefe: <strong>{creatureName(activeLevel.bossId)}</strong></> : null}
+            Clique nos pontos do mapa para andar e procurar encontros. Assinatura: <strong>{knownCreatureName(activeLevel.signatureCreatureId)}</strong>
+            {activeLevel.bossId ? <> · Chefe: <strong>{knownCreatureName(activeLevel.bossId)}</strong></> : null}
           </p>
 
           <div className="instance-visual-map" aria-label={`Mapa explorável de ${activeLevel.name}`}>
@@ -151,20 +161,28 @@ export function GateMap({
 
           <div className="encounter-gallery-title">
             <strong>Criaturas possíveis nesta instância</strong>
-            <small>Clique na imagem para inspecionar antes de explorar.</small>
+            <small>As criaturas são reveladas somente depois de um encontro.</small>
           </div>
           <div className="encounter-creature-gallery">
-            {visibleCreatures.map((creature) => (
-              <button
-                key={creature.id}
-                className={inspectedCreatureId === creature.id ? "selected" : ""}
-                onClick={() => setInspectedCreatureId(creature.id)}
-              >
-                <img src={creature.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={creature.name} />
-                <span>{creature.name}</span>
-                <small>Nv. {creature.level} · {creature.rarity}</small>
-              </button>
-            ))}
+            {visibleCreatures.map((creature) => {
+              const discovered = discoveredCreatures.has(creature.id);
+              return (
+                <button
+                  key={creature.id}
+                  className={`${inspectedCreatureId === creature.id ? "selected" : ""} ${!discovered ? "unknown" : ""}`}
+                  disabled={!discovered}
+                  onClick={() => setInspectedCreatureId(creature.id)}
+                >
+                  {discovered ? (
+                    <img src={creature.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={creature.name} />
+                  ) : (
+                    <span className="unknown-creature-art" aria-hidden="true">?</span>
+                  )}
+                  <span>{discovered ? creature.name : "Desconhecido"}</span>
+                  <small>{discovered ? `Nv. ${creature.level} · ${creature.rarity}` : "Encontre para revelar"}</small>
+                </button>
+              );
+            })}
           </div>
 
           {inspectedCreature && (

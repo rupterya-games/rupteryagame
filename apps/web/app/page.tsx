@@ -395,7 +395,7 @@ export default function HomePage() {
   );
   const [traveledRoute, setTraveledRoute] = useState<string[]>(["fiordevalle"]);
   const [activeCityId, setActiveCityId] = useState<AdventureCityId>("fiordevalle");
-  const [citySectionId, setCitySectionId] = useState("centro");
+  const [citySectionId, setCitySectionId] = useState("hub");
   const [selectedExitId, setSelectedExitId] = useState<string | null>(null);
   const [selectedInstanceLevelId, setSelectedInstanceLevelId] = useState<string | null>(null);
   const [adventureAlert, setAdventureAlert] = useState<AdventureAlert | null>(null);
@@ -458,7 +458,7 @@ export default function HomePage() {
     const cityId = preferred && isCityUnlocked(preferred.id, progress.defeatedBossIds) ? preferred.id : "fiordevalle";
     setActiveCityId(cityId);
     setRegionId(cityId);
-    setCitySectionId("centro");
+    setCitySectionId("hub");
     setSelectedExitId(null);
     setSelectedInstanceLevelId(null);
     setAdventureAlert(null);
@@ -649,7 +649,7 @@ export default function HomePage() {
     }
     setActiveCityId(cityId);
     setRegionId(cityId);
-    setCitySectionId("centro");
+    setCitySectionId("hub");
     setSelectedExitId(null);
     setSelectedInstanceLevelId(null);
     setAdventureAlert(null);
@@ -767,25 +767,33 @@ export default function HomePage() {
     setAdventureAlert(null);
     setPendingEncounter(null);
   };
+  const returnFromAdventureScreen = () => {
+    setAdventureAlert(null);
+    setPendingEncounter(null);
+    if (selectedInstanceLevelId) {
+      setSelectedInstanceLevelId(null);
+      return;
+    }
+    if (selectedExitId) {
+      setSelectedExitId(null);
+      return;
+    }
+    setCitySectionId("hub");
+  };
   const exploreSpot = (spotId: string, spotName: string) => {
     if (!selected || !activeExit || !activeLevel) return;
     const explored = worldProgress.exploredSpotsByLevel[activeLevel.id] ?? [];
     if (explored.includes(spotId)) return;
-    setAccount(repository.recordSpot(account, selected, activeLevel.id, spotId));
     const roll = Math.random();
     const eventText = activeLevel.eventPool[Math.floor(Math.random() * activeLevel.eventPool.length)] ?? `${spotName} permanece em silêncio.`;
     if (roll < 0.62) {
       const creatures = createInstanceEncounter(activeLevel.creaturePool);
-      setPendingEncounter(creatures);
-      setAdventureAlert({
-        kind: "encounter",
-        title: `${spotName} · ameaça detectada`,
-        text: `Uma ameaça surgiu em ${activeLevel.name}. Inimigos vistos: ${creatures.map((entry) => entry.name).join(", ")}.`,
-        actionLabel: "Entrar em combate",
-      });
+      setAccount(repository.recordSpot(account, selected, activeLevel.id, spotId, creatures.map((creature) => creature.id)));
+      setBattle(repository.beginHunt(account, selected, activeCityId, creatures));
       setMessage(`Encontro encontrado em ${activeLevel.name}.`);
       return;
     }
+    setAccount(repository.recordSpot(account, selected, activeLevel.id, spotId));
     if (roll < 0.87) {
       setPendingEncounter(null);
       setAdventureAlert({
@@ -1343,21 +1351,22 @@ export default function HomePage() {
                   <button onClick={() => setView("lobby")}>Lobby</button>
                 </div>
 
-                <CityHub
+                {citySectionId === "hub" && <CityHub
                   city={adventureCity}
                   selectedSectionId={citySectionId}
                   defeatedBossIds={worldProgress.defeatedBossIds}
                   activeQuestCount={worldProgress.activeQuestIds.length}
                   onSwitchCity={switchAdventureCity}
                   onSelectSection={openCitySection}
-                />
+                />}
 
-                <section className="subpanel adventure-detail-card">
+                {citySectionId !== "hub" && <section className="subpanel adventure-detail-card">
                   <div className="section-title">
-                    <span>{selectedCitySection.name}</span>
+                    <button onClick={returnFromAdventureScreen}>← Voltar</button>
+                    <span>{selectedInstanceLevelId ? activeLevel?.name : selectedExitId ? activeExit?.name : selectedCitySection.name}</span>
                     <span className="city-wallet">Ouro: {selected.vitals.gold}</span>
                   </div>
-                  <p>{selectedCitySection.detail}</p>
+                  {!selectedExitId && !selectedInstanceLevelId && <p>{selectedCitySection.detail}</p>}
 
                   {selectedCitySection.id === "centro" && (
                     <div className="city-service-actions">
@@ -1428,13 +1437,14 @@ export default function HomePage() {
                       selectedExitId={selectedExitId}
                       selectedLevelId={selectedInstanceLevelId}
                       exploredSpotsByLevel={worldProgress.exploredSpotsByLevel}
+                      discoveredCreatureIds={worldProgress.discoveredCreatureIds}
                       creatureName={(creatureId) => bestiaryById.get(creatureId)?.name ?? huntCreatures.find((creature) => creature.id === creatureId)?.name ?? creatureId}
                       onSelectExit={openExit}
                       onSelectLevel={openInstanceLevel}
                       onExploreSpot={exploreSpot}
                     />
                   )}
-                </section>
+                </section>}
               </section>
             </>
           ) : (

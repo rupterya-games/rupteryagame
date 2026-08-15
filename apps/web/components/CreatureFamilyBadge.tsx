@@ -18,8 +18,9 @@ export const creatureFrameImageByFamily: Record<CreatureFamilyId, string> = {
   insect: "/art/frames/insect.png",
   dragonkin: "/art/frames/dragonkin.png",
 };
-/** Só existe arte própria para raro+; comum usa a moldura de família (mais discreta por design). */
-export const creatureFrameImageByRarity: Partial<Record<CreatureRarityId, string>> = {
+/** Conjunto completo: a mesma caveira, recolorida por nível de perigo. */
+export const creatureFrameImageByRarity: Record<CreatureRarityId, string> = {
+  common: "/art/frames/rarity/common.png",
   rare: "/art/frames/rarity/rare.png",
   elite: "/art/frames/rarity/elite.png",
   boss: "/art/frames/rarity/boss.png",
@@ -32,15 +33,15 @@ export function resolveCreatureRarity(value?: string): CreatureRarityId { return
 export function creatureFrameClassName(family?: string, rarity?: string) { return `creature-family-frame family-${resolveCreatureFamily(family)} rarity-${resolveCreatureRarity(rarity)}`; }
 
 /**
- * Moldura ornamentada real. Criaturas raras ou acima usam a moldura de raridade
- * (caveira + cor por perigo) — a moldura sozinha já avisa "isso é forte". Comuns
- * usam a moldura de família (símbolo do tipo de criatura, sem o drama extra).
+ * Moldura ornamentada real: a mesma caveira, recolorida por nível de perigo
+ * (comum a world boss). A moldura sozinha já avisa "isso é forte", sem precisar
+ * de texto de raridade no card.
  */
 export function CreatureFrameOverlay({ family, rarity, className = "" }: { family?: string; rarity?: string; className?: string }) {
   const resolvedFamily = resolveCreatureFamily(family);
   const resolvedRarity = resolveCreatureRarity(rarity);
   const label = `${creatureFamilyLabels[resolvedFamily]} · ${creatureRarityLabels[resolvedRarity]}`;
-  const frameSrc = creatureFrameImageByRarity[resolvedRarity] ?? creatureFrameImageByFamily[resolvedFamily];
+  const frameSrc = creatureFrameImageByRarity[resolvedRarity];
   return (
     <img
       className={`creature-frame-overlay ${className}`.trim()}

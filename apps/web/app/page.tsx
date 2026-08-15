@@ -32,7 +32,7 @@ import {
   rollFiordevalleEncounter,
   sharedAbilities,
 } from "@/lib/catalog";
-import { emptyWorldProgress, repository } from "@/lib/dev-character-repository";
+import { emptyWorldProgress, repository, xpToNextLevel } from "@/lib/dev-character-repository";
 import { bestiaryById } from "@/lib/bestiary";
 import { blackMarketStock, innCost, marketStock } from "@/lib/economy";
 import { questDestinationLevelId, questsByCity, questsById } from "@/lib/quests";
@@ -1104,7 +1104,7 @@ export default function HomePage() {
           <div>
             <span className="brand">RUPTERYA</span>
             <small>
-              Conta Nv. {account.globalLevel} · XP {account.globalXp}
+              Conta Nv. {account.globalLevel} · XP {account.globalXp}/{xpToNextLevel(account.globalLevel)}
             </small>
           </div>
           <span className="badge">
@@ -1337,9 +1337,10 @@ export default function HomePage() {
             <button onClick={() => setView("lobby")}>Lobby</button>
           </div>
           <p className="rule-copy">
-            Uma passiva de classe, linhagem ou escola ocupa o mesmo único slot
-            de Passiva.
+            Você começa com uma técnica básica e libera outra habilidade de classe a cada 4 níveis
+            (Nv. 4, 8, 12, 16, 20 e 24). Uma passiva de classe, linhagem ou escola ocupa o mesmo único slot de Passiva.
           </p>
+          <p className="notice">Habilidades de classe liberadas: {selected.ownedAbilityIds.filter((abilityId) => abilityId.startsWith(`${selected.classId}-`)).length}/7{account.globalLevel < 24 ? ` · Próxima no Nv. ${Math.max(4, (Math.floor(account.globalLevel / 4) + 1) * 4)}` : " · Todas liberadas"}</p>
           <div className="loadout-grid">
             {LOADOUT_SLOTS.map((slot) => (
               <label className="loadout-slot" key={slot.key}>

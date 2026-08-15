@@ -49,9 +49,13 @@ export const emptyWorldProgress = (): CharacterWorldProgress => ({
 
 export const xpToNextLevel = (level: number) => Math.round(120 + level * 34 + Math.pow(level, 1.35) * 8);
 
-const defaultLoadout = (classId: string) => {
+const unlockedClassAbilityIds = (classId: string, level: number) =>
+  abilities.filter((ability) => ability.id.startsWith(`${classId}-`)).slice(0, Math.min(7, 1 + Math.floor(Math.max(0, level) / 4))).map((ability) => ability.id);
+
+const defaultLoadout = (classId: string, level = 0) => {
   const classAbilities = abilities.filter((ability) => ability.id.startsWith(`${classId}-`));
-  const find = (suffix: string) => classAbilities.find((ability) => ability.id.endsWith(suffix))?.id ?? null;
+  const unlocked = new Set(unlockedClassAbilityIds(classId, level));
+  const find = (suffix: string) => classAbilities.find((ability) => ability.id.endsWith(suffix) && unlocked.has(ability.id))?.id ?? null;
   return {
     skill1: find("skill-1"),
     skill2: find("skill-2"),
@@ -115,7 +119,10 @@ function applyAccountXp(account: DevAccount, gainedXp: number): DevAccount {
     globalXp -= xpToNextLevel(globalLevel);
     globalLevel += 1;
   }
-  return { ...account, globalLevel, globalXp };
+  return { ...account, globalLevel, globalXp, characters: account.characters.map((character) => ({
+    ...character,
+    ownedAbilityIds: [...new Set([...character.ownedAbilityIds.filter((abilityId) => !abilityId.startsWith(`${character.classId}-`)), ...unlockedClassAbilityIds(character.classId, globalLevel)])],
+  })) };
 }
 
 function replaceCharacter(account: DevAccount, character: GameCharacter) {
@@ -127,7 +134,7 @@ export class DevCharacterRepository {
   private saveQueue: Promise<unknown> = Promise.resolve();
 
   emptyAccount(userId = this.userId ?? "offline"): DevAccount {
-    return { id: userId, globalLevel: 30, globalXp: 0, characterSlots: 6, characters: [] };
+    return { id: userId, progressionVersion: 1, globalLevel: 0, globalXp: 0, characterSlots: 6, characters: [] };
   }
 
   async loadForUser(userId: string): Promise<DevAccount> {
@@ -140,17 +147,19 @@ export class DevCharacterRepository {
       return fresh;
     }
     const stored = data.game_state as DevAccount;
+    const resetToLevelZero = stored.progressionVersion !== 1;
+    const progressionLevel = resetToLevelZero ? 0 : stored.globalLevel;
     const legacyClasses: Record<string, string> = { warrior: "guardian" };
     const characters = stored.characters.map((character) => {
       const classId = legacyClasses[character.classId] ?? character.classId;
       const definition = classes.find((entry) => entry.id === classId) ?? classes[0];
-      const ownedAbilityIds = abilities.filter((ability) => ability.id.startsWith(`${definition.id}-`)).map((ability) => ability.id);
+      const ownedAbilityIds = unlockedClassAbilityIds(definition.id, progressionLevel);
       const starterIds = starterItemIdsForClass(definition.id);
       const presets = character.presets.map((preset) => {
         const compatible = Object.values(preset.loadout).every((abilityId) => abilityId === null || ownedAbilityIds.includes(abilityId));
         return {
           ...preset,
-          loadout: compatible ? preset.loadout : defaultLoadout(definition.id),
+          loadout: compatible ? preset.loadout : defaultLoadout(definition.id, progressionLevel),
           equipment: normalizeEquipmentForClass(definition.id, preset.equipment),
         };
       });
@@ -165,7 +174,7 @@ export class DevCharacterRepository {
         inventoryItemIds: [...new Set([...(character.inventoryItemIds ?? []), ...starterIds])],
         itemMemories: character.itemMemories ?? {},
         fragments: character.fragments ?? {},
-        ownedAbilityIds: [...new Set([...ownedAbilityIds, "school-fire", "lineage-vampire", "secret-predatory-charge"])],
+        ownedAbilityIds: [...new Set([...ownedAbilityIds, ...(character.schoolId ? ["school-fire"] : []), ...(character.lineageId ? ["lineage-vampire"] : [])])],
         presets,
         vitals: {
           ...character.vitals,
@@ -176,7 +185,15 @@ export class DevCharacterRepository {
         },
       });
     });
-    const migrated = { ...stored, id: userId, characters };
+    const migrated = {
+      ...stored,
+      id: userId,
+      progressionVersion: 1,
+      globalLevel: resetToLevelZero ? 0 : stored.globalLevel,
+      globalXp: resetToLevelZero ? 0 : stored.globalXp,
+      characters,
+    };
+    if (resetToLevelZero) this.save(migrated);
     return migrated;
   }
 
@@ -200,7 +217,7 @@ export class DevCharacterRepository {
     if (name.length < 3) throw new Error("Use um nome com ao menos 3 caracteres.");
     const starterEquipment = starterEquipmentForClass(definition.id);
     const computedStarter = applyEquipment(definition, starterEquipment, equipment);
-    const preset: CharacterPreset = { id: id(), name: "Caça", loadout: defaultLoadout(definition.id), equipment: starterEquipment };
+    const preset: CharacterPreset = { id: id(), name: "Caça", loadout: defaultLoadout(definition.id, account.globalLevel), equipment: starterEquipment };
     const character: GameCharacter = {
       id: id(),
       name,
@@ -221,12 +238,7 @@ export class DevCharacterRepository {
       inventoryItemIds: starterItemIdsForClass(definition.id),
       itemMemories: {},
       fragments: {},
-      ownedAbilityIds: [
-        ...abilities.filter((ability) => ability.id.startsWith(`${definition.id}-`)).map((ability) => ability.id),
-        "school-fire",
-        "lineage-vampire",
-        "secret-predatory-charge",
-      ],
+      ownedAbilityIds: unlockedClassAbilityIds(definition.id, account.globalLevel),
       presets: [preset],
       activePresetId: preset.id,
       worldProgress: emptyWorldProgress(),
@@ -268,8 +280,12 @@ export class DevCharacterRepository {
     return { ...character, presets: character.presets.map((entry) => (entry.id === updated.id ? updated : entry)) };
   }
 
-  setLineage(character: GameCharacter, lineageId: string | null): GameCharacter { return { ...character, lineageId }; }
-  setSchool(character: GameCharacter, schoolId: string | null): GameCharacter { return { ...character, schoolId }; }
+  setLineage(character: GameCharacter, lineageId: string | null): GameCharacter {
+    return { ...character, lineageId, ownedAbilityIds: lineageId ? [...new Set([...character.ownedAbilityIds, "lineage-vampire"])] : character.ownedAbilityIds.filter((abilityId) => abilityId !== "lineage-vampire") };
+  }
+  setSchool(character: GameCharacter, schoolId: string | null): GameCharacter {
+    return { ...character, schoolId, ownedAbilityIds: schoolId ? [...new Set([...character.ownedAbilityIds, "school-fire"])] : character.ownedAbilityIds.filter((abilityId) => abilityId !== "school-fire") };
+  }
   setSkin(character: GameCharacter, skinId: string): GameCharacter {
     if (!classSkinIds[character.classId]?.includes(skinId)) throw new Error("Esta skin não pertence à classe do personagem.");
     return { ...character, skinId };
@@ -416,7 +432,9 @@ export class DevCharacterRepository {
   }
 
   addPreset(character: GameCharacter, name: string): GameCharacter {
-    const preset: CharacterPreset = { id: id(), name: name.trim() || `Preset ${character.presets.length + 1}`, loadout: defaultLoadout(character.classId), equipment: starterEquipmentForClass(character.classId) };
+    const unlockedCount = character.ownedAbilityIds.filter((abilityId) => abilityId.startsWith(`${character.classId}-`)).length;
+    const inferredLevel = Math.max(0, (unlockedCount - 1) * 4);
+    const preset: CharacterPreset = { id: id(), name: name.trim() || `Preset ${character.presets.length + 1}`, loadout: defaultLoadout(character.classId, inferredLevel), equipment: starterEquipmentForClass(character.classId) };
     return { ...character, presets: [...character.presets, preset], activePresetId: preset.id, equipment: preset.equipment };
   }
 

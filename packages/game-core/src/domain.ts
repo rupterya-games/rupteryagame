@@ -193,6 +193,7 @@ export interface GameCharacter {
 
 export interface DevAccount {
   id: string;
+  progressionVersion?: number;
   globalLevel: number;
   globalXp: number;
   characterSlots: number;

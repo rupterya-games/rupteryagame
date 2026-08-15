@@ -47,6 +47,7 @@ import {
 import { musicDirector } from "@/lib/music";
 import { CityHub } from "@/components/CityHub";
 import { CreatureFamilyBadge, creatureFrameClassName, creatureRarityLabels, resolveCreatureRarity } from "@/components/CreatureFamilyBadge";
+import { StatusEffectIcon } from "@/components/StatusEffectIcon";
 import { GateMap } from "@/components/GateMap";
 import { QuestBoard } from "@/components/QuestBoard";
 import { MarketPanels } from "@/components/MarketPanels";
@@ -68,6 +69,7 @@ type BattleEffect = {
   targetId: string;
   damage?: number;
 } | null;
+type CastEffect = { classId: string } | null;
 type JourneyOutcome = {
   destinationId: string;
   kind: "event" | "quiet" | "encounter";
@@ -284,7 +286,16 @@ function MusicToggle({
 
 function CombatEffects({ effects }: { effects: CombatStatusEffect[] }) {
   if (!effects.length) return null;
-  return <div className="combat-effects" aria-label="Efeitos ativos">{effects.map((effect) => <small key={`${effect.kind}-${effect.sourceName}`}>{statusEffectLabels[effect.kind]} · {effect.turns}T</small>)}</div>;
+  return (
+    <div className="combat-effects" aria-label="Efeitos ativos">
+      {effects.map((effect) => (
+        <span className={`combat-effect-pill status-effect-${effect.kind}`} key={`${effect.kind}-${effect.sourceName}`} title={`${statusEffectLabels[effect.kind]} · ${effect.turns} turno(s) restante(s)`}>
+          <StatusEffectIcon kind={effect.kind} />
+          <small>{statusEffectLabels[effect.kind]} · {effect.turns}T</small>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function JourneyOutcomePanel({
@@ -354,8 +365,10 @@ function createInstanceEncounter(creaturePool: readonly string[], playerLevel: n
   const firstId = creaturePool[Math.floor(Math.random() * creaturePool.length)] ?? creaturePool[0] ?? huntCreatures[0].id;
   const source = bestiaryById.get(firstId);
   const creatureLevel = source?.level ?? playerLevel;
+  // A Caça solo resolve encontros de 1x1 a 1x3 (ver texto do Lobby); o
+  // tabuleiro 3x3 fica reservado para o modo co-op.
   let min = source?.solitary ? 1 : Math.max(1, source?.packMin ?? 1);
-  let max = source?.solitary ? 1 : Math.min(5, Math.max(min, source?.packMax ?? 2));
+  let max = source?.solitary ? 1 : Math.min(3, Math.max(min, source?.packMax ?? 2));
 
   // Balanceamento por diferença de nível: grupos existem para serem perigosos
   // na faixa recomendada, não para fazer um personagem muito acima do nível
@@ -422,6 +435,7 @@ export default function HomePage() {
   const [battle, setBattle] = useState<HuntBattleState | null>(null);
   const [selectedEnemyId, setSelectedEnemyId] = useState<string | null>(null);
   const [battleEffect, setBattleEffect] = useState<BattleEffect>(null);
+  const [castEffect, setCastEffect] = useState<CastEffect>(null);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [showBattleLoadout, setShowBattleLoadout] = useState(false);
   const [inspectedCreatureIndex, setInspectedCreatureIndex] = useState<number | null>(null);
@@ -965,6 +979,8 @@ export default function HomePage() {
         kind: ability.damageFamily === "magical" ? "magical" : "physical",
         targetId: target.id,
       });
+      setCastEffect({ classId: selected.classId });
+      window.setTimeout(() => setCastEffect(null), 560);
       window.setTimeout(() => {
         if (next.player.hpCurrent < battle.player.hpCurrent)
           setBattleEffect({ kind: "physical", targetId: battle.player.id });
@@ -1806,6 +1822,7 @@ export default function HomePage() {
                         {battleEffect.damage ? `-${battleEffect.damage}` : ""}
                       </span>
                     )}
+                    {castEffect && <span className={`class-cast class-cast-${castEffect.classId}`} aria-hidden="true" />}
                     <img src={summary!.portraitPath} alt={`Retrato de ${summary!.name}`} />
                     <div className="battle-v6-card-copy">
                       <small>{summary!.className} · Nv. {summary!.level}</small>

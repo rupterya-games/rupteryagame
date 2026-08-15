@@ -63,7 +63,8 @@ type View =
   | "abilities"
   | "presets"
   | "hunt"
-  | "bestiary";
+  | "bestiary"
+  | "dev";
 type BattleEffect = {
   kind: "physical" | "magical" | "dragonfire";
   targetId: string;
@@ -351,6 +352,7 @@ function bestiaryCreatureForHunt(creatureId: string): HuntCreatureDefinition {
     magicalDamage: source.stats.magicalDamage,
     physicalDefense: source.stats.physicalDefense,
     magicalDefense: source.stats.magicalDefense,
+    blockChance: source.stats.blockChance,
     xpReward: source.xpReward,
     goldReward: source.goldReward,
     statusEffects: source.statusEffects,
@@ -440,6 +442,9 @@ export default function HomePage() {
   const [showBattleLoadout, setShowBattleLoadout] = useState(false);
   const [inspectedCreatureIndex, setInspectedCreatureIndex] = useState<number | null>(null);
   const [inspectedBestiaryCreatureId, setInspectedBestiaryCreatureId] = useState<string | null>(null);
+  const [devLevelInput, setDevLevelInput] = useState("0");
+  const [devCreatureId, setDevCreatureId] = useState("");
+  const [devCreatureCount, setDevCreatureCount] = useState(1);
   const [journeyOutcome, setJourneyOutcome] = useState<JourneyOutcome | null>(
     null,
   );
@@ -902,7 +907,7 @@ export default function HomePage() {
     const roll = Math.random();
     const eventText = activeLevel.eventPool[Math.floor(Math.random() * activeLevel.eventPool.length)] ?? `${spotName} permanece em silêncio.`;
     if (roll < 0.62) {
-      const creatures = createInstanceEncounter(activeLevel.creaturePool, account.globalLevel);
+      const creatures = createInstanceEncounter(activeLevel.creaturePool, selected.level);
       setPendingEncounter(creatures);
       setPendingEncounterSpot({ levelId: activeLevel.id, spotId, spotName });
       setAdventureAlert({
@@ -1010,6 +1015,24 @@ export default function HomePage() {
       );
     }
   };
+  const applyDevLevel = () => {
+    if (!selected) return;
+    const parsed = Number(devLevelInput);
+    if (!Number.isFinite(parsed)) return;
+    setAccount(repository.setCharacterLevel(account, selected, parsed));
+    setMessage(`Nível de ${selected.name} definido para ${Math.max(0, Math.round(parsed))}.`);
+  };
+  const forceDevEncounter = () => {
+    if (!selected || !devCreatureId) return;
+    const creature = bestiaryCreatureForHunt(devCreatureId);
+    const creatures = Array.from({ length: devCreatureCount }, () => creature);
+    setBattle(repository.beginHunt(account, selected, activeCityId, creatures));
+    setPendingEncounterSpot(null);
+    setAdventureAlert(null);
+    setPendingEncounter(null);
+    setView("hunt");
+    setMessage(`Combate forçado: ${devCreatureCount}x ${creature.name}.`);
+  };
   const toggleMusic = () => {
     if (musicEnabled) {
       musicDirector.stop();
@@ -1032,14 +1055,14 @@ export default function HomePage() {
             <span className="brand">RUPTERYA</span>
             <small>Browser prototype · Caça V0</small>
           </div>
-          <strong>Conta Nv. {account.globalLevel}</strong>
+          <strong>{account.characters.length}/{account.characterSlots} personagens</strong>
         </header>
         <section className="panel intro">
           <span className="eyebrow">SLOTS DE PERSONAGEM · DEV</span>
           <h1>Escolha seu aventureiro</h1>
           <p>
-            Os cinco arquétipos usam retratos e cartas próprias. Todos herdam o
-            nível global da conta.
+            Os cinco arquétipos usam retratos e cartas próprias. Cada
+            personagem evolui sozinho, a partir do Nv. 0.
           </p>
         </section>
         <section className="slot-grid">
@@ -1055,7 +1078,7 @@ export default function HomePage() {
                 key={character.id}
               >
                 <img src={definition.portraitPath} alt="" />
-                <span>Nv. {account.globalLevel}</span>
+                <span>Nv. {character.level}</span>
                 <strong>{character.name}</strong>
                 <small>
                   {definition.name} · {character.kingdom}
@@ -1148,7 +1171,7 @@ export default function HomePage() {
           <div>
             <span className="brand">RUPTERYA</span>
             <small>
-              Conta Nv. {account.globalLevel} · XP {account.globalXp}/{xpToNextLevel(account.globalLevel)}
+              Nv. {summary!.level} · XP {selected.xp}/{xpToNextLevel(selected.level)}
             </small>
           </div>
           <span className="badge">
@@ -1365,6 +1388,11 @@ export default function HomePage() {
                     {slotLabels[item.slot]} · {item.rarity}
                   </small>
                   <strong>{item.name}</strong>
+                  {item.affixes && item.affixes.length > 0 && (
+                    <div className="item-affixes">
+                      {item.affixes.map((affix) => <span key={affix}>{affix}</span>)}
+                    </div>
+                  )}
                   {item.keywords?.map((keyword) => <em className="item-keyword" key={keyword}>{keyword}</em>)}
                   <span>Poder +{item.power}</span>
                 </button>
@@ -1384,7 +1412,7 @@ export default function HomePage() {
             Você começa com uma técnica básica e libera outra habilidade de classe a cada 4 níveis
             (Nv. 4, 8, 12, 16, 20 e 24). Uma passiva de classe, linhagem ou escola ocupa o mesmo único slot de Passiva.
           </p>
-          <p className="notice">Habilidades de classe liberadas: {selected.ownedAbilityIds.filter((abilityId) => abilityId.startsWith(`${selected.classId}-`)).length}/7{account.globalLevel < 24 ? ` · Próxima no Nv. ${Math.max(4, (Math.floor(account.globalLevel / 4) + 1) * 4)}` : " · Todas liberadas"}</p>
+          <p className="notice">Habilidades de classe liberadas: {selected.ownedAbilityIds.filter((abilityId) => abilityId.startsWith(`${selected.classId}-`)).length}/7{selected.level < 24 ? ` · Próxima no Nv. ${Math.max(4, (Math.floor(selected.level / 4) + 1) * 4)}` : " · Todas liberadas"}</p>
           <div className="loadout-grid">
             {LOADOUT_SLOTS.map((slot) => (
               <label className="loadout-slot" key={slot.key}>
@@ -1581,6 +1609,56 @@ export default function HomePage() {
           })()}
         </section>
       )}
+      {view === "dev" && (
+        <section className="panel">
+          <div className="section-title">
+            <span>Painel Dev</span>
+            <button onClick={() => setView("lobby")}>Lobby</button>
+          </div>
+          <p className="rule-copy">
+            Ferramentas de teste desta conta DEV. Não existem num jogo publicado — servem só pra pular direto pro estado que você quer testar.
+          </p>
+          <section className="subpanel">
+            <strong>Nível de {selected.name}</strong>
+            <p className="rule-copy">Atual: Nv. {selected.level} · XP {selected.xp}/{xpToNextLevel(selected.level)}</p>
+            <div className="inline-actions">
+              <input
+                type="number"
+                min={0}
+                max={60}
+                value={devLevelInput}
+                onChange={(event) => setDevLevelInput(event.target.value)}
+                style={{ maxWidth: 90 }}
+              />
+              <button className="primary" onClick={applyDevLevel}>Definir nível</button>
+            </div>
+          </section>
+          <section className="subpanel">
+            <strong>Forçar encontro</strong>
+            <p className="rule-copy">Inicia uma batalha direto contra a criatura escolhida, sem precisar navegar até a instância.</p>
+            <div className="inline-actions">
+              <select value={devCreatureId} onChange={(event) => setDevCreatureId(event.target.value)}>
+                <option value="">Selecionar criatura</option>
+                {[...bestiaryById.values()]
+                  .sort((a, b) => a.level - b.level)
+                  .map((creature) => (
+                    <option key={creature.id} value={creature.id}>
+                      Nv.{creature.level} · {creature.name} · {creature.archetype} · {creature.rarity}
+                    </option>
+                  ))}
+              </select>
+              <select value={devCreatureCount} onChange={(event) => setDevCreatureCount(Number(event.target.value))}>
+                <option value={1}>1x</option>
+                <option value={2}>2x</option>
+                <option value={3}>3x</option>
+              </select>
+              <button className="primary" disabled={!devCreatureId || !selected} onClick={forceDevEncounter}>
+                Iniciar combate
+              </button>
+            </div>
+          </section>
+        </section>
+      )}
       {view === "hunt" && (
         <section className="hunt-view">
           {!battle ? (
@@ -1614,7 +1692,7 @@ export default function HomePage() {
                         className="primary"
                         onClick={() => {
                           try {
-                            const cost = innCost(adventureCity.id, account.globalLevel);
+                            const cost = innCost(adventureCity.id, selected.level);
                             persist(repository.restAtInn(selected, cost));
                             setMessage(`${adventureCity.name}: descanso completo por ${cost} ouro.`);
                           } catch (error) {
@@ -1622,7 +1700,7 @@ export default function HomePage() {
                           }
                         }}
                       >
-                        Descansar · {innCost(adventureCity.id, account.globalLevel)} ouro
+                        Descansar · {innCost(adventureCity.id, selected.level)} ouro
                       </button>
                       <button onClick={() => setView("profile")}>Ver ficha do personagem</button>
                     </div>
@@ -2007,6 +2085,12 @@ export default function HomePage() {
           onClick={() => setView("bestiary")}
         >
           Bestiário
+        </button>
+        <button
+          className={view === "dev" ? "active" : ""}
+          onClick={() => setView("dev")}
+        >
+          Dev
         </button>
       </nav>}
     </main>

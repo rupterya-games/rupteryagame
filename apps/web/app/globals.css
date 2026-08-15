@@ -264,6 +264,10 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 @keyframes status-pill-pulse { 0%,100% { box-shadow:0 0 0 0 color-mix(in srgb, var(--status-color, #ab6d54) 35%, transparent); } 50% { box-shadow:0 0 6px 1px color-mix(in srgb, var(--status-color, #ab6d54) 55%, transparent); } }
 @media (prefers-reduced-motion:reduce) { .combat-effect-pill { animation:none; } }
 .item-card .item-keyword { grid-column:1; color:#dcb56c; font-size:10px; font-style:normal; line-height:1.25; }
+.item-affixes { grid-column:1; display:flex; flex-wrap:wrap; gap:4px; margin:2px 0; }
+.item-affixes span { padding:1px 6px; border:1px solid #3a4550; border-radius:999px; background:#141a20; color:#b9c2cb; font-size:9px; white-space:nowrap; }
+.city-shop-card .item-affixes { margin:1px 0 3px; }
+.city-shop-card .item-keyword { display:block; color:#dcb56c; font-size:9px; font-style:normal; line-height:1.25; }
 .enemy-drop-preview { display:block; margin-top:4px !important; color:#e6c47a !important; line-height:1.2; }.loot-result { display:block; margin:-4px 0 10px; color:#e6c47a; font-size:11px; line-height:1.35; }
 
 /* Inspeção de equipamento: disponível por duplo toque no herói durante a batalha. */

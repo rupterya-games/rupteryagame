@@ -108,22 +108,25 @@ const CASTER_BURST_BONUS = 0.4;
 const SWARM_PACK_BONUS_PER_ALLY = 0.08;
 const SWARM_PACK_BONUS_CAP = 0.32;
 const MORALE_BROKEN_DAMAGE_PENALTY = 0.25;
+/** Bloqueio reduz parte de um golpe físico (escudo/arma); dano mágico ignora bloqueio. */
+const BLOCK_DAMAGE_MULTIPLIER = 0.6;
 
 function attack(input: { attacker: HuntCombatant; defender: HuntCombatant; rawDamage: number; kind: "physical" | "magical"; effects: StatusEffectApplication[]; sourceName: string; turn: number; logs: HuntBattleLog[] }) {
   const blinded = input.attacker.activeEffects.some((effect) => effect.kind === "blind");
   const hitChance = Math.max(10, 100 - input.defender.stats.dodgeChance - (blinded ? 35 : 0));
   if (Math.random() * 100 >= hitChance) {
     input.logs.push({ turn: input.turn, tone: "system", text: `${input.sourceName} erra ${input.defender.name}${blinded ? " por cegueira" : " por esquiva"}.` });
-    return { defender: input.defender, dealt: 0, critical: false, fumble: false };
+    return { defender: input.defender, dealt: 0, critical: false, fumble: false, blocked: false };
   }
   // Sorte de mesa: um golpe que acerta pode sair "fraco" (fumble), mas nunca vira erro nem pune o atacante.
   const fumble = Math.random() * 100 < FUMBLE_CHANCE;
   const critical = !fumble && Math.random() * 100 < input.attacker.stats.criticalChance;
-  const multiplier = fumble ? FUMBLE_DAMAGE_MULTIPLIER : critical ? 1.5 : 1;
+  const blocked = input.kind === "physical" && Math.random() * 100 < input.defender.stats.blockChance;
+  const multiplier = (fumble ? FUMBLE_DAMAGE_MULTIPLIER : critical ? 1.5 : 1) * (blocked ? BLOCK_DAMAGE_MULTIPLIER : 1);
   const dealt = mitigateDamage(Math.round(input.rawDamage * multiplier), input.kind, input.defender.stats);
   let defender = { ...input.defender, hpCurrent: Math.max(0, input.defender.hpCurrent - dealt) };
   if (!fumble) defender = applyEffects(defender, input.effects, input.sourceName, input.turn, input.logs);
-  return { defender, dealt, critical, fumble };
+  return { defender, dealt, critical, fumble, blocked };
 }
 
 export const featuredItemAppearanceByRarity = { common: 55, rare: 30, epic: 15, legendary: 7, mythic: 2 } as const;
@@ -191,7 +194,7 @@ export function createHuntBattle(input: { regionId: string; player: HuntCombatan
     const hpMax = creature.hpMax + (itemModifiers.hpMax ?? 0);
     const itemEffects = creature.equippedItems?.flatMap((item) => item.statusEffects ?? []) ?? [];
     const highRarity = ["elite", "boss", "worldboss"].includes(creature.rarity);
-    return { id: `${creature.id}-${index}`, creatureId: creature.id, archetype: creature.archetype, role: creature.role, name: creature.name, portraitPath: creature.portraitPath, hpCurrent: hpMax, hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: [...(creature.statusEffects ?? []), ...itemEffects], stats: { physicalDamage: creature.physicalDamage + (itemModifiers.physicalDamage ?? 0), magicalDamage: (creature.magicalDamage ?? 0) + (itemModifiers.magicalDamage ?? 0), physicalDefense: creature.physicalDefense + (itemModifiers.physicalDefense ?? 0), magicalDefense: creature.magicalDefense + (itemModifiers.magicalDefense ?? 0), criticalChance: (highRarity ? 12 : creature.rarity === "rare" ? 7 : 4) + (itemModifiers.criticalChance ?? 0), dodgeChance: (creature.rarity === "rare" ? 5 : 2) + (itemModifiers.dodgeChance ?? 0), bleedChance: itemModifiers.bleedChance ?? 0, burnChance: itemModifiers.burnChance ?? 0, poisonChance: itemModifiers.poisonChance ?? 0, blindChance: itemModifiers.blindChance ?? 0, bleedResistance: itemModifiers.bleedResistance ?? 0, burnResistance: itemModifiers.burnResistance ?? 0, poisonResistance: itemModifiers.poisonResistance ?? 0, blindResistance: itemModifiers.blindResistance ?? 0 } };
+    return { id: `${creature.id}-${index}`, creatureId: creature.id, archetype: creature.archetype, role: creature.role, name: creature.name, portraitPath: creature.portraitPath, hpCurrent: hpMax, hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: [...(creature.statusEffects ?? []), ...itemEffects], stats: { physicalDamage: creature.physicalDamage + (itemModifiers.physicalDamage ?? 0), magicalDamage: (creature.magicalDamage ?? 0) + (itemModifiers.magicalDamage ?? 0), physicalDefense: creature.physicalDefense + (itemModifiers.physicalDefense ?? 0), magicalDefense: creature.magicalDefense + (itemModifiers.magicalDefense ?? 0), criticalChance: (highRarity ? 12 : creature.rarity === "rare" ? 7 : 4) + (itemModifiers.criticalChance ?? 0), dodgeChance: (creature.rarity === "rare" ? 5 : 2) + (itemModifiers.dodgeChance ?? 0), blockChance: (creature.blockChance ?? 0) + (itemModifiers.blockChance ?? 0), bleedChance: itemModifiers.bleedChance ?? 0, burnChance: itemModifiers.burnChance ?? 0, poisonChance: itemModifiers.poisonChance ?? 0, blindChance: itemModifiers.blindChance ?? 0, bleedResistance: itemModifiers.bleedResistance ?? 0, burnResistance: itemModifiers.burnResistance ?? 0, poisonResistance: itemModifiers.poisonResistance ?? 0, blindResistance: itemModifiers.blindResistance ?? 0 } };
   });
   const initialTurn = preparePlayerTurn({ ...input.player, activeEffects: input.player.activeEffects ?? emptyEffects(), onHitEffects: input.player.onHitEffects ?? [] }, {});
   return { id: battleId(), regionId: input.regionId, creatures, player: initialTurn.player, companion: input.companion ?? null, enemies, masteredCreatureIds: input.masteredCreatureIds ?? [], lastPetTargetId: null, lastPetDamage: 0, cooldowns: initialTurn.cooldowns, turn: 1, status: "active", reward: null, log: [{ turn: 0, tone: "system", text: creatures.length > 1 ? `Emboscada: ${creatures.length} inimigos bloqueiam o caminho.` : `${creatures[0].name} bloqueia o caminho.` }] };
@@ -221,7 +224,7 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
     turn: state.turn,
     tone: "player",
     text: hit.dealt
-      ? `${player.name} usa ${ability.name} e causa ${hit.dealt} de dano${hit.critical ? " crítico" : hit.fumble ? " (golpe fraco)" : ""}${primaryEnemyMastered ? " · maestria do Bestiário" : ""}.`
+      ? `${player.name} usa ${ability.name} e causa ${hit.dealt} de dano${hit.critical ? " crítico" : hit.fumble ? " (golpe fraco)" : ""}${hit.blocked ? " · bloqueado" : ""}${primaryEnemyMastered ? " · maestria do Bestiário" : ""}.`
       : `${player.name} usa ${ability.name}, mas não acerta.`,
   });
   const cooldowns = { ...state.cooldowns };
@@ -266,7 +269,7 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
     }
     const counter = attack({ attacker: workingEnemy, defender: player, rawDamage: enemyRawDamage, kind: enemyDamageKind, effects: workingEnemy.onHitEffects, sourceName: workingEnemy.name, turn: state.turn, logs });
     player = counter.defender;
-    if (counter.dealt) logs.push({ turn: state.turn, tone: "enemy", text: `${workingEnemy.name}${tacticNote} causa ${counter.dealt} de dano${counter.critical ? " crítico" : counter.fumble ? " (golpe fraco)" : ""}.` });
+    if (counter.dealt) logs.push({ turn: state.turn, tone: "enemy", text: `${workingEnemy.name}${tacticNote} causa ${counter.dealt} de dano${counter.critical ? " crítico" : counter.fumble ? " (golpe fraco)" : ""}${counter.blocked ? " · bloqueado" : ""}.` });
     if (player.hpCurrent === 0) return { ...state, player, enemies, cooldowns, status: "defeat", log: [...logs, { turn: state.turn, tone: "defeat", text: `${player.name} caiu. HP permanece em 0 até receber cura.` }] };
 
     // Reação do Samurai: só pode acontecer depois de um ataque direto que acertou.
@@ -288,7 +291,7 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
         turn: state.turn,
         tone: "player",
         text: retaliation.dealt
-          ? `${player.counterAttack.sourceName}: ${player.name} contra-ataca ${workingEnemy.name} e causa ${retaliation.dealt} de dano${retaliation.critical ? " crítico" : retaliation.fumble ? " (golpe fraco)" : ""}.`
+          ? `${player.counterAttack.sourceName}: ${player.name} contra-ataca ${workingEnemy.name} e causa ${retaliation.dealt} de dano${retaliation.critical ? " crítico" : retaliation.fumble ? " (golpe fraco)" : ""}${retaliation.blocked ? " · bloqueado" : ""}.`
           : `${player.counterAttack.sourceName}: ${player.name} tenta contra-atacar, mas não acerta.`,
       });
     }

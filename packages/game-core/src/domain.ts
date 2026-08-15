@@ -21,6 +21,8 @@ export interface CharacterCombatStats {
   magicalDefense: number;
   criticalChance: number;
   dodgeChance: number;
+  /** Chance de bloquear parte de um golpe recebido (reduz o dano em vez de anulá-lo, ao contrário da esquiva). */
+  blockChance: number;
   bleedChance: number;
   burnChance: number;
   poisonChance: number;
@@ -177,6 +179,9 @@ export interface GameCharacter {
   name: string;
   classId: string;
   kingdom: string;
+  /** Progressão própria do personagem — não é compartilhada entre os personagens da conta. */
+  level: number;
+  xp: number;
   lineageId: string | null;
   schoolId: string | null;
   skinId: string;
@@ -194,8 +199,6 @@ export interface GameCharacter {
 export interface DevAccount {
   id: string;
   progressionVersion?: number;
-  globalLevel: number;
-  globalXp: number;
   characterSlots: number;
   characters: GameCharacter[];
 }
@@ -214,6 +217,7 @@ export interface HuntCreatureDefinition {
   magicalDamage?: number;
   physicalDefense: number;
   magicalDefense: number;
+  blockChance?: number;
   xpReward: number;
   goldReward: number;
   statusEffects?: StatusEffectApplication[];

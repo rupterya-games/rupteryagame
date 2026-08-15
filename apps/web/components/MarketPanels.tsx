@@ -52,6 +52,12 @@ export function MarketPanels({
               <article className="city-shop-card" key={`${listing.kind}-${listing.id}`}>
                 <span>{item.rarity} · Nv. {item.itemLevel}</span>
                 <strong>{item.name}</strong>
+                {item.affixes && item.affixes.length > 0 && (
+                  <div className="item-affixes">
+                    {item.affixes.map((affix) => <span key={affix}>{affix}</span>)}
+                  </div>
+                )}
+                {item.keywords?.map((keyword) => <em className="item-keyword" key={keyword}>{keyword}</em>)}
                 <small>Poder +{item.power}</small>
                 <em>{listing.price} ouro</em>
                 {listing.requiredReputation ? <small>Requer reputação {listing.requiredReputation}</small> : null}

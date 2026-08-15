@@ -111,18 +111,20 @@ function withWorldProgress(character: GameCharacter): GameCharacter {
   return { ...character, worldProgress: normalizeWorldProgress(character.worldProgress) };
 }
 
-function applyAccountXp(account: DevAccount, gainedXp: number): DevAccount {
-  if (gainedXp <= 0) return account;
-  let globalLevel = account.globalLevel;
-  let globalXp = account.globalXp + gainedXp;
-  while (globalXp >= xpToNextLevel(globalLevel)) {
-    globalXp -= xpToNextLevel(globalLevel);
-    globalLevel += 1;
+function applyCharacterXp(character: GameCharacter, gainedXp: number): GameCharacter {
+  if (gainedXp <= 0) return character;
+  let level = character.level;
+  let xp = character.xp + gainedXp;
+  while (xp >= xpToNextLevel(level)) {
+    xp -= xpToNextLevel(level);
+    level += 1;
   }
-  return { ...account, globalLevel, globalXp, characters: account.characters.map((character) => ({
+  return {
     ...character,
-    ownedAbilityIds: [...new Set([...character.ownedAbilityIds.filter((abilityId) => !abilityId.startsWith(`${character.classId}-`)), ...unlockedClassAbilityIds(character.classId, globalLevel)])],
-  })) };
+    level,
+    xp,
+    ownedAbilityIds: [...new Set([...character.ownedAbilityIds.filter((abilityId) => !abilityId.startsWith(`${character.classId}-`)), ...unlockedClassAbilityIds(character.classId, level)])],
+  };
 }
 
 function replaceCharacter(account: DevAccount, character: GameCharacter) {
@@ -134,7 +136,7 @@ export class DevCharacterRepository {
   private saveQueue: Promise<unknown> = Promise.resolve();
 
   emptyAccount(userId = this.userId ?? "offline"): DevAccount {
-    return { id: userId, progressionVersion: 1, globalLevel: 0, globalXp: 0, characterSlots: 6, characters: [] };
+    return { id: userId, progressionVersion: 2, characterSlots: 6, characters: [] };
   }
 
   async loadForUser(userId: string): Promise<DevAccount> {
@@ -146,20 +148,25 @@ export class DevCharacterRepository {
       await supabase.from("account_saves").upsert({ user_id: userId, game_state: fresh, updated_at: new Date().toISOString() });
       return fresh;
     }
-    const stored = data.game_state as DevAccount;
-    const resetToLevelZero = stored.progressionVersion !== 1;
-    const progressionLevel = resetToLevelZero ? 0 : stored.globalLevel;
+    const stored = data.game_state as DevAccount & { globalLevel?: number; globalXp?: number };
+    // Migração: nível e XP eram compartilhados pela conta inteira. Agora cada
+    // personagem evolui sozinho — quem já tinha progresso herda o valor antigo
+    // uma única vez; personagens novos sempre começam do Nv. 0.
+    let needsMigration = stored.globalLevel !== undefined || stored.globalXp !== undefined;
     const legacyClasses: Record<string, string> = { warrior: "guardian" };
     const characters = stored.characters.map((character) => {
       const classId = legacyClasses[character.classId] ?? character.classId;
       const definition = classes.find((entry) => entry.id === classId) ?? classes[0];
-      const ownedAbilityIds = unlockedClassAbilityIds(definition.id, progressionLevel);
+      if (character.level === undefined || character.xp === undefined) needsMigration = true;
+      const level = character.level ?? stored.globalLevel ?? 0;
+      const xp = character.xp ?? stored.globalXp ?? 0;
+      const ownedAbilityIds = unlockedClassAbilityIds(definition.id, level);
       const starterIds = starterItemIdsForClass(definition.id);
       const presets = character.presets.map((preset) => {
         const compatible = Object.values(preset.loadout).every((abilityId) => abilityId === null || ownedAbilityIds.includes(abilityId));
         return {
           ...preset,
-          loadout: compatible ? preset.loadout : defaultLoadout(definition.id, progressionLevel),
+          loadout: compatible ? preset.loadout : defaultLoadout(definition.id, level),
           equipment: normalizeEquipmentForClass(definition.id, preset.equipment),
         };
       });
@@ -169,6 +176,8 @@ export class DevCharacterRepository {
       return withWorldProgress({
         ...character,
         classId: definition.id,
+        level,
+        xp,
         skinId: validSkinForClass(definition.id, character.skinId),
         equipment: normalizedEquipment,
         inventoryItemIds: [...new Set([...(character.inventoryItemIds ?? []), ...starterIds])],
@@ -185,15 +194,13 @@ export class DevCharacterRepository {
         },
       });
     });
-    const migrated = {
-      ...stored,
+    const migrated: DevAccount = {
       id: userId,
-      progressionVersion: 1,
-      globalLevel: resetToLevelZero ? 0 : stored.globalLevel,
-      globalXp: resetToLevelZero ? 0 : stored.globalXp,
+      progressionVersion: 2,
+      characterSlots: stored.characterSlots,
       characters,
     };
-    if (resetToLevelZero) this.save(migrated);
+    if (needsMigration) this.save(migrated);
     return migrated;
   }
 
@@ -217,12 +224,14 @@ export class DevCharacterRepository {
     if (name.length < 3) throw new Error("Use um nome com ao menos 3 caracteres.");
     const starterEquipment = starterEquipmentForClass(definition.id);
     const computedStarter = applyEquipment(definition, starterEquipment, equipment);
-    const preset: CharacterPreset = { id: id(), name: "Caça", loadout: defaultLoadout(definition.id, account.globalLevel), equipment: starterEquipment };
+    const preset: CharacterPreset = { id: id(), name: "Caça", loadout: defaultLoadout(definition.id, 0), equipment: starterEquipment };
     const character: GameCharacter = {
       id: id(),
       name,
       classId: definition.id,
       kingdom: input.kingdom,
+      level: 0,
+      xp: 0,
       lineageId: null,
       schoolId: null,
       skinId: "default",
@@ -238,7 +247,7 @@ export class DevCharacterRepository {
       inventoryItemIds: starterItemIdsForClass(definition.id),
       itemMemories: {},
       fragments: {},
-      ownedAbilityIds: unlockedClassAbilityIds(definition.id, account.globalLevel),
+      ownedAbilityIds: unlockedClassAbilityIds(definition.id, 0),
       presets: [preset],
       activePresetId: preset.id,
       worldProgress: emptyWorldProgress(),
@@ -421,14 +430,25 @@ export class DevCharacterRepository {
       vitals: { ...character.vitals, gold: character.vitals.gold + quest.rewardGold },
       worldProgress: progress,
     };
-    const withCharacter = replaceCharacter(account, updated);
-    return this.save(applyAccountXp(withCharacter, quest.rewardXp));
+    return this.save(replaceCharacter(account, applyCharacterXp(updated, quest.rewardXp)));
+  }
+
+  /** Ferramenta de teste: pula direto para um nível deste personagem, refazendo o desbloqueio de habilidades. */
+  setCharacterLevel(account: DevAccount, character: GameCharacter, targetLevel: number): DevAccount {
+    const level = Math.max(0, Math.round(targetLevel));
+    const updated: GameCharacter = {
+      ...character,
+      level,
+      xp: 0,
+      ownedAbilityIds: [...new Set([...character.ownedAbilityIds.filter((abilityId) => !abilityId.startsWith(`${character.classId}-`)), ...unlockedClassAbilityIds(character.classId, level)])],
+    };
+    return this.save(replaceCharacter(account, updated));
   }
 
   grantMissionReward(account: DevAccount, character: GameCharacter, reward: { gold: number; xp: number; itemId?: string }): DevAccount {
     const inventoryItemIds = reward.itemId ? [...new Set([...character.inventoryItemIds, reward.itemId])] : character.inventoryItemIds;
     const updated: GameCharacter = { ...character, inventoryItemIds, vitals: { ...character.vitals, gold: character.vitals.gold + reward.gold } };
-    return this.save(applyAccountXp(replaceCharacter(account, updated), reward.xp));
+    return this.save(replaceCharacter(account, applyCharacterXp(updated, reward.xp)));
   }
 
   addPreset(character: GameCharacter, name: string): GameCharacter {
@@ -541,8 +561,7 @@ export class DevCharacterRepository {
         gold,
       },
     };
-    const withCharacter = replaceCharacter(account, updated);
-    return this.save(applyAccountXp(withCharacter, victory ? battle.reward?.xp ?? 0 : 0));
+    return this.save(replaceCharacter(account, applyCharacterXp(updated, victory ? battle.reward?.xp ?? 0 : 0)));
   }
 
   summary(account: DevAccount, character: GameCharacter) {
@@ -567,7 +586,7 @@ export class DevCharacterRepository {
       counterAttackScaling,
       portraitPath: skinPortraits[character.skinId] ?? base.portraitPath,
       kingdom: character.kingdom,
-      level: account.globalLevel,
+      level: character.level,
       power: characterPower(base, character.equipment, equipment),
       hpCurrent: character.vitals.hpCurrent,
       hpMax: computed.hpMax,

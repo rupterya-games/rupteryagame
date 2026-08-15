@@ -8,6 +8,7 @@ export function CombatStats({ stats }: { stats: CharacterCombatStats }) {
     ["Defesa Mágica", stats.magicalDefense],
     ["Crítico", `${stats.criticalChance}%`],
     ["Esquiva", `${stats.dodgeChance}%`],
+    ["Bloqueio", `${stats.blockChance}%`],
   ];
 
   return (

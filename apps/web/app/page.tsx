@@ -61,7 +61,8 @@ type View =
   | "equipment"
   | "abilities"
   | "presets"
-  | "hunt";
+  | "hunt"
+  | "bestiary";
 type BattleEffect = {
   kind: "physical" | "magical" | "dragonfire";
   targetId: string;
@@ -330,6 +331,8 @@ function bestiaryCreatureForHunt(creatureId: string): HuntCreatureDefinition {
     portraitPath: source.portraitPath ?? legacy?.portraitPath,
     rarity: source.rarity,
     family: source.family,
+    archetype: source.archetype,
+    role: source.role,
     regionId: source.regionId,
     level: source.level,
     hpMax: source.stats.hpMax,
@@ -355,12 +358,13 @@ function createInstanceEncounter(creaturePool: readonly string[], playerLevel: n
   let max = source?.solitary ? 1 : Math.min(5, Math.max(min, source?.packMax ?? 2));
 
   // Balanceamento por diferença de nível: grupos existem para serem perigosos
-  // na faixa recomendada, não para fazer um personagem Nv.30 apanhar de uma
-  // alcateia Nv.1. O monstro não ganha scaling oculto para alcançar o jogador.
+  // na faixa recomendada, não para fazer um personagem muito acima do nível
+  // apanhar de uma alcateia trivial. Só entra em ação em diferenças grandes —
+  // um personagem levemente acima do nível da zona ainda enfrenta o bando cheio.
   const gap = playerLevel - creatureLevel;
-  if (gap >= 15) { min = 1; max = 1; }
-  else if (gap >= 8) { min = 1; max = Math.min(2, max); }
-  else if (gap >= 4) { min = 1; max = Math.min(3, max); }
+  if (gap >= 25) { min = 1; max = 1; }
+  else if (gap >= 15) { min = 1; max = Math.min(2, max); }
+  else if (gap >= 8) { min = 1; max = Math.min(3, max); }
   if (creatureLevel >= playerLevel + 6) { min = 1; max = Math.min(2, max); }
 
   const count = min + Math.floor(Math.random() * (max - min + 1));
@@ -421,6 +425,7 @@ export default function HomePage() {
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [showBattleLoadout, setShowBattleLoadout] = useState(false);
   const [inspectedCreatureIndex, setInspectedCreatureIndex] = useState<number | null>(null);
+  const [inspectedBestiaryCreatureId, setInspectedBestiaryCreatureId] = useState<string | null>(null);
   const [journeyOutcome, setJourneyOutcome] = useState<JourneyOutcome | null>(
     null,
   );
@@ -545,6 +550,29 @@ export default function HomePage() {
   const adventureCity = adventureCities[activeCityId] ?? adventureCities.fiordevalle;
   const worldProgress = selected?.worldProgress ?? emptyWorldProgress();
   const exploredSpotsByLevel = worldProgress.exploredSpotsByLevel;
+  const bestiaryChapters = adventureCityList
+    .map((city) => ({
+      city,
+      exits: city.exits
+        .map((exit) => ({
+          exit,
+          levels: exit.levels
+            .map((level) => ({
+              level,
+              creatures: level.creaturePool
+                .map((id) => bestiaryById.get(id))
+                .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+            }))
+            .filter(({ creatures }) => creatures.some((creature) => worldProgress.discoveredCreatureIds.includes(creature.id))),
+        }))
+        .filter(({ levels }) => levels.length > 0),
+    }))
+    .filter(({ exits }) => exits.length > 0);
+  const bestiaryTotalSpecies = new Set(
+    adventureCityList.flatMap((city) => city.exits.flatMap((exit) => exit.levels.flatMap((level) => level.creaturePool))),
+  ).size;
+  const bestiaryDiscoveredCount = worldProgress.discoveredCreatureIds.length;
+  const bestiaryTotalKills = Object.values(worldProgress.creatureKills).reduce((sum, count) => sum + count, 0);
   const cityQuests = questsByCity(adventureCity.id);
   const normalMarketListings = marketStock(adventureCity.id, equipment);
   const blackMarketListings = blackMarketStock(adventureCity.id, equipment);
@@ -1460,6 +1488,83 @@ export default function HomePage() {
           </div>
         </section>
       )}
+      {view === "bestiary" && (
+        <section className="panel">
+          <div className="section-title">
+            <span>Bestiário</span>
+            <button onClick={() => setView("lobby")}>Lobby</button>
+          </div>
+          <p className="rule-copy">
+            Cada criatura que você encontra em combate é registrada aqui, agrupada pela instância onde vive. Abates continuam contando mesmo depois da revelação.
+          </p>
+          <div className="bestiary-overview">
+            <span>{bestiaryDiscoveredCount}/{bestiaryTotalSpecies} espécies descobertas</span>
+            <span>{bestiaryTotalKills} abates totais</span>
+          </div>
+          {bestiaryChapters.length === 0 && (
+            <p className="rule-copy">Nenhuma criatura descoberta ainda. Explore as instâncias nos Portões de cada cidade para começar o registro.</p>
+          )}
+          {bestiaryChapters.map(({ city, exits }) => (
+            <section className="subpanel bestiary-city" key={city.id}>
+              <div className="section-title"><span>{city.name}</span><small>{city.kingdom}</small></div>
+              {exits.map(({ exit, levels }) => (
+                <div className="bestiary-exit" key={exit.id}>
+                  <strong>{exit.icon} {exit.name}</strong>
+                  {levels.map(({ level, creatures }) => {
+                    const discoveredHere = creatures.filter((creature) => worldProgress.discoveredCreatureIds.includes(creature.id)).length;
+                    return (
+                      <div className="bestiary-level" key={level.id}>
+                        <div className="encounter-gallery-title">
+                          <strong>{level.name}</strong>
+                          <small>Instância · Nível {level.level} · {discoveredHere}/{creatures.length} descobertos</small>
+                        </div>
+                        <div className="encounter-creature-gallery">
+                          {creatures.map((creature) => {
+                            const discovered = worldProgress.discoveredCreatureIds.includes(creature.id);
+                            const kills = worldProgress.creatureKills[creature.id] ?? 0;
+                            const mastered = discovered && kills >= creature.codexKills;
+                            return (
+                              <button
+                                key={creature.id}
+                                disabled={!discovered}
+                                className={`${discovered ? creatureFrameClassName(creature.family, creature.rarity) : "creature-family-frame frame-unknown"} ${inspectedBestiaryCreatureId === creature.id ? "selected" : ""} ${!discovered ? "unknown" : ""} ${mastered ? "mastered" : ""}`}
+                                onClick={() => discovered && setInspectedBestiaryCreatureId(creature.id)}
+                              >
+                                {discovered && <CreatureFamilyBadge family={creature.family} rarity={creature.rarity} />}
+                                {discovered ? <img src={creature.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={creature.name} /> : <div className="unknown-creature-art">?</div>}
+                                <span>{discovered ? creature.name : "Desconhecido"}</span>
+                                <small>{discovered ? `${kills}/${creature.codexKills} abates${mastered ? " · Dominado" : ""}` : "Encontre para revelar"}</small>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </section>
+          ))}
+          {(() => {
+            const inspected = inspectedBestiaryCreatureId ? bestiaryById.get(inspectedBestiaryCreatureId) ?? null : null;
+            if (!inspected) return null;
+            const inspectedKills = worldProgress.creatureKills[inspected.id] ?? 0;
+            const inspectedMastered = inspectedKills >= inspected.codexKills;
+            return (
+              <article className={`instance-creature-preview ${creatureFrameClassName(inspected.family, inspected.rarity)}`}>
+                <CreatureFamilyBadge family={inspected.family} rarity={inspected.rarity} />
+                <img src={inspected.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={inspected.name} />
+                <div>
+                  <small>{creatureRarityLabels[resolveCreatureRarity(inspected.rarity)]} · Nv. {inspected.level} · {inspectedKills}/{inspected.codexKills} abates{inspectedMastered ? " · Dominado (+10% dano)" : ""}</small>
+                  <strong>{inspected.name}</strong>
+                  <p>{inspected.description}</p>
+                  <span>HP {inspected.stats.hpMax} · ATQ {Math.max(inspected.stats.physicalDamage, inspected.stats.magicalDamage)} · DEF {inspected.stats.physicalDefense}/{inspected.stats.magicalDefense}</span>
+                </div>
+              </article>
+            );
+          })()}
+        </section>
+      )}
       {view === "hunt" && (
         <section className="hunt-view">
           {!battle ? (
@@ -1879,6 +1984,12 @@ export default function HomePage() {
           onClick={() => setView("presets")}
         >
           Presets
+        </button>
+        <button
+          className={view === "bestiary" ? "active" : ""}
+          onClick={() => setView("bestiary")}
+        >
+          Bestiário
         </button>
       </nav>}
     </main>

@@ -221,6 +221,10 @@ export interface HuntCreatureDefinition {
   equippedItems?: EquipmentItem[];
   featuredItemCandidates?: EquipmentItem[];
   equipmentProfileId?: string;
+  /** Perfil tático ("tank" | "skirmisher" | "brute" | "caster" | "swarm"), usado pela IA em combate. */
+  archetype?: string;
+  /** Papel no bando ("leader" | "regular" | "fodder"), usado pela moral em combate. */
+  role?: string;
 }
 
 export interface HuntRegionDefinition {
@@ -234,6 +238,8 @@ export interface HuntRegionDefinition {
 
 export interface HuntCombatant {
   id: string;
+  /** Id de bestiário estável (sem sufixo de índice do encontro), usado por maestria e loot. */
+  creatureId?: string;
   name: string;
   portraitPath?: string;
   hpCurrent: number;
@@ -245,6 +251,14 @@ export interface HuntCombatant {
   onHitEffects: StatusEffectApplication[];
   /** Reação: não consome ação e nunca dispara outra reação. */
   counterAttack?: { chance: number; scaling: number; sourceName: string };
+  /** Perfil tático herdado da criatura, usado pela IA em combate. */
+  archetype?: string;
+  /** Papel no bando, usado pela moral em combate. */
+  role?: string;
+  /** Postura de guarda já disparada nesta batalha (tanque). */
+  guardTriggered?: boolean;
+  /** Evasão já disparada nesta batalha (batedor). */
+  evasiveTriggered?: boolean;
 }
 
 export interface HuntCompanion {
@@ -268,6 +282,8 @@ export interface HuntBattleState {
   player: HuntCombatant;
   companion: HuntCompanion | null;
   enemies: HuntCombatant[];
+  /** Ids de criaturas dominadas no Bestiário (abates >= meta), com bônus de dano. */
+  masteredCreatureIds?: string[];
   lastPetTargetId: string | null;
   lastPetDamage: number;
   cooldowns: Record<string, number>;

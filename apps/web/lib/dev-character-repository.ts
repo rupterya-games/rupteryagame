@@ -474,11 +474,16 @@ export class DevCharacterRepository {
           sourceName: "Retaliação Iai",
         }
       : undefined;
+    const progress = normalizeWorldProgress(character.worldProgress);
+    const masteredCreatureIds = Object.entries(progress.creatureKills)
+      .filter(([creatureId, kills]) => kills >= (bestiaryById.get(creatureId)?.codexKills ?? Infinity))
+      .map(([creatureId]) => creatureId);
     return createHuntBattle({
       regionId,
       creatures,
       itemMemories: character.itemMemories,
       companion: emberDragonCompanion,
+      masteredCreatureIds,
       player: {
         id: character.id,
         name: character.name,

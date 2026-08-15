@@ -1,11 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { AdventureCityDefinition } from "@/lib/world";
 import { isAdventureLevelUnlocked } from "@/lib/world";
-import { bestiaryById } from "@/lib/bestiary";
-import { CreatureFamilyBadge, creatureFamilyLabels, creatureFrameClassName, creatureRarityLabels, resolveCreatureFamily, resolveCreatureRarity } from "@/components/CreatureFamilyBadge";
 
 const exitPositions: Record<string, { left: string; top: string }> = {
   north: { left: "50%", top: "13%" },
@@ -47,8 +44,7 @@ export function GateMap({
   onSelectLevel: (levelId: string) => void;
   onExploreSpot: (spotId: string, spotName: string) => void;
 }) {
-  const [inspectedCreatureId, setInspectedCreatureId] = useState<string | null>(null);
-  const discoveredCreatures = useMemo(() => new Set(discoveredCreatureIds), [discoveredCreatureIds]);
+  const discoveredCreatures = new Set(discoveredCreatureIds);
   const activeExit = city.exits.find((entry) => entry.id === selectedExitId) ?? null;
   const activeLevel = activeExit?.levels.find((entry) => entry.id === selectedLevelId) ?? null;
   const spotLabels = ["Entrada", "Trilha", "Ruína", "Clareira", "Acampamento", "Marco", "Profundezas"];
@@ -59,14 +55,6 @@ export function GateMap({
       }))
     : [];
   const explored = activeLevel ? exploredSpotsByLevel[activeLevel.id] ?? [] : [];
-  const inspectedCreature = inspectedCreatureId ? bestiaryById.get(inspectedCreatureId) ?? null : null;
-  const visibleCreatures = useMemo(() => {
-    if (!activeLevel) return [];
-    return activeLevel.creaturePool
-      .map((id) => bestiaryById.get(id))
-      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
-  }, [activeLevel]);
-  useEffect(() => setInspectedCreatureId(null), [selectedLevelId]);
   const knownCreatureName = (id: string) => discoveredCreatures.has(id) ? creatureName(id) : "Desconhecido";
 
   return (
@@ -157,40 +145,9 @@ export function GateMap({
             })}
           </div>
 
-          <div className="encounter-gallery-title">
-            <strong>Criaturas possíveis nesta instância</strong>
-            <small>Clique na imagem para inspecionar antes de explorar.</small>
-          </div>
-          <div className="encounter-creature-gallery">
-            {visibleCreatures.map((creature) => {
-              const discovered = discoveredCreatures.has(creature.id);
-              return (
-              <button
-                key={creature.id}
-                disabled={!discovered}
-                className={`${discovered ? creatureFrameClassName(creature.family, creature.rarity) : "creature-family-frame frame-unknown"} ${inspectedCreatureId === creature.id ? "selected" : ""} ${!discovered ? "unknown" : ""}`}
-                onClick={() => discovered && setInspectedCreatureId(creature.id)}
-              >
-                {discovered && <CreatureFamilyBadge family={creature.family} rarity={creature.rarity} />}
-                {discovered ? <img src={creature.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={creature.name} /> : <div className="unknown-creature-art">?</div>}
-                <span>{discovered ? creature.name : "Desconhecido"}</span>
-                <small>{discovered ? `Nv. ${creature.level} · ${creatureRarityLabels[resolveCreatureRarity(creature.rarity)]}` : "Encontre para revelar"}</small>
-              </button>
-            )})}
-          </div>
-
-          {inspectedCreature && (
-            <article className={`instance-creature-preview ${creatureFrameClassName(inspectedCreature.family, inspectedCreature.rarity)}`}>
-              <CreatureFamilyBadge family={inspectedCreature.family} rarity={inspectedCreature.rarity} />
-              <img src={inspectedCreature.portraitPath ?? "/art/bestiary-drafts/fiordevalle-bestiary-sheet-v1.png"} alt={inspectedCreature.name} />
-              <div>
-                <small>{creatureFamilyLabels[resolveCreatureFamily(inspectedCreature.family)]} · {creatureRarityLabels[resolveCreatureRarity(inspectedCreature.rarity)]} · Nv. {inspectedCreature.level}</small>
-                <strong>{inspectedCreature.name}</strong>
-                <p>{inspectedCreature.description}</p>
-                <span>HP {inspectedCreature.stats.hpMax} · ATQ {Math.max(inspectedCreature.stats.physicalDamage, inspectedCreature.stats.magicalDamage)} · DEF {inspectedCreature.stats.physicalDefense}/{inspectedCreature.stats.magicalDefense}</span>
-              </div>
-            </article>
-          )}
+          <p className="instance-bestiary-hint">
+            Criaturas encontradas aqui são registradas no Bestiário, na aba inferior.
+          </p>
         </section>
       )}
     </div>

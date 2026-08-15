@@ -451,11 +451,11 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .encounter-gallery-title { display:flex; justify-content:space-between; gap:12px; align-items:end; margin-top:3px; }
 .encounter-gallery-title strong { color:#f1d18b; font-size:12px; }
 .encounter-gallery-title small { color:#8f9b9e; font-size:10px; }
-.creature-family-frame { --rarity-accent:#789a68; --rarity-glow:#789a6833; --family-frame:#625b4c; --family-edge:#aaa087; --family-medallion:#171a16; position:relative; overflow:visible; border:3px solid var(--family-frame); background-color:#0d1110; box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--family-edge) 45%,transparent),inset 0 0 0 4px color-mix(in srgb,var(--rarity-accent) 48%,transparent),inset 0 1px 0 color-mix(in srgb,var(--family-edge) 55%,transparent),inset 0 -1px 0 #00000090,0 7px 16px #0008; }
-.creature-family-frame:before { content:""; position:absolute; z-index:6; inset:7px; border-radius:inherit; pointer-events:none; background:radial-gradient(circle at 4px 4px,#fff9 0 1px,var(--rarity-accent) 1px 2.6px,transparent 3.4px),radial-gradient(circle at calc(100% - 4px) 4px,#fff9 0 1px,var(--rarity-accent) 1px 2.6px,transparent 3.4px),radial-gradient(circle at 4px calc(100% - 4px),#fff9 0 1px,var(--rarity-accent) 1px 2.6px,transparent 3.4px),radial-gradient(circle at calc(100% - 4px) calc(100% - 4px),#fff9 0 1px,var(--rarity-accent) 1px 2.6px,transparent 3.4px); opacity:.85; }
-.creature-family-badge { --rarity-accent:#789a68; --rarity-glow:#789a6833; --family-frame:#625b4c; --family-edge:#aaa087; --family-medallion:#171a16; position:absolute; z-index:9; top:-15px; left:50%; translate:-50% 0; display:grid; place-items:center; width:36px; height:36px; border:2px solid var(--family-frame); border-radius:50%; background:radial-gradient(circle at 45% 35%,color-mix(in srgb,var(--rarity-accent) 16%,var(--family-medallion)),var(--family-medallion) 70%); color:var(--rarity-accent); box-shadow:0 0 0 2px var(--family-medallion),0 0 0 4px color-mix(in srgb,var(--rarity-accent) 55%,var(--family-frame)),inset 0 0 0 1px color-mix(in srgb,var(--family-edge) 65%,transparent),0 0 10px var(--rarity-glow),0 3px 7px #000c; pointer-events:none; }
-.creature-family-badge:before { content:""; position:absolute; z-index:-1; inset:-4px; border-radius:50%; background:repeating-conic-gradient(color-mix(in srgb,var(--family-edge) 70%,transparent) 0deg 7deg,transparent 7deg 16deg); opacity:.6; }
-.creature-family-badge svg { width:24px; height:24px; overflow:visible; filter:drop-shadow(0 0 3px var(--rarity-glow)); }
+/* A moldura ornamentada é a arte real (creature-frame-overlay); esta classe só dá
+   fundo escuro e um brilho externo pela raridade, sem desenhar borda própria
+   (evitaria duplicar a borda que já vem na imagem da moldura). */
+.creature-family-frame { --rarity-accent:#789a68; --rarity-glow:#789a6833; position:relative; overflow:visible; background-color:#0d1110; box-shadow:0 0 0 1px color-mix(in srgb,var(--rarity-accent) 45%,transparent),0 0 14px var(--rarity-glow),0 7px 16px #0008; }
+.creature-frame-overlay { position:absolute; z-index:7; inset:0; width:100%; height:100%; object-fit:fill; pointer-events:none; }
 .family-beast { --family-frame:#6b5a43; --family-edge:#b4a080; --family-medallion:#211b13; }
 .family-undead { --family-frame:#59615d; --family-edge:#a9b0a7; --family-medallion:#121916; }
 .family-humanoid { --family-frame:#665e50; --family-edge:#aaa087; --family-medallion:#1c1914; }
@@ -471,7 +471,7 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .rarity-worldboss { --rarity-accent:#d2a64b; --rarity-glow:#d2a64b66; }
 .frame-unknown { --rarity-accent:#6c7473; --rarity-glow:#0000; --family-frame:#454b49; --family-edge:#737c79; --family-medallion:#121615; }
 .encounter-creature-gallery { display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:8px; }
-.encounter-creature-gallery button { overflow:visible; padding:0; text-align:left; border-radius:12px; background:#0e1418; color:#ece2ca; }
+.encounter-creature-gallery button { position:relative; overflow:visible; padding:0; text-align:left; border-radius:12px; background:#0e1418; color:#ece2ca; }
 .encounter-creature-gallery button.selected { border-color:#d8a952; box-shadow:0 0 0 2px #d8a95233,0 8px 18px #0009; }
 .encounter-creature-gallery button.unknown { cursor:default; opacity:.82; }
 .encounter-creature-gallery button.mastered { box-shadow:inset 0 0 0 1px #d2a64baa,0 0 14px #d2a64b3d,0 8px 18px #0009; }
@@ -485,9 +485,10 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .encounter-creature-gallery span { margin-top:7px; font-size:11px; font-weight:900; }
 .encounter-creature-gallery small { padding-bottom:8px; margin-top:2px; color:#aeb5b7; font-size:9px; }
 .instance-creature-preview { display:grid; grid-template-columns:150px 1fr; gap:12px; padding:10px; border-radius:14px; background:linear-gradient(135deg,#211a14,#10161a); }
-.instance-creature-preview>img,.instance-creature-preview>.unknown-creature-art { width:150px; aspect-ratio:1.15; object-fit:cover; object-position:center top; border-radius:10px; border:1px solid #6e583a; }
-.instance-creature-preview>.unknown-creature-art { display:grid; place-items:center; background:linear-gradient(145deg,#11171a,#25231f); color:#d8a952; font-size:40px; font-weight:900; }
-.instance-creature-preview>div { display:grid; align-content:center; gap:6px; }
+.instance-creature-portrait { position:relative; width:150px; border-radius:10px; overflow:visible; }
+.instance-creature-portrait>img,.instance-creature-portrait>.unknown-creature-art { display:block; width:100%; aspect-ratio:1.15; object-fit:cover; object-position:center top; border-radius:10px; border:1px solid #6e583a; }
+.instance-creature-portrait>.unknown-creature-art { display:grid; place-items:center; background:linear-gradient(145deg,#11171a,#25231f); color:#d8a952; font-size:40px; font-weight:900; }
+.instance-creature-info { display:grid; align-content:center; gap:6px; }
 .instance-creature-preview small { color:#c7a65d; text-transform:uppercase; letter-spacing:.07em; font-size:9px; }
 .instance-creature-preview strong { color:#f7e8c5; font-size:19px; }
 .instance-creature-preview p { margin:0; color:#bcc4c8; line-height:1.4; font-size:11px; }
@@ -512,7 +513,7 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   .instance-spot-pin { width:72px; min-height:52px; }
   .instance-spot-pin span { font-size:8px; }
   .instance-creature-preview { grid-template-columns:105px 1fr; }
-  .instance-creature-preview>img,.instance-creature-preview>.unknown-creature-art { width:105px; }
+  .instance-creature-portrait { width:105px; }
 }
 
 /* V4 · estado de mana/recarga visível no combate */
@@ -621,7 +622,7 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   box-shadow:0 8px 20px #000a,inset 0 0 0 1px #f2c66f12;
   transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease,filter .15s ease;
 }
-.battle-v6-unit-card.creature-family-frame { border-width:3px; border-color:var(--family-frame); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--family-edge) 45%,transparent),inset 0 0 0 4px color-mix(in srgb,var(--rarity-accent) 48%,transparent),inset 0 1px 0 color-mix(in srgb,var(--family-edge) 55%,transparent),inset 0 -1px 0 #00000090,0 8px 20px #000a; }
+.battle-v6-unit-card.creature-family-frame { border:none; box-shadow:0 0 0 1px color-mix(in srgb,var(--rarity-accent) 45%,transparent),0 0 16px var(--rarity-glow),0 8px 20px #000a; }
 .battle-v6-unit-card>img,.battle-v6-unit-card>.monster-art { display:block; width:100%; max-height:205px; aspect-ratio:1.15; object-fit:cover; object-position:center 18%; border-radius:9px 9px 0 0; background:#0b0e0d; }
 /* Retratos de inimigo (bestiário) já trazem nome/categoria no rodapé da própria imagem;
    ancorar no topo com um aspect-ratio mais baixo garante que essa faixa nunca vaze,

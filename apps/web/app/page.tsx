@@ -46,7 +46,7 @@ import {
 } from "@/lib/world";
 import { musicDirector } from "@/lib/music";
 import { CityHub } from "@/components/CityHub";
-import { CreatureFamilyBadge, creatureFrameClassName, creatureRarityLabels, resolveCreatureRarity } from "@/components/CreatureFamilyBadge";
+import { CreatureFrameOverlay, creatureFrameClassName, creatureRarityLabels, resolveCreatureRarity } from "@/components/CreatureFamilyBadge";
 import { StatusEffectIcon } from "@/components/StatusEffectIcon";
 import { GateMap } from "@/components/GateMap";
 import { QuestBoard } from "@/components/QuestBoard";
@@ -1574,8 +1574,8 @@ export default function HomePage() {
                                 className={`${discovered ? creatureFrameClassName(creature.family, creature.rarity) : "creature-family-frame frame-unknown"} ${inspectedBestiaryCreatureId === creature.id ? "selected" : ""} ${!discovered ? "unknown" : ""} ${mastered ? "mastered" : ""}`}
                                 onClick={() => discovered && setInspectedBestiaryCreatureId(creature.id)}
                               >
-                                {discovered && <CreatureFamilyBadge family={creature.family} rarity={creature.rarity} />}
                                 {discovered ? (creature.portraitPath ? <img src={creature.portraitPath} alt={creature.name} /> : <div className="unknown-creature-art">✦</div>) : <div className="unknown-creature-art">?</div>}
+                                {discovered && <CreatureFrameOverlay family={creature.family} rarity={creature.rarity} />}
                                 <span>{discovered ? creature.name : "Desconhecido"}</span>
                                 <small>{discovered ? `${kills}/${creature.codexKills} abates${mastered ? " · Dominado" : ""}` : "Encontre para revelar"}</small>
                               </button>
@@ -1595,10 +1595,12 @@ export default function HomePage() {
             const inspectedKills = worldProgress.creatureKills[inspected.id] ?? 0;
             const inspectedMastered = inspectedKills >= inspected.codexKills;
             return (
-              <article className={`instance-creature-preview ${creatureFrameClassName(inspected.family, inspected.rarity)}`}>
-                <CreatureFamilyBadge family={inspected.family} rarity={inspected.rarity} />
-                {inspected.portraitPath ? <img src={inspected.portraitPath} alt={inspected.name} /> : <div className="unknown-creature-art">✦</div>}
-                <div>
+              <article className="instance-creature-preview">
+                <div className={`instance-creature-portrait ${creatureFrameClassName(inspected.family, inspected.rarity)}`}>
+                  {inspected.portraitPath ? <img src={inspected.portraitPath} alt={inspected.name} /> : <div className="unknown-creature-art">✦</div>}
+                  <CreatureFrameOverlay family={inspected.family} rarity={inspected.rarity} />
+                </div>
+                <div className="instance-creature-info">
                   <small>{creatureRarityLabels[resolveCreatureRarity(inspected.rarity)]} · Nv. {inspected.level} · {inspectedKills}/{inspected.codexKills} abates{inspectedMastered ? " · Dominado (+10% dano)" : ""}</small>
                   <strong>{inspected.name}</strong>
                   <p>{inspected.description}</p>
@@ -1833,7 +1835,7 @@ export default function HomePage() {
                           }
                         }}
                       >
-                        <CreatureFamilyBadge family={creature.family} rarity={creature.rarity} />
+                        <CreatureFrameOverlay family={creature.family} rarity={creature.rarity} />
                         {selectedTarget && !defeated && (
                           <span className="battle-v6-target-reticle" aria-hidden="true">⌖</span>
                         )}

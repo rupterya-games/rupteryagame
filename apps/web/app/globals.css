@@ -295,3 +295,171 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .enemy-card .battle-resource { margin:0; }.enemy-card .battle-resource span { display:none; }.enemy-card .battle-resource i { height:5px; border:1px solid #000; }
 .enemy-card.rarity-common { border-color:#716152; }.enemy-card.rarity-rare { border-color:#96515d; box-shadow:inset 0 0 0 1px #f0a0b244,0 0 13px #8f2b413d; }.enemy-card.rarity-boss { border-color:#d2a143; box-shadow:inset 0 0 0 1px #ffe09a77,0 0 20px #b879294d; }
 @media (min-width:761px) { .enemy-card>img { height:140px; }.enemy-card strong { font-size:13px; }.enemy-card>div:not(.monster-art) { padding:9px; } }
+
+.city-adventure-panel { display:grid; gap:12px; }
+.adventure-hero { display:grid; gap:12px; align-items:stretch; }
+.adventure-hero img { width:100%; border-radius:14px; border:1px solid #6d5733; object-fit:cover; box-shadow:0 10px 24px #0008; }
+.adventure-hero>div { display:grid; gap:8px; padding:12px; border:1px solid #5d5037; border-radius:14px; background:linear-gradient(135deg,#201b14,#10171c); }
+.adventure-hero span { color:#d7b869; font-size:10px; letter-spacing:.12em; text-transform:uppercase; }
+.adventure-hero strong { font-size:24px; color:#f6e5ba; }
+.adventure-hero p { margin:0; color:#bfc7cf; line-height:1.45; }
+.adventure-breadcrumb { display:flex; flex-wrap:wrap; gap:8px; }
+.adventure-breadcrumb small { padding:5px 8px; border-radius:999px; border:1px solid #534531; background:#121920; color:#d9c188; }
+.adventure-section-grid,.adventure-exit-grid,.adventure-level-grid,.adventure-spots-grid { display:grid; gap:10px; }
+.adventure-section-grid { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+.adventure-exit-grid { grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); margin-top:10px; }
+.adventure-level-grid { grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); margin-top:10px; }
+.adventure-spots-grid { grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); margin-top:10px; }
+.adventure-card,.adventure-level-card,.spot-card { text-align:left; color:var(--text); border:1px solid #4d4638; border-radius:14px; background:linear-gradient(135deg,#171c1f,#0f1317); padding:12px; display:grid; gap:6px; box-shadow:0 8px 22px #0007; }
+.adventure-card b,.adventure-level-card span { color:#d7b05e; font-size:18px; }
+.adventure-card strong,.adventure-level-card strong,.spot-card strong { color:#f6e7c3; }
+.adventure-card small,.adventure-level-card small,.adventure-level-card em,.spot-card small,.adventure-progress-copy small { color:#aeb8bf; font-size:11px; font-style:normal; }
+.adventure-card.selected,.adventure-level-card.selected,.spot-card.explored { border-color:#d8ab5d; background:linear-gradient(135deg,#302414,#171c1f); }
+.adventure-card.compact b { font-size:16px; }
+.adventure-detail-card p,.adventure-level-panel p,.adventure-spots-panel p { margin:0; color:#c5cacf; line-height:1.4; }
+.adventure-progress-copy { margin-top:10px; padding:10px 12px; border:1px solid #4d4534; border-radius:12px; background:#11171c; }
+.spot-card:disabled { cursor:default; opacity:1; }
+.city-inn-card { display:flex !important; }
+@media (min-width: 920px) { .adventure-hero { grid-template-columns:minmax(0,1.4fr) minmax(320px,1fr); } }
+
+.adventure-city-switcher { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+.adventure-city-switcher button { display:grid; gap:3px; text-align:left; padding:10px 12px; border:1px solid #4d4638; border-radius:12px; background:#11171c; color:#d9d6cb; }
+.adventure-city-switcher button strong { color:#f1dfb5; }
+.adventure-city-switcher button small { color:#89949c; font-size:10px; }
+.adventure-city-switcher button.selected { border-color:#d2a557; background:linear-gradient(135deg,#332617,#171d20); box-shadow:0 0 0 1px #d2a55733; }
+.active-contract-banner { display:grid; grid-template-columns:auto 1fr auto auto; gap:10px; align-items:center; padding:10px 12px; border:1px solid #756039; border-radius:12px; background:linear-gradient(135deg,#302514,#171c20); }
+.active-contract-banner span { color:#d9b35f; font-size:9px; letter-spacing:.1em; }
+.active-contract-banner strong { color:#f4e4bd; }
+.active-contract-banner small { color:#c0c7cc; font-size:10px; }
+.active-contract-banner button { border:1px solid #7a6034; border-radius:9px; background:#2b2418; color:#efd08b; padding:7px 10px; }
+.city-wallet { color:#e5bf6a; font-size:11px; }
+.city-service-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.city-service-actions button { min-height:40px; }
+.city-shop-grid,.mission-board-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin-top:12px; }
+.city-shop-item,.mission-card { display:grid; gap:7px; padding:12px; border:1px solid #4e493d; border-radius:13px; background:linear-gradient(145deg,#151b1f,#0d1115); box-shadow:0 8px 20px #0006; }
+.city-shop-item small,.mission-card small { color:#aeb7bd; font-size:10px; line-height:1.35; }
+.city-shop-item strong,.mission-card strong { color:#f3e0b8; }
+.city-shop-item span { color:#c4cbd0; font-size:11px; }
+.city-shop-item em { color:#e4b85d; font-style:normal; font-weight:800; }
+.city-shop-item.forbidden { border-color:#71414a; background:linear-gradient(145deg,#25161b,#0e1115); }
+.city-shop-item.forbidden small { color:#cf8f9c; }
+.city-shop-item button:disabled,.mission-card button:disabled { opacity:.55; cursor:not-allowed; }
+.mission-card>span { color:#d4ad5d; font-size:9px; font-weight:900; letter-spacing:.1em; }
+.mission-card p { margin:0; color:#c4c9cd; font-size:11px; line-height:1.45; }
+.mission-card em { color:#e7c46f; font-style:normal; font-size:11px; }
+.mission-card>div { display:flex; flex-wrap:wrap; gap:7px; }
+.mission-card.active { border-color:#c49a50; box-shadow:0 0 0 1px #c49a5033,0 8px 20px #0007; }
+.mission-card.completed { border-color:#53745c; background:linear-gradient(145deg,#142018,#0d1211); }
+@media (max-width:760px) { .active-contract-banner { grid-template-columns:1fr; } }
+
+/* Progressão sequencial das instâncias e contratos. */
+.adventure-card em { color:#cfae68; font-size:10px; font-style:normal; }
+.adventure-level-card.completed { border-color:#5f835f; background:linear-gradient(135deg,#152218,#101718); box-shadow:0 0 0 1px #5f835f33,0 8px 22px #0007; }
+.adventure-level-card.completed span,.adventure-level-card.completed em { color:#9fd19f; }
+.adventure-level-card.locked,.mission-card.locked { border-color:#3d4247; background:linear-gradient(135deg,#111417,#0b0e11); opacity:.68; }
+.adventure-level-card.locked { cursor:not-allowed; }
+.adventure-level-card.locked span,.adventure-level-card.locked strong,.adventure-level-card.locked small,.adventure-level-card.locked em { color:#788087; }
+.mission-card.locked>span,.mission-card.locked strong { color:#8b9297; }
+.city-shop-item .shop-affix { color:#c7b787; font-size:9px; line-height:1.25; }
+
+/* Adventure V3 modular panels */
+.adventure-city-switcher button.locked { opacity:.62; border-color:#433b35; background:linear-gradient(135deg,#181416,#111417); }
+.adventure-city-switcher button.locked strong { color:#a79b8b; }
+.gate-map-stack,.market-system-stack { display:grid; gap:12px; margin-top:10px; }
+.market-status-row { display:flex; flex-wrap:wrap; gap:7px; padding:9px 10px; border:1px solid #4d4536; border-radius:11px; background:#11171c; }
+.market-status-row small { color:#d7c08a; border-right:1px solid #453c2e; padding-right:8px; }
+.city-shop-card { display:grid; gap:7px; padding:12px; border:1px solid #4e493d; border-radius:13px; background:linear-gradient(145deg,#151b1f,#0d1115); box-shadow:0 8px 20px #0006; }
+.city-shop-card>span { color:#c8aa68; font-size:10px; text-transform:uppercase; letter-spacing:.07em; }
+.city-shop-card>strong { color:#f3e0b8; }
+.city-shop-card>small { color:#aeb7bd; font-size:10px; line-height:1.35; }
+.city-shop-card>em { color:#e4b85d; font-style:normal; font-weight:800; }
+.city-shop-card button:disabled { opacity:.5; cursor:not-allowed; }
+.black-market-grid .city-shop-card { border-color:#71414a; background:linear-gradient(145deg,#25161b,#0e1115); }
+.material-wallet { display:grid; gap:9px; }
+.material-wallet-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+.material-wallet-grid>div { display:grid; gap:5px; padding:9px; border:1px solid #403b33; border-radius:10px; background:#0e1317; }
+.material-wallet-grid strong { color:#e5d3ab; font-size:12px; }
+.material-wallet-grid small { color:#9ca8af; font-size:10px; }
+.adventure-level-card.locked { opacity:.52; filter:saturate(.55); }
+.adventure-level-card.completed { border-color:#6f8758; box-shadow:inset 0 0 0 1px #7d9a6433; }
+
+/* V4 · mapas realmente interativos */
+.city-map-shell,.gate-overview-shell,.instance-visual-panel { display:grid; gap:10px; }
+.city-map-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.city-map-header>div { display:grid; gap:2px; }
+.city-map-header span { color:#cda75e; font-size:10px; letter-spacing:.12em; }
+.city-map-header strong { color:#f5e6bf; font-size:22px; }
+.city-map-header small { color:#c9b176; border:1px solid #5e5038; border-radius:999px; padding:6px 9px; background:#12171a; }
+.city-visual-map,.gate-overview-map,.instance-visual-map { position:relative; overflow:hidden; border:1px solid #675435; border-radius:16px; background:#0a0e10; box-shadow:inset 0 0 35px #000b,0 14px 34px #0008; }
+.city-visual-map { min-height:440px; }
+.gate-overview-map { min-height:360px; }
+.instance-visual-map { min-height:500px; }
+.city-visual-map>img,.gate-overview-map>img,.instance-visual-map>img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; user-select:none; pointer-events:none; }
+.city-visual-map:after,.gate-overview-map:after,.instance-visual-map:after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,#0002,#0000 35%,#0004); box-shadow:inset 0 0 70px #000a; }
+.city-map-pin,.gate-exit-pin,.instance-spot-pin { position:absolute; z-index:3; transform:translate(-50%,-50%); color:#f6e7c3; border:1px solid #b48a45; background:#121a18e8; box-shadow:0 7px 20px #000b,0 0 0 2px #0005; transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease; }
+.city-map-pin:hover,.gate-exit-pin:hover,.instance-spot-pin:hover { transform:translate(-50%,-50%) scale(1.05); border-color:#f0ca72; box-shadow:0 8px 24px #000c,0 0 18px #d3a44d66; }
+.city-map-pin.selected,.gate-exit-pin.selected { border-color:#ffe39a; background:#5b4423ef; box-shadow:0 0 0 3px #e7bd6655,0 0 26px #d7a84f88; }
+.city-map-pin { width:118px; min-height:62px; border-radius:15px; display:grid; place-items:center; gap:2px; padding:8px; }
+.city-map-pin b { color:#e0b85f; font-size:20px; line-height:1; }
+.city-map-pin span { font-size:11px; font-weight:900; line-height:1.1; text-align:center; text-shadow:0 2px 5px #000; }
+.city-map-copy { display:grid; gap:4px; padding:10px 12px; border:1px solid #4a4234; border-radius:12px; background:#11171b; }
+.city-map-copy p { margin:0; color:#c4c9cd; line-height:1.4; }
+.city-map-copy small { color:#9da7a8; }
+.gate-exit-pin { min-width:126px; min-height:54px; padding:8px 11px; border-radius:13px; display:grid; grid-template-columns:auto 1fr; align-items:center; gap:7px; }
+.gate-exit-pin b { color:#edc56c; font-size:19px; }
+.gate-exit-pin span { font-size:11px; font-weight:900; white-space:nowrap; }
+.visual-level-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; margin-top:8px; }
+.visual-level-card { overflow:hidden; padding:0; text-align:left; color:var(--text); border:1px solid #4c4436; border-radius:14px; background:#101519; box-shadow:0 8px 20px #0007; }
+.visual-level-card img { width:100%; height:128px; object-fit:cover; display:block; filter:saturate(.88) brightness(.84); }
+.visual-level-card>div { display:grid; gap:3px; padding:10px 11px 12px; }
+.visual-level-card span { color:#dcb660; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; }
+.visual-level-card strong { color:#f4e6c5; }
+.visual-level-card small,.visual-level-card em { color:#aeb6bb; font-size:10px; font-style:normal; }
+.visual-level-card.selected { border-color:#e4b75f; box-shadow:0 0 0 2px #d3a64d44,0 10px 28px #0009; }
+.visual-level-card.selected img { filter:saturate(1.05) brightness(.98); }
+.visual-level-card.completed { border-color:#818c5b; }
+.visual-level-card.locked { opacity:.48; filter:grayscale(.7); }
+.instance-visual-panel>p { margin:0; color:#c6ccd0; line-height:1.45; }
+.instance-visual-panel>p strong { color:#f0cd79; }
+.instance-spot-pin { width:92px; min-height:58px; border-radius:50%; padding:7px 8px; display:grid; place-items:center; gap:1px; }
+.instance-spot-pin b { display:grid; place-items:center; width:25px; height:25px; border-radius:50%; background:#8b672f; color:#fff1c6; font-size:11px; }
+.instance-spot-pin span { font-size:9px; line-height:1.05; font-weight:900; text-align:center; text-shadow:0 2px 4px #000; }
+.instance-spot-pin.explored { border-color:#727965; background:#1e2821e8; opacity:.72; }
+.instance-spot-pin.explored b { background:#4d6148; }
+.instance-spot-pin:disabled { cursor:default; }
+.encounter-gallery-title { display:flex; justify-content:space-between; gap:12px; align-items:end; margin-top:3px; }
+.encounter-gallery-title strong { color:#f1d18b; font-size:12px; }
+.encounter-gallery-title small { color:#8f9b9e; font-size:10px; }
+.encounter-creature-gallery { display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:8px; }
+.encounter-creature-gallery button { overflow:hidden; padding:0; text-align:left; border:1px solid #4b4439; border-radius:12px; background:#0e1418; color:#ece2ca; box-shadow:0 7px 16px #0007; }
+.encounter-creature-gallery button.selected { border-color:#d8a952; box-shadow:0 0 0 2px #d8a95233,0 8px 18px #0009; }
+.encounter-creature-gallery img { width:100%; height:136px; object-fit:cover; display:block; }
+.encounter-creature-gallery span,.encounter-creature-gallery small { display:block; padding:0 8px; }
+.encounter-creature-gallery span { margin-top:7px; font-size:11px; font-weight:900; }
+.encounter-creature-gallery small { padding-bottom:8px; margin-top:2px; color:#aeb5b7; font-size:9px; }
+.instance-creature-preview { display:grid; grid-template-columns:150px 1fr; gap:12px; padding:10px; border:1px solid #73583b; border-radius:14px; background:linear-gradient(135deg,#211a14,#10161a); }
+.instance-creature-preview>img { width:150px; height:185px; object-fit:cover; border-radius:10px; border:1px solid #6e583a; }
+.instance-creature-preview>div { display:grid; align-content:center; gap:6px; }
+.instance-creature-preview small { color:#c7a65d; text-transform:uppercase; letter-spacing:.07em; font-size:9px; }
+.instance-creature-preview strong { color:#f7e8c5; font-size:19px; }
+.instance-creature-preview p { margin:0; color:#bcc4c8; line-height:1.4; font-size:11px; }
+.instance-creature-preview span { color:#d8c79d; font-size:10px; }
+
+@media (max-width:760px) {
+  .city-visual-map { min-height:520px; }
+  .gate-overview-map { min-height:420px; }
+  .instance-visual-map { min-height:570px; }
+  .city-map-pin { width:92px; min-height:56px; padding:6px; }
+  .city-map-pin span { font-size:9px; }
+  .gate-exit-pin { min-width:96px; padding:7px; }
+  .gate-exit-pin span { font-size:9px; }
+  .instance-spot-pin { width:72px; min-height:52px; }
+  .instance-spot-pin span { font-size:8px; }
+  .instance-creature-preview { grid-template-columns:105px 1fr; }
+  .instance-creature-preview>img { width:105px; height:145px; }
+}
+
+/* V4 · estado de mana/recarga visível no combate */
+.battle-actions button em { display:block; margin-top:5px; color:#e4b96b; font-size:10px; font-style:normal; font-weight:900; }
+.battle-actions button.combat-action-disabled,.battle-actions button:disabled { cursor:not-allowed; opacity:.5; filter:saturate(.55); }
+.battle-actions button.combat-action-disabled strong { color:#b8b2a6; }

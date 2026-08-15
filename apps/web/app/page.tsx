@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import {
   LOADOUT_SLOTS,
+  PLAYER_MP_REGEN_PER_TURN,
   activePreset,
   dropBreakChanceByRarity,
   resolveHuntTurn,
@@ -14,10 +15,12 @@ import type {
   CombatStatusEffect,
   GameCharacter,
   HuntBattleState,
+  HuntCreatureDefinition,
   LoadoutSlot,
 } from "@rupterya/game-core";
 import {
   abilities,
+  adventureCities,
   battleBoardsByRegion,
   classes,
   equipment,
@@ -29,8 +32,23 @@ import {
   rollFiordevalleEncounter,
   sharedAbilities,
 } from "@/lib/catalog";
-import { repository } from "@/lib/dev-character-repository";
+import { emptyWorldProgress, repository } from "@/lib/dev-character-repository";
+import { bestiaryById } from "@/lib/bestiary";
+import { blackMarketStock, innCost, marketStock } from "@/lib/economy";
+import { questDestinationLevelId, questsByCity, questsById } from "@/lib/quests";
+import {
+  adventureCityList,
+  cityUnlockProgress,
+  findAdventureLevel,
+  isAdventureLevelUnlocked,
+  isCityUnlocked,
+  type AdventureCityId,
+} from "@/lib/world";
 import { musicDirector } from "@/lib/music";
+import { CityHub } from "@/components/CityHub";
+import { GateMap } from "@/components/GateMap";
+import { QuestBoard } from "@/components/QuestBoard";
+import { MarketPanels } from "@/components/MarketPanels";
 
 type View =
   | "slots"
@@ -260,25 +278,74 @@ function CombatEffects({ effects }: { effects: CombatStatusEffect[] }) {
 }
 
 function JourneyOutcomePanel({
-  outcome,
-  onHunt,
+  title,
+  text,
+  kind,
+  actionLabel,
+  onAction,
 }: {
-  outcome: JourneyOutcome;
-  onHunt: () => void;
+  title: string;
+  text: string;
+  kind: "event" | "quiet" | "encounter";
+  actionLabel: string;
+  onAction: () => void;
 }) {
   return (
-    <section className={`journey-outcome-panel ${outcome.kind}`}>
-      <strong>
-        {outcome.kind === "event"
-          ? `Evento em ${outcome.nodeName}`
-          : "Travessia silenciosa"}
-      </strong>
-      <small>{outcome.text}</small>
-      <button className="primary" onClick={onHunt}>
-        Procurar ameaça
+    <section className={`journey-outcome-panel ${kind}`}>
+      <strong>{title}</strong>
+      <small>{text}</small>
+      <button className="primary" onClick={onAction}>
+        {actionLabel}
       </button>
     </section>
   );
+}
+
+type AdventureAlert = {
+  title: string;
+  text: string;
+  kind: "event" | "quiet" | "encounter";
+  actionLabel: string;
+};
+
+function bestiaryCreatureForHunt(creatureId: string) {
+  const source = bestiaryById.get(creatureId);
+  const legacy = huntCreatures.find((entry) => entry.id === creatureId);
+  if (!source) return legacy ?? huntCreatures[0];
+  const rarity: HuntCreatureDefinition["rarity"] = source.rarity === "common" ? "common" : source.rarity === "rare" ? "rare" : "boss";
+  return {
+    id: source.id,
+    name: source.name,
+    description: source.description,
+    portraitPath: source.portraitPath ?? legacy?.portraitPath,
+    rarity,
+    regionId: source.regionId,
+    level: source.level,
+    hpMax: source.stats.hpMax,
+    physicalDamage: source.stats.physicalDamage,
+    magicalDamage: source.stats.magicalDamage,
+    physicalDefense: source.stats.physicalDefense,
+    magicalDefense: source.stats.magicalDefense,
+    xpReward: source.xpReward,
+    goldReward: source.goldReward,
+    statusEffects: source.statusEffects,
+    equippedItem: legacy?.equippedItem,
+    equippedItems: legacy?.equippedItems,
+    featuredItemCandidates: legacy?.featuredItemCandidates,
+    equipmentProfileId: legacy?.equipmentProfileId,
+  };
+}
+
+function createInstanceEncounter(creaturePool: readonly string[]) {
+  const firstId = creaturePool[Math.floor(Math.random() * creaturePool.length)] ?? creaturePool[0] ?? huntCreatures[0].id;
+  const source = bestiaryById.get(firstId);
+  const min = source?.solitary ? 1 : Math.max(1, source?.packMin ?? 1);
+  const max = source?.solitary ? 1 : Math.min(5, Math.max(min, source?.packMax ?? 2));
+  const count = min + Math.floor(Math.random() * (max - min + 1));
+  return Array.from({ length: count }, (_, index) => {
+    const creatureId = index === 0 ? firstId : (creaturePool[Math.floor(Math.random() * creaturePool.length)] ?? firstId);
+    return bestiaryCreatureForHunt(creatureId);
+  });
 }
 
 function BattleCooldownPanel({
@@ -327,6 +394,12 @@ export default function HomePage() {
     null,
   );
   const [traveledRoute, setTraveledRoute] = useState<string[]>(["fiordevalle"]);
+  const [activeCityId, setActiveCityId] = useState<AdventureCityId>("fiordevalle");
+  const [citySectionId, setCitySectionId] = useState("centro");
+  const [selectedExitId, setSelectedExitId] = useState<string | null>(null);
+  const [selectedInstanceLevelId, setSelectedInstanceLevelId] = useState<string | null>(null);
+  const [adventureAlert, setAdventureAlert] = useState<AdventureAlert | null>(null);
+  const [pendingEncounter, setPendingEncounter] = useState<ReturnType<typeof createInstanceEncounter> | null>(null);
 
   useEffect(() => {
     const stored = repository.load();
@@ -378,10 +451,30 @@ export default function HomePage() {
     () => (selected ? repository.summary(account, selected) : null),
     [account, selected],
   );
+  useEffect(() => {
+    if (!selected) return;
+    const preferred = adventureCityList.find((city) => city.kingdom === selected.kingdom);
+    const progress = selected.worldProgress ?? emptyWorldProgress();
+    const cityId = preferred && isCityUnlocked(preferred.id, progress.defeatedBossIds) ? preferred.id : "fiordevalle";
+    setActiveCityId(cityId);
+    setRegionId(cityId);
+    setCitySectionId("centro");
+    setSelectedExitId(null);
+    setSelectedInstanceLevelId(null);
+    setAdventureAlert(null);
+    setPendingEncounter(null);
+  }, [selectedId]);
+
   const region =
     huntRegions.find((entry) => entry.id === regionId) ?? huntRegions[0];
+  const adventureCity = adventureCities[activeCityId] ?? adventureCities.fiordevalle;
+  const worldProgress = selected?.worldProgress ?? emptyWorldProgress();
+  const exploredSpotsByLevel = worldProgress.exploredSpotsByLevel;
+  const cityQuests = questsByCity(adventureCity.id);
+  const normalMarketListings = marketStock(adventureCity.id, equipment);
+  const blackMarketListings = blackMarketStock(adventureCity.id, equipment);
   const battleBoardStyle = {
-    "--battle-board-art": `url("${battleBoardsByRegion[region.id] ?? ""}")`,
+    "--battle-board-art": `url("${battleBoardsByRegion[activeCityId] ?? adventureCity.heroArtPath}")`,
   } as CSSProperties;
   const journeyNode =
     fiordevalleJourneyNodes.find((node) => node.id === journeyNodeId) ??
@@ -389,6 +482,14 @@ export default function HomePage() {
   const journeyStartNode =
     fiordevalleJourneyNodes.find((node) => node.id === journeyStartNodeId) ??
     fiordevalleJourneyNodes[0];
+  const selectedCitySection =
+    adventureCity.sections.find((section) => section.id === citySectionId) ??
+    adventureCity.sections[0];
+  const activeExit =
+    adventureCity.exits.find((entry) => entry.id === selectedExitId) ?? null;
+  const activeLevel =
+    activeExit?.levels.find((entry) => entry.id === selectedInstanceLevelId) ??
+    null;
   const preset = selected ? activePreset(selected) : null;
   const ownedAbilities = selected
     ? [...abilities, ...sharedAbilities].filter((ability) =>
@@ -539,6 +640,181 @@ export default function HomePage() {
     setBattle(repository.beginHunt(account, selected, region.id, creatures));
     setMessage(`Ameaça revelada em ${journeyNode.name}.`);
   };
+  const switchAdventureCity = (cityId: AdventureCityId) => {
+    if (!selected) return;
+    const unlock = cityUnlockProgress(cityId, worldProgress.defeatedBossIds);
+    if (!unlock.unlocked) {
+      setMessage(`${adventureCities[cityId].name} bloqueada: ${unlock.description} Progresso ${unlock.defeated}/${unlock.required}.`);
+      return;
+    }
+    setActiveCityId(cityId);
+    setRegionId(cityId);
+    setCitySectionId("centro");
+    setSelectedExitId(null);
+    setSelectedInstanceLevelId(null);
+    setAdventureAlert(null);
+    setPendingEncounter(null);
+    setMessage(`Você entrou em ${adventureCities[cityId].name}.`);
+  };
+  const buyEquipmentListing = (item: (typeof equipment)[number], price: number, blackMarket = false) => {
+    if (!selected) return;
+    try {
+      setAccount(repository.buyItem(account, selected, item, price, adventureCity.id, blackMarket));
+      setMessage(`${item.name} comprado por ${price} ouro${blackMarket ? " no Mercado Negro" : ""}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível comprar o item.");
+    }
+  };
+  const buyConsumableListing = (consumableId: string, price: number, blackMarket = false) => {
+    if (!selected) return;
+    try {
+      setAccount(repository.buyConsumable(account, selected, consumableId, price, adventureCity.id, blackMarket));
+      setMessage(`Consumível comprado por ${price} ouro.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível comprar o consumível.");
+    }
+  };
+  const useConsumable = (consumableId: string) => {
+    if (!selected) return;
+    try {
+      setAccount(repository.useConsumable(account, selected, consumableId));
+      setMessage("Consumível usado.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível usar o consumível.");
+    }
+  };
+  const sellMaterial = (materialId: string, amount: number, blackMarket = false) => {
+    if (!selected) return;
+    try {
+      setAccount(repository.sellMaterial(account, selected, materialId, amount, blackMarket, adventureCity.id));
+      setMessage(`${amount} material vendido${blackMarket ? " por receptação" : ""}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível vender o material.");
+    }
+  };
+  const acceptMission = (questId: string) => {
+    if (!selected) return;
+    try {
+      setAccount(repository.acceptQuest(account, selected, questId));
+      setMessage(`Contrato aceito: ${questsById.get(questId)?.title ?? questId}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível aceitar o contrato.");
+    }
+  };
+  const claimMission = (questId: string) => {
+    if (!selected) return;
+    try {
+      setAccount(repository.claimQuest(account, selected, questId));
+      setMessage(`Contrato concluído: ${questsById.get(questId)?.title ?? questId}. Recompensas recebidas.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "O contrato ainda não pode ser entregue.");
+    }
+  };
+  const goToMissionLevel = (questId: string) => {
+    const quest = questsById.get(questId);
+    if (!quest || !selected) return;
+    const city = adventureCities[quest.cityId];
+    if (!isCityUnlocked(city.id, worldProgress.defeatedBossIds)) {
+      const unlock = cityUnlockProgress(city.id, worldProgress.defeatedBossIds);
+      setMessage(`${city.name} ainda está bloqueada: ${unlock.description}`);
+      return;
+    }
+    const destinationLevelId = questDestinationLevelId(quest);
+    if (!destinationLevelId) {
+      setMessage("Esse contrato não possui uma rota explorável direta.");
+      return;
+    }
+    const found = findAdventureLevel(city, destinationLevelId);
+    if (!found) return;
+    setActiveCityId(city.id);
+    setRegionId(city.id);
+    setCitySectionId("portoes");
+    setSelectedExitId(found.exit.id);
+    if (!isAdventureLevelUnlocked(city, destinationLevelId, worldProgress.exploredSpotsByLevel)) {
+      setSelectedInstanceLevelId(null);
+      setMessage(`A rota de ${quest.title} está bloqueada. Conclua a instância anterior dessa saída.`);
+      return;
+    }
+    setSelectedInstanceLevelId(destinationLevelId);
+    setAdventureAlert(null);
+    setPendingEncounter(null);
+    setMessage(`Rota do contrato aberta: ${quest.title}.`);
+  };
+  const openCitySection = (sectionId: string) => {
+    setCitySectionId(sectionId);
+    setAdventureAlert(null);
+    if (sectionId !== "portoes") {
+      setSelectedExitId(null);
+      setSelectedInstanceLevelId(null);
+        setPendingEncounter(null);
+    }
+  };
+  const openExit = (exitId: string) => {
+    setCitySectionId("portoes");
+    setSelectedExitId(exitId);
+    setSelectedInstanceLevelId(null);
+    setAdventureAlert(null);
+    setPendingEncounter(null);
+  };
+  const openInstanceLevel = (levelId: string) => {
+    if (!isAdventureLevelUnlocked(adventureCity, levelId, exploredSpotsByLevel)) {
+      const found = findAdventureLevel(adventureCity, levelId);
+      const previous = found && found.index > 0 ? found.exit.levels[found.index - 1] : null;
+      setMessage(previous ? `Conclua ${previous.name} para liberar este nível.` : "Esta instância ainda está bloqueada.");
+      return;
+    }
+    setSelectedInstanceLevelId(levelId);
+    setAdventureAlert(null);
+    setPendingEncounter(null);
+  };
+  const exploreSpot = (spotId: string, spotName: string) => {
+    if (!selected || !activeExit || !activeLevel) return;
+    const explored = worldProgress.exploredSpotsByLevel[activeLevel.id] ?? [];
+    if (explored.includes(spotId)) return;
+    setAccount(repository.recordSpot(account, selected, activeLevel.id, spotId));
+    const roll = Math.random();
+    const eventText = activeLevel.eventPool[Math.floor(Math.random() * activeLevel.eventPool.length)] ?? `${spotName} permanece em silêncio.`;
+    if (roll < 0.62) {
+      const creatures = createInstanceEncounter(activeLevel.creaturePool);
+      setPendingEncounter(creatures);
+      setAdventureAlert({
+        kind: "encounter",
+        title: `${spotName} · ameaça detectada`,
+        text: `Uma ameaça surgiu em ${activeLevel.name}. Inimigos vistos: ${creatures.map((entry) => entry.name).join(", ")}.`,
+        actionLabel: "Entrar em combate",
+      });
+      setMessage(`Encontro encontrado em ${activeLevel.name}.`);
+      return;
+    }
+    if (roll < 0.87) {
+      setPendingEncounter(null);
+      setAdventureAlert({
+        kind: "event",
+        title: `${spotName} · evento`,
+        text: eventText,
+        actionLabel: "Continuar exploração",
+      });
+      setMessage(`Evento encontrado em ${activeLevel.name}.`);
+      return;
+    }
+    setPendingEncounter(null);
+    setAdventureAlert({
+      kind: "quiet",
+      title: `${spotName} · sem contato`,
+      text: `Nada atacou você neste ponto. ${eventText}`,
+      actionLabel: "Continuar exploração",
+    });
+    setMessage(`Spot explorado em ${activeLevel.name} sem combate.`);
+  };
+  const consumeAdventureAction = () => {
+    if (adventureAlert?.kind === "encounter" && pendingEncounter && selected) {
+      setBattle(repository.beginHunt(account, selected, activeCityId, pendingEncounter));
+      setAdventureAlert(null);
+      setPendingEncounter(null);
+      return;
+    }
+    setAdventureAlert(null);
+  };
   const takeTurn = (ability: AbilityDefinition) => {
     if (!battle || !selected) return;
     const cooldown = battle.cooldowns[ability.id] ?? 0;
@@ -679,20 +955,15 @@ export default function HomePage() {
             </button>
           </section>
         )}
-        {view === "hunt" && !battle && (
-          <JourneyRoutePanel
-            startId={journeyStartNodeId}
-            destinationId={journeyNodeId}
+        {view === "hunt" && !battle && adventureAlert && (
+          <JourneyOutcomePanel
+            title={adventureAlert.title}
+            text={adventureAlert.text}
+            kind={adventureAlert.kind}
+            actionLabel={adventureAlert.actionLabel}
+            onAction={consumeAdventureAction}
           />
         )}
-        {view === "hunt" &&
-          !battle &&
-          journeyOutcome?.destinationId === journeyNodeId && (
-            <JourneyOutcomePanel
-              outcome={journeyOutcome}
-              onHunt={beginHuntFromJourney}
-            />
-          )}
         {battle && view === "hunt" && (
           <BattleCooldownPanel
             battle={battle}
@@ -771,10 +1042,9 @@ export default function HomePage() {
               [
                 [
                   "hunt",
-                  "Campo de Caça",
-                  "Escolha região, encontre criaturas e entre em batalha.",
+                  "Cidade & Mundo",
+                  "Entre na cidade, use Mercado, Mural, Black Market e Portões para acessar instâncias por nível.",
                 ],
-                ["city", "Cidade", "Estalagem, servicos e melhorias de FiorDeValle."],
                 ["profile", "Perfil", "Ficha, combate e atributos de Jornada."],
                 [
                   "equipment",
@@ -1067,56 +1337,104 @@ export default function HomePage() {
         <section className="hunt-view">
           {!battle ? (
             <>
-              <section className="journey-panel">
+              <section className="journey-panel city-adventure-panel">
                 <div className="section-title">
-                  <span>FiorDeValle</span>
-                  <button onClick={() => setView("lobby")}>×</button>
+                  <span>{adventureCity.name}</span>
+                  <button onClick={() => setView("lobby")}>Lobby</button>
                 </div>
-                <div className="journey-status">
-                  <span>PARTIDA: {journeyStartNode.name}</span>
-                  <strong>
-                    {journeyNode.icon} {journeyNode.name}
-                  </strong>
-                </div>
-                <div
-                  className="journey-map"
-                  aria-label="Mapa de Jornada de FiorDeValle"
-                >
-                  {fiordevalleJourneyNodes.map((node) => (
-                    <button
-                      key={node.id}
-                      onClick={() => setJourneyNodeId(node.id)}
-                      className={`journey-node ${journeyNodeId === node.id ? "selected" : ""}`}
-                      style={{ gridColumn: node.column, gridRow: node.row }}
-                    >
-                      <b>{node.icon}</b>
-                      <small>{node.name}</small>
-                    </button>
-                  ))}
-                </div>
-                <button className="primary journey-go" onClick={startJourney}>
-                  Iniciar Jornada
-                </button>
-                <div className="journey-key">
-                  <span>◉ destino</span>
-                  <span>⚔ encontro</span>
-                  <span>✦ evento</span>
-                </div>
-              </section>
-              <section className="inn-card">
-                <div>
-                  <span>☾ ESTALAGEM</span>
-                  <strong>Recuperar HP e MP</strong>
-                </div>
-                <button
-                  className="primary"
-                  onClick={() => {
-                    persist(repository.restAtInn(selected));
-                    setMessage("A Estalagem restaurou HP e MP.");
-                  }}
-                >
-                  Descansar
-                </button>
+
+                <CityHub
+                  city={adventureCity}
+                  selectedSectionId={citySectionId}
+                  defeatedBossIds={worldProgress.defeatedBossIds}
+                  activeQuestCount={worldProgress.activeQuestIds.length}
+                  onSwitchCity={switchAdventureCity}
+                  onSelectSection={openCitySection}
+                />
+
+                <section className="subpanel adventure-detail-card">
+                  <div className="section-title">
+                    <span>{selectedCitySection.name}</span>
+                    <span className="city-wallet">Ouro: {selected.vitals.gold}</span>
+                  </div>
+                  <p>{selectedCitySection.detail}</p>
+
+                  {selectedCitySection.id === "centro" && (
+                    <div className="city-service-actions">
+                      <button
+                        className="primary"
+                        onClick={() => {
+                          try {
+                            const cost = innCost(adventureCity.id, account.globalLevel);
+                            persist(repository.restAtInn(selected, cost));
+                            setMessage(`${adventureCity.name}: descanso completo por ${cost} ouro.`);
+                          } catch (error) {
+                            setMessage(error instanceof Error ? error.message : "Não foi possível descansar.");
+                          }
+                        }}
+                      >
+                        Descansar · {innCost(adventureCity.id, account.globalLevel)} ouro
+                      </button>
+                      <button onClick={() => setView("profile")}>Ver ficha do personagem</button>
+                    </div>
+                  )}
+
+                  {selectedCitySection.id === "mercado" && (
+                    <MarketPanels
+                      cityId={adventureCity.id}
+                      blackMarket={false}
+                      listings={normalMarketListings}
+                      equipment={equipment}
+                      ownedItemIds={selected.inventoryItemIds}
+                      gold={selected.vitals.gold}
+                      progress={worldProgress}
+                      onBuyEquipment={buyEquipmentListing}
+                      onBuyConsumable={buyConsumableListing}
+                      onUseConsumable={useConsumable}
+                      onSellMaterial={sellMaterial}
+                    />
+                  )}
+
+                  {selectedCitySection.id === "black-market" && (
+                    <MarketPanels
+                      cityId={adventureCity.id}
+                      blackMarket
+                      listings={blackMarketListings}
+                      equipment={equipment}
+                      ownedItemIds={selected.inventoryItemIds}
+                      gold={selected.vitals.gold}
+                      progress={worldProgress}
+                      onBuyEquipment={buyEquipmentListing}
+                      onBuyConsumable={buyConsumableListing}
+                      onUseConsumable={useConsumable}
+                      onSellMaterial={sellMaterial}
+                    />
+                  )}
+
+                  {selectedCitySection.id === "mural" && (
+                    <QuestBoard
+                      quests={cityQuests}
+                      progress={worldProgress}
+                      itemName={(itemId) => equipment.find((entry) => entry.id === itemId)?.name ?? itemId}
+                      onAccept={acceptMission}
+                      onClaim={claimMission}
+                      onOpenRoute={goToMissionLevel}
+                    />
+                  )}
+
+                  {selectedCitySection.id === "portoes" && (
+                    <GateMap
+                      city={adventureCity}
+                      selectedExitId={selectedExitId}
+                      selectedLevelId={selectedInstanceLevelId}
+                      exploredSpotsByLevel={worldProgress.exploredSpotsByLevel}
+                      creatureName={(creatureId) => bestiaryById.get(creatureId)?.name ?? huntCreatures.find((creature) => creature.id === creatureId)?.name ?? creatureId}
+                      onSelectExit={openExit}
+                      onSelectLevel={openInstanceLevel}
+                      onExploreSpot={exploreSpot}
+                    />
+                  )}
+                </section>
               </section>
             </>
           ) : (
@@ -1246,27 +1564,30 @@ export default function HomePage() {
               {battle.status === "active" ? (
                 <section className="battle-actions">
                   <span>
-                    Turno {battle.turn} · O ataque atinge o primeiro inimigo
-                    vivo
+                    Turno {battle.turn} · +{PLAYER_MP_REGEN_PER_TURN} MP no início do turno · recargas descem no início do seu turno
                   </span>
                   <div>
-                    {battleAbilities.map((ability) => (
-                      <button
-                        key={ability.id}
-                        onClick={() => takeTurn(ability)}
-                      >
-                        <strong>{ability.name}</strong>
-                        <small>
-                          {ability.manaCost
-                            ? `${ability.manaCost} MP`
-                            : "Sem custo"}{" "}
-                          ·{" "}
-                          {ability.damageFamily === "magical"
-                            ? "Mágico"
-                            : "Físico"}
-                        </small>
-                      </button>
-                    ))}
+                    {battleAbilities.map((ability) => {
+                      const cooldown = battle.cooldowns[ability.id] ?? 0;
+                      const manaCost = ability.manaCost ?? 0;
+                      const blockedByMana = battle.player.mpCurrent < manaCost;
+                      const disabled = cooldown > 0 || blockedByMana;
+                      return (
+                        <button
+                          key={ability.id}
+                          onClick={() => takeTurn(ability)}
+                          disabled={disabled}
+                          className={disabled ? "combat-action-disabled" : ""}
+                        >
+                          <strong>{ability.name}</strong>
+                          <small>
+                            {manaCost ? `${manaCost} MP` : "Sem custo"} · {ability.damageFamily === "magical" ? "Mágico" : "Físico"}
+                          </small>
+                          {cooldown > 0 && <em>Recarga: {cooldown}T</em>}
+                          {cooldown === 0 && blockedByMana && <em>MP insuficiente</em>}
+                        </button>
+                      );
+                    })}
                   </div>
                 </section>
               ) : (
@@ -1295,20 +1616,15 @@ export default function HomePage() {
           )}
         </section>
       )}
-      {view === "hunt" && !battle && (
-        <JourneyRoutePanel
-          startId={journeyStartNodeId}
-          destinationId={journeyNodeId}
+      {view === "hunt" && !battle && adventureAlert && (
+        <JourneyOutcomePanel
+          title={adventureAlert.title}
+          text={adventureAlert.text}
+          kind={adventureAlert.kind}
+          actionLabel={adventureAlert.actionLabel}
+          onAction={consumeAdventureAction}
         />
       )}
-      {view === "hunt" &&
-        !battle &&
-        journeyOutcome?.destinationId === journeyNodeId && (
-          <JourneyOutcomePanel
-            outcome={journeyOutcome}
-            onHunt={beginHuntFromJourney}
-          />
-        )}
       {battle && view === "hunt" && (
         <BattleCooldownPanel battle={battle} abilities={[...battleAbilities]} />
       )}
@@ -1343,13 +1659,7 @@ export default function HomePage() {
           className={view === "hunt" ? "active" : ""}
           onClick={() => setView("hunt")}
         >
-          Caça
-        </button>
-        <button
-          className={view === "city" ? "active" : ""}
-          onClick={() => setView("city")}
-        >
-          Cidade
+          Mundo
         </button>
         <button
           className={view === "profile" ? "active" : ""}

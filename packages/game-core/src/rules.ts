@@ -27,6 +27,23 @@ export function validateLoadoutSlot(slot: LoadoutSlot, ability: AbilityDefinitio
 export function setLoadoutAbility(loadout: CombatLoadout, slot: LoadoutSlot, ability: AbilityDefinition): CombatLoadout { const issue = validateLoadoutSlot(slot, ability); if (issue) throw new Error(issue); return { ...loadout, [slot]: ability.id }; }
 export function activePreset(character: GameCharacter): CharacterPreset { return character.presets.find((preset) => preset.id === character.activePresetId) ?? character.presets[0]; }
 
+
+export const PLAYER_MP_REGEN_PER_TURN = 6;
+
+function preparePlayerTurn(player: HuntCombatant, cooldowns: Record<string, number>) {
+  const nextCooldowns = Object.fromEntries(
+    Object.entries(cooldowns)
+      .map(([id, turns]): [string, number] => [id, Math.max(0, turns - 1)])
+      .filter(([, turns]) => turns > 0),
+  ) as Record<string, number>;
+  return {
+    player: {
+      ...player,
+      mpCurrent: Math.min(player.mpMax, player.mpCurrent + PLAYER_MP_REGEN_PER_TURN),
+    },
+    cooldowns: nextCooldowns,
+  };
+}
 const battleId = () => globalThis.crypto?.randomUUID?.() ?? `hunt-${Date.now()}`;
 const emptyEffects = (): CombatStatusEffect[] => [];
 const statusResistance = (stats: CharacterCombatStats, kind: StatusEffectKind) => stats[`${kind}Resistance` as keyof CharacterCombatStats] as number;
@@ -154,9 +171,10 @@ export function createHuntBattle(input: { regionId: string; player: HuntCombatan
     const itemModifiers = creature.equippedItems?.reduce((total, item) => ({ ...total, ...Object.fromEntries(Object.entries(item.modifiers).map(([key, value]) => [key, (total[key as keyof typeof total] ?? 0) + (value ?? 0)])) }), {} as EquipmentItem["modifiers"]) ?? {};
     const hpMax = creature.hpMax + (itemModifiers.hpMax ?? 0);
     const itemEffects = creature.equippedItems?.flatMap((item) => item.statusEffects ?? []) ?? [];
-    return { id: `${creature.id}-${index}`, name: creature.name, portraitPath: creature.portraitPath, hpCurrent: hpMax, hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: [...(creature.statusEffects ?? []), ...itemEffects], stats: { physicalDamage: creature.physicalDamage + (itemModifiers.physicalDamage ?? 0), magicalDamage: itemModifiers.magicalDamage ?? 0, physicalDefense: creature.physicalDefense + (itemModifiers.physicalDefense ?? 0), magicalDefense: creature.magicalDefense + (itemModifiers.magicalDefense ?? 0), criticalChance: (creature.rarity === "boss" ? 12 : creature.rarity === "rare" ? 7 : 4) + (itemModifiers.criticalChance ?? 0), dodgeChance: (creature.rarity === "rare" ? 5 : 2) + (itemModifiers.dodgeChance ?? 0), bleedChance: itemModifiers.bleedChance ?? 0, burnChance: itemModifiers.burnChance ?? 0, poisonChance: itemModifiers.poisonChance ?? 0, blindChance: itemModifiers.blindChance ?? 0, bleedResistance: itemModifiers.bleedResistance ?? 0, burnResistance: itemModifiers.burnResistance ?? 0, poisonResistance: itemModifiers.poisonResistance ?? 0, blindResistance: itemModifiers.blindResistance ?? 0 } };
+    return { id: `${creature.id}-${index}`, name: creature.name, portraitPath: creature.portraitPath, hpCurrent: hpMax, hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: [...(creature.statusEffects ?? []), ...itemEffects], stats: { physicalDamage: creature.physicalDamage + (itemModifiers.physicalDamage ?? 0), magicalDamage: (creature.magicalDamage ?? 0) + (itemModifiers.magicalDamage ?? 0), physicalDefense: creature.physicalDefense + (itemModifiers.physicalDefense ?? 0), magicalDefense: creature.magicalDefense + (itemModifiers.magicalDefense ?? 0), criticalChance: (creature.rarity === "boss" ? 12 : creature.rarity === "rare" ? 7 : 4) + (itemModifiers.criticalChance ?? 0), dodgeChance: (creature.rarity === "rare" ? 5 : 2) + (itemModifiers.dodgeChance ?? 0), bleedChance: itemModifiers.bleedChance ?? 0, burnChance: itemModifiers.burnChance ?? 0, poisonChance: itemModifiers.poisonChance ?? 0, blindChance: itemModifiers.blindChance ?? 0, bleedResistance: itemModifiers.bleedResistance ?? 0, burnResistance: itemModifiers.burnResistance ?? 0, poisonResistance: itemModifiers.poisonResistance ?? 0, blindResistance: itemModifiers.blindResistance ?? 0 } };
   });
-  return { id: battleId(), regionId: input.regionId, creatures, player: { ...input.player, activeEffects: input.player.activeEffects ?? emptyEffects(), onHitEffects: input.player.onHitEffects ?? [] }, companion: input.companion ?? null, enemies, lastPetTargetId: null, lastPetDamage: 0, cooldowns: {}, turn: 1, status: "active", reward: null, log: [{ turn: 0, tone: "system", text: creatures.length > 1 ? `Emboscada: ${creatures.length} inimigos bloqueiam o caminho.` : `${creatures[0].name} bloqueia o caminho.` }] };
+  const initialTurn = preparePlayerTurn({ ...input.player, activeEffects: input.player.activeEffects ?? emptyEffects(), onHitEffects: input.player.onHitEffects ?? [] }, {});
+  return { id: battleId(), regionId: input.regionId, creatures, player: initialTurn.player, companion: input.companion ?? null, enemies, lastPetTargetId: null, lastPetDamage: 0, cooldowns: initialTurn.cooldowns, turn: 1, status: "active", reward: null, log: [{ turn: 0, tone: "system", text: creatures.length > 1 ? `Emboscada: ${creatures.length} inimigos bloqueiam o caminho.` : `${creatures[0].name} bloqueia o caminho.` }] };
 }
 
 export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefinition): HuntBattleState {
@@ -177,20 +195,26 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
   enemies = enemies.map((enemy) => enemy.id === primaryEnemy.id ? hit.defender : enemy);
   player = { ...player, mpCurrent: player.mpCurrent - manaCost };
   logs.push({ turn: state.turn, tone: "player", text: hit.dealt ? `${player.name} usa ${ability.name} e causa ${hit.dealt} de dano${hit.critical ? " crítico" : ""}.` : `${player.name} usa ${ability.name}, mas não acerta.` });
-  const cooldowns = Object.fromEntries(Object.entries(state.cooldowns).map(([id, turns]): [string, number] => [id, Math.max(0, turns - 1)]).filter(([, turns]) => turns > 0)) as Record<string, number>;
+  const cooldowns = { ...state.cooldowns };
   if (ability.cooldownTurns) cooldowns[ability.id] = ability.cooldownTurns;
   if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const loot = rewardFor(state, state.turn); return { ...state, player, enemies, cooldowns, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] }; }
   for (const enemy of enemies.filter((entry) => entry.hpCurrent > 0)) {
-    const counter = attack({ attacker: enemy, defender: player, rawDamage: enemy.stats.physicalDamage, kind: "physical", effects: enemy.onHitEffects, sourceName: enemy.name, turn: state.turn, logs });
+    const enemyDamageKind = enemy.stats.magicalDamage > enemy.stats.physicalDamage ? "magical" : "physical";
+    const enemyRawDamage = enemyDamageKind === "magical" ? enemy.stats.magicalDamage : enemy.stats.physicalDamage;
+    const counter = attack({ attacker: enemy, defender: player, rawDamage: enemyRawDamage, kind: enemyDamageKind, effects: enemy.onHitEffects, sourceName: enemy.name, turn: state.turn, logs });
     player = counter.defender;
     if (counter.dealt) logs.push({ turn: state.turn, tone: "enemy", text: `${enemy.name} causa ${counter.dealt} de dano${counter.critical ? " crítico" : ""}.` });
     if (player.hpCurrent === 0) return { ...state, player, enemies, cooldowns, status: "defeat", log: [...logs, { turn: state.turn, tone: "defeat", text: `${player.name} caiu. HP permanece em 0 até receber cura.` }] };
   }
-  if (!state.companion) return { ...state, player, enemies, cooldowns, lastPetTargetId: null, lastPetDamage: 0, turn: state.turn + 1, log: logs };
+  if (!state.companion) {
+    const prepared = preparePlayerTurn(player, cooldowns);
+    return { ...state, player: prepared.player, enemies, cooldowns: prepared.cooldowns, lastPetTargetId: null, lastPetDamage: 0, turn: state.turn + 1, log: [...logs, { turn: state.turn + 1, tone: "system", text: `Início do turno: +${PLAYER_MP_REGEN_PER_TURN} MP e recargas reduzidas.` }] };
+  }
   const petTarget = enemies.filter((enemy) => enemy.hpCurrent > 0).sort((left, right) => left.hpCurrent - right.hpCurrent)[0];
   const petDamage = Math.max(1, Math.round(player.stats.magicalDamage * state.companion.magicalDamageScaling));
   enemies = enemies.map((enemy) => enemy.id === petTarget.id ? { ...enemy, hpCurrent: Math.max(0, enemy.hpCurrent - petDamage) } : enemy);
   logs.push({ turn: state.turn, tone: "player", text: `${state.companion.name} lança Bola de Fogo em ${petTarget.name} e causa ${petDamage} de dano mágico.` });
   if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const loot = rewardFor(state, state.turn); return { ...state, player, enemies, cooldowns, lastPetTargetId: petTarget.id, lastPetDamage: petDamage, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] }; }
-  return { ...state, player, enemies, cooldowns, lastPetTargetId: petTarget.id, lastPetDamage: petDamage, turn: state.turn + 1, log: logs };
+  const prepared = preparePlayerTurn(player, cooldowns);
+  return { ...state, player: prepared.player, enemies, cooldowns: prepared.cooldowns, lastPetTargetId: petTarget.id, lastPetDamage: petDamage, turn: state.turn + 1, log: [...logs, { turn: state.turn + 1, tone: "system", text: `Início do turno: +${PLAYER_MP_REGEN_PER_TURN} MP e recargas reduzidas.` }] };
 }

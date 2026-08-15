@@ -493,3 +493,7 @@ Quando algo não estiver explicitamente fechado aqui ou em `docs/GAME_RULES_V0.m
 4. não inventar economia/balanceamento definitivo.
 
 Prioridade do Codex: fundação limpa, tipada, testável e simples de evoluir.
+
+## Mundo V3 — leia antes de mexer em cidade/caça
+
+A topologia de cidades e instâncias agora vive em `apps/web/lib/world.ts`; contratos em `apps/web/lib/quests.ts`; economia em `apps/web/lib/economy.ts`; e o progresso persistente em `GameCharacter.worldProgress`, manipulado por `dev-character-repository.ts`. A UI foi dividida em `CityHub.tsx`, `GateMap.tsx`, `QuestBoard.tsx` e `MarketPanels.tsx`. Para regras completas, leia `docs/WORLD_V3_IMPLEMENTATION.md`.

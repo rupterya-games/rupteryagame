@@ -58,6 +58,12 @@ export const equipment: EquipmentItem[] = [
   { id: "serrated-blade", name: "Lâmina Serrilhada", slot: "weapon", rarity: "epic", itemLevel: 25, upgradeLevel: 0, power: 64, modifiers: { physicalDamage: 22, bleedChance: 12 }, statusEffects: [{ kind: "bleed", chance: 12, turns: 3, percentMaxHp: 1 }], keywords: ["Sangramento leve: +12 pp de chance", "1% Vida máxima por 3 turnos"], affixes: ["+22 Ataque Físico", "+12 pp Sangramento"] },
   { id: "crimson-regalia", name: "Regalia Carmesim", slot: "chest", rarity: "legendary", itemLevel: 30, upgradeLevel: 0, power: 92, modifiers: { hpMax: 80, physicalDefense: 18, magicalDefense: 18, bleedResistance: 15, blindResistance: 12 }, keywords: ["Resistência forte a Sangramento +15%", "Resistência forte a Cegueira +12%"], affixes: ["+80 Vida", "+18 Defesa Física", "+18 Defesa Mágica"] },
   { id: "mist-lord-blade", name: "Lâmina do Lorde da Névoa", slot: "weapon", rarity: "legendary", itemLevel: 30, upgradeLevel: 0, power: 104, modifiers: { physicalDamage: 30, criticalChance: 7, bleedChance: 20 }, statusEffects: [{ kind: "bleed", chance: 20, turns: 4, percentMaxHp: 2 }], keywords: ["Sangramento forte: +20 pp de chance", "2% Vida máxima por 4 turnos"], affixes: ["+30 Ataque Físico", "+7 pp Crítico", "+20 pp Sangramento"] },
+  { id: "eldravia-glass-staff", name: "Cajado de Vidro Rúnico", slot: "weapon", rarity: "rare", itemLevel: 24, upgradeLevel: 0, power: 48, modifiers: { magicalDamage: 24, magicalDefense: 6, mpMax: 18 }, affixes: ["+24 Poder Mágico", "+6 Defesa Mágica", "+18 MP"] },
+  { id: "eldravia-prism-coat", name: "Manto Prismático", slot: "chest", rarity: "epic", itemLevel: 30, upgradeLevel: 0, power: 78, modifiers: { magicalDefense: 22, physicalDefense: 8, hpMax: 38, burnResistance: 8 }, affixes: ["+22 Defesa Mágica", "+38 Vida", "+8% Resist. queimadura"] },
+  { id: "eldravia-rift-orb", name: "Orbe da Fenda Contida", slot: "trinket", rarity: "legendary", itemLevel: 35, upgradeLevel: 0, power: 112, modifiers: { magicalDamage: 31, mpMax: 36, blindChance: 12, magicalDefense: 12 }, statusEffects: [{ kind: "blind", chance: 12, turns: 1 }], keywords: ["12 pp de Cegueira", "Energia de Ruptura estabilizada"], affixes: ["+31 Poder Mágico", "+36 MP", "+12 Defesa Mágica"] },
+  { id: "dustfall-scrap-blade", name: "Lâmina de Escória", slot: "weapon", rarity: "rare", itemLevel: 30, upgradeLevel: 0, power: 52, modifiers: { physicalDamage: 23, physicalDefense: 6, criticalChance: 3 }, affixes: ["+23 Ataque Físico", "+6 Defesa Física", "+3 pp Crítico"] },
+  { id: "dustfall-salt-plate", name: "Couraça das Salinas", slot: "chest", rarity: "epic", itemLevel: 40, upgradeLevel: 0, power: 84, modifiers: { hpMax: 58, physicalDefense: 22, magicalDefense: 14, poisonResistance: 10 }, affixes: ["+58 Vida", "+22 Defesa Física", "+14 Defesa Mágica", "+10% Resist. veneno"] },
+  { id: "dustfall-crater-core", name: "Núcleo da Cratera", slot: "trinket", rarity: "legendary", itemLevel: 50, upgradeLevel: 0, power: 118, modifiers: { physicalDamage: 14, magicalDamage: 14, physicalDefense: 10, magicalDefense: 10, burnResistance: 16 }, keywords: ["Híbrido da Convergência", "+16% Resist. queimadura"], affixes: ["+14 Ataque Físico", "+14 Poder Mágico", "+10 Defesas"] },
 ];
 
 const creatureFeaturedItems: EquipmentItem[] = [
@@ -79,11 +85,36 @@ export const emberDragonCompanion: HuntCompanion = {
 };
 
 export const huntRegions: HuntRegionDefinition[] = [
-  { id: "fiordevalle", name: "FiorDeValle", kingdom: "FiorDeValle", description: "Centro, Mercado, Vinhedos, Estrada Velha, Colinas, Casas Abandonadas, Floresta Sombria, Cemitério e Distrito dos Nobres são ligados por rotas de Jornada.", danger: "Região-piloto · Seed regional", creatureIds: ["vampire-wanderer", "raider", "crimson-herald", "mist-captain"] },
+  {
+    id: "fiordevalle",
+    name: "FiorDeValle",
+    kingdom: "FiorDeValle",
+    description: "Cidade-hub inicial com vinhedos, colinas, cemitério e Floresta Sombria conectados por instâncias de progressão.",
+    danger: "Nv. 1–20 · Progressão inicial",
+    creatureIds: ["cellar-rat", "leech-bat", "raider", "ash-wolf", "vampire-wanderer", "rotted-knight", "crimson-herald", "mist-captain"],
+  },
+  {
+    id: "eldravia",
+    name: "Eldravia",
+    kingdom: "Eldravia",
+    description: "Cidade arcana cercada por arquivos vivos, claustros de vidro e áreas atingidas pela Ruptura.",
+    danger: "Nv. 15–35 · Progressão arcana",
+    creatureIds: ["stray-apprentice", "ink-servant", "rupture-shard", "hollow-echo", "library-golem", "essence-leech", "grimoire-owl", "convergence-hound", "glass-inquisitor", "rupture-weaver", "fractured-archon"],
+  },
+  {
+    id: "dustfall",
+    name: "Dustfall",
+    kingdom: "Dustfall",
+    description: "Fronteira de sal e escória com Horda Verde, salinas mortas e a Cratera como progressão final.",
+    danger: "Nv. 24–50 · Progressão avançada",
+    creatureIds: ["orc-saqueador", "xama-goblin", "orc-carrasco", "minotauro-do-labirinto", "senhor-da-guerra-orc", "slag-beetle", "cracked-nomad", "iron-hyena", "dust-worm", "walking-cinder", "buried-sentinel", "brood-mother", "salt-knight", "slag-drake", "slag-colossus", "buried-titan"],
+  },
 ];
 
 export const battleBoardsByRegion: Record<string, string> = {
   fiordevalle: "/art/boards/fiordevalle-rose-board.jpeg",
+  eldravia: "/art/maps/cities/eldravia.jpg",
+  dustfall: "/art/maps/cities/dustfall.jpg",
 };
 
 export const huntCreatures: HuntCreatureDefinition[] = [
@@ -143,3 +174,6 @@ export function rollFiordevalleEncounter(random: () => number = Math.random) {
     return { ...source, hpMax: 30 + level * 6, physicalDamage: 5 + level, physicalDefense: level / 3, magicalDefense: level / 3 };
   });
 }
+
+
+export { adventureCities } from "./world";

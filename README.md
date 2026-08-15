@@ -45,3 +45,7 @@ Conectar a persistência ao Supabase e à API autoritativa. Caça/Missões, aren
 ## Para agentes de código
 
 Leia [CODEX_START_HERE.md](CODEX_START_HERE.md) antes de alterar a arquitetura ou implementar sistemas. Consulte também `docs/ROADMAP_CODEX.md`, `docs/DOMAIN_GLOSSARY.md`, `docs/GAME_RULES_V0.md` e `docs/ARCHITECTURE.md`.
+
+## Mundo V3
+
+O fluxo de cidade e exploração foi reorganizado em `world.ts`, `quests.ts` e `economy.ts`, com UI separada em `CityHub`, `GateMap`, `QuestBoard` e `MarketPanels`. FiorDeValle, Eldravia e Dustfall possuem 4 saídas x 3 níveis e progressão persistente por personagem. Consulte `docs/WORLD_V3_IMPLEMENTATION.md` antes de expandir novas cidades ou instâncias.

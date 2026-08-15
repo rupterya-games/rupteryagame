@@ -152,6 +152,19 @@ export interface CharacterBuild {
   skinId?: string;
 }
 
+
+export interface CharacterWorldProgress {
+  exploredSpotsByLevel: Record<string, string[]>;
+  creatureKills: Record<string, number>;
+  defeatedBossIds: string[];
+  activeQuestIds: string[];
+  completedQuestIds: string[];
+  materials: Record<string, number>;
+  consumables: Record<string, number>;
+  reputationByCity: Record<string, number>;
+  notorietyByCity: Record<string, number>;
+}
+
 export interface GameCharacter {
   id: string;
   name: string;
@@ -168,6 +181,7 @@ export interface GameCharacter {
   inventoryItemIds: string[];
   itemMemories?: Record<string, number>;
   fragments?: Partial<Record<ItemRarity, number>>;
+  worldProgress?: CharacterWorldProgress;
 }
 
 export interface DevAccount {
@@ -188,6 +202,7 @@ export interface HuntCreatureDefinition {
   level: number;
   hpMax: number;
   physicalDamage: number;
+  magicalDamage?: number;
   physicalDefense: number;
   magicalDefense: number;
   xpReward: number;

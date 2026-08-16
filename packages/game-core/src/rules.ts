@@ -29,6 +29,11 @@ export function activePreset(character: GameCharacter): CharacterPreset { return
 
 
 export const PLAYER_MP_REGEN_PER_TURN = 6;
+/** Só a linha de frente luta: reservas ficam inativas (sem agir, sem poder ser alvo) até um slot abrir. */
+export const FRONT_LINE_SIZE = 3;
+export function activeFrontLine(enemies: HuntCombatant[]): HuntCombatant[] {
+  return enemies.filter((enemy) => enemy.hpCurrent > 0).slice(0, FRONT_LINE_SIZE);
+}
 
 function preparePlayerTurn(player: HuntCombatant, cooldowns: Record<string, number>) {
   const nextCooldowns = Object.fromEntries(
@@ -214,7 +219,8 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
   if (player.mpCurrent < manaCost) return { ...state, player, enemies, log: [...logs, { turn: state.turn, tone: "system", text: `MP insuficiente para ${ability.name}.` }] };
   const masteredCreatureIds = state.masteredCreatureIds ?? [];
   const masteryMultiplier = (creatureId?: string) => (creatureId && masteredCreatureIds.includes(creatureId) ? 1 + MASTERY_DAMAGE_BONUS : 1);
-  const primaryEnemy = enemies.find((enemy) => enemy.id === targetId && enemy.hpCurrent > 0) ?? enemies.find((enemy) => enemy.hpCurrent > 0)!;
+  const frontLine = activeFrontLine(enemies);
+  const primaryEnemy = frontLine.find((enemy) => enemy.id === targetId) ?? frontLine[0];
   const kind = ability.damageFamily === "magical" ? "magical" : "physical";
   const primaryEnemyMastered = masteryMultiplier(primaryEnemy.creatureId) > 1;
   const hit = attack({ attacker: player, defender: primaryEnemy, rawDamage: Math.round(abilityRawDamage(ability, player.stats) * masteryMultiplier(primaryEnemy.creatureId)), kind, effects: [...(ability.statusEffects ?? []), ...player.onHitEffects], sourceName: `${player.name} usa ${ability.name}`, turn: state.turn, logs });
@@ -230,7 +236,7 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
   const cooldowns = { ...state.cooldowns };
   if (ability.cooldownTurns) cooldowns[ability.id] = ability.cooldownTurns;
   if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const loot = rewardFor(state, state.turn); return { ...state, player, enemies, cooldowns, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] }; }
-  for (const enemy of enemies.filter((entry) => entry.hpCurrent > 0)) {
+  for (const enemy of activeFrontLine(enemies)) {
     // IA por arquétipo: cada perfil tático reage ao estado da luta, como uma
     // mesa de RPG julgando a ficha do monstro turno a turno.
     let workingEnemy = enemy;
@@ -257,7 +263,7 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
       tacticNote = ", com um feitiço carregado,";
     }
     if (workingEnemy.archetype === "swarm") {
-      const alliesAlive = enemies.filter((entry) => entry.hpCurrent > 0 && entry.id !== workingEnemy.id).length;
+      const alliesAlive = activeFrontLine(enemies).filter((entry) => entry.id !== workingEnemy.id).length;
       const packBonus = Math.min(SWARM_PACK_BONUS_CAP, alliesAlive * SWARM_PACK_BONUS_PER_ALLY);
       if (packBonus > 0) { enemyRawDamage = Math.round(enemyRawDamage * (1 + packBonus)); tacticNote = ", cercando em bando,"; }
     }
@@ -304,7 +310,7 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
     const prepared = preparePlayerTurn(player, cooldowns);
     return { ...state, player: prepared.player, enemies, cooldowns: prepared.cooldowns, lastPetTargetId: null, lastPetDamage: 0, turn: state.turn + 1, log: [...logs, { turn: state.turn + 1, tone: "system", text: `Início do turno: +${PLAYER_MP_REGEN_PER_TURN} MP e recargas reduzidas.` }] };
   }
-  const petTarget = enemies.filter((enemy) => enemy.hpCurrent > 0).sort((left, right) => left.hpCurrent - right.hpCurrent)[0];
+  const petTarget = activeFrontLine(enemies).sort((left, right) => left.hpCurrent - right.hpCurrent)[0];
   const petFumble = Math.random() * 100 < FUMBLE_CHANCE;
   const petRawDamage = Math.max(1, Math.round(player.stats.magicalDamage * state.companion.magicalDamageScaling * masteryMultiplier(petTarget.creatureId) * (petFumble ? FUMBLE_DAMAGE_MULTIPLIER : 1)));
   const petDamage = mitigateDamage(petRawDamage, "magical", petTarget.stats);

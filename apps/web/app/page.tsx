@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import {
+  FRONT_LINE_SIZE,
   LOADOUT_SLOTS,
   PLAYER_MP_REGEN_PER_TURN,
+  activeFrontLine,
   activePreset,
   dropBreakChanceByRarity,
   resolveHuntTurn,
@@ -15,6 +17,7 @@ import type {
   CombatStatusEffect,
   GameCharacter,
   HuntBattleState,
+  HuntCompanion,
   HuntCreatureDefinition,
   LoadoutSlot,
 } from "@rupterya/game-core";
@@ -95,9 +98,11 @@ const premiumSkins = [
 
 function EquipmentLoadoutModal({
   character,
+  activeEffects = [],
   onClose,
 }: {
   character: GameCharacter;
+  activeEffects?: CombatStatusEffect[];
   onClose: () => void;
 }) {
   return (
@@ -113,7 +118,8 @@ function EquipmentLoadoutModal({
           <span>EQUIPAMENTO</span>
           <button onClick={onClose} aria-label="Fechar equipamentos">×</button>
         </div>
-        <p>Loadout ativo · toque fora para voltar à batalha.</p>
+        <p>{character.name} · Nv. {character.level} · toque fora para voltar à batalha.</p>
+        <CombatEffects effects={activeEffects} />
         <div className="loadout-equipment-grid">
           {equipmentSlotIds.map((slot) => {
             const item = equipment.find((entry) => entry.id === character.equipment[slot]);
@@ -132,11 +138,34 @@ function EquipmentLoadoutModal({
   );
 }
 
+function CompanionDetailModal({
+  companion,
+  onClose,
+}: {
+  companion: HuntCompanion;
+  onClose: () => void;
+}) {
+  return (
+    <div className="loadout-overlay" role="presentation" onClick={onClose}>
+      <section className="loadout-modal" role="dialog" aria-modal="true" aria-label={`Detalhes de ${companion.name}`} onClick={(event) => event.stopPropagation()}>
+        <div className="section-title">
+          <span>COMPANHEIRO</span>
+          <button onClick={onClose} aria-label="Fechar detalhes">×</button>
+        </div>
+        <p>{companion.name}</p>
+        <p>{companion.description}</p>
+      </section>
+    </div>
+  );
+}
+
 function CreatureLoadoutModal({
   creature,
+  activeEffects = [],
   onClose,
 }: {
   creature: HuntBattleState["creatures"][number];
+  activeEffects?: CombatStatusEffect[];
   onClose: () => void;
 }) {
   const items = creature.equippedItems ?? (creature.equippedItem ? [creature.equippedItem] : []);
@@ -151,9 +180,8 @@ function CreatureLoadoutModal({
         <div className="creature-detail-stats">
           <small>Classificação: {creatureRarityLabels[resolveCreatureRarity(creature.rarity)]}</small>
           <small>Nível {creature.level} · HP {creature.hpMax}</small>
-          <small>Ataque {creature.physicalDamage} · Defesa {creature.physicalDefense}/{creature.magicalDefense}</small>
-          {creature.statusEffects?.length ? <small>Perigo: {creature.statusEffects.map((effect) => statusEffectLabels[effect.kind]).join(", ")}</small> : <small>Perigo: ataque direto</small>}
         </div>
+        <CombatEffects effects={activeEffects} />
         {items.length ? (
           <div className="loadout-equipment-grid">
             {items.map((item) => (
@@ -363,14 +391,21 @@ function bestiaryCreatureForHunt(creatureId: string): HuntCreatureDefinition {
   };
 }
 
+const MAX_ENCOUNTER_SIZE = 8;
+/** Vaga de enxame: evento raro, só para arquétipo "swarm" (goblins, lobos, morcegos etc). */
+const SWARM_SURGE_CHANCE = 0.12;
+
 function createInstanceEncounter(creaturePool: readonly string[], playerLevel: number) {
   const firstId = creaturePool[Math.floor(Math.random() * creaturePool.length)] ?? creaturePool[0] ?? huntCreatures[0].id;
   const source = bestiaryById.get(firstId);
   const creatureLevel = source?.level ?? playerLevel;
-  // A Caça solo resolve encontros de 1x1 a 1x3 (ver texto do Lobby); o
-  // tabuleiro 3x3 fica reservado para o modo co-op.
+  // Padrão continua 1x1 a 1x3. Só enxames podem, raramente, vir em vagas maiores
+  // (até MAX_ENCOUNTER_SIZE) — mesmo aí só FRONT_LINE_SIZE entram em campo por
+  // vez, o resto fica de reserva fora da tela até um slot abrir (activeFrontLine).
   let min = source?.solitary ? 1 : Math.max(1, source?.packMin ?? 1);
   let max = source?.solitary ? 1 : Math.min(3, Math.max(min, source?.packMax ?? 2));
+  const isSwarmSurge = source?.archetype === "swarm" && !source?.solitary && Math.random() < SWARM_SURGE_CHANCE;
+  if (isSwarmSurge) { min = Math.max(min, FRONT_LINE_SIZE + 1); max = MAX_ENCOUNTER_SIZE; }
 
   // Balanceamento por diferença de nível: grupos existem para serem perigosos
   // na faixa recomendada, não para fazer um personagem muito acima do nível
@@ -381,6 +416,7 @@ function createInstanceEncounter(creaturePool: readonly string[], playerLevel: n
   else if (gap >= 15) { min = 1; max = Math.min(2, max); }
   else if (gap >= 8) { min = 1; max = Math.min(3, max); }
   if (creatureLevel >= playerLevel + 6) { min = 1; max = Math.min(2, max); }
+  min = Math.min(min, max);
 
   const count = min + Math.floor(Math.random() * (max - min + 1));
   return Array.from({ length: count }, (_, index) => {
@@ -441,6 +477,7 @@ export default function HomePage() {
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [showBattleLoadout, setShowBattleLoadout] = useState(false);
   const [inspectedCreatureIndex, setInspectedCreatureIndex] = useState<number | null>(null);
+  const [showCompanionDetail, setShowCompanionDetail] = useState(false);
   const [inspectedBestiaryCreatureId, setInspectedBestiaryCreatureId] = useState<string | null>(null);
   const [devLevelInput, setDevLevelInput] = useState("0");
   const [devCreatureId, setDevCreatureId] = useState("");
@@ -515,13 +552,10 @@ export default function HomePage() {
       setSelectedEnemyId(null);
       return;
     }
-    const selectedAlive = battle.enemies.some(
-      (enemy) => enemy.id === selectedEnemyId && enemy.hpCurrent > 0,
-    );
+    const frontLine = activeFrontLine(battle.enemies);
+    const selectedAlive = frontLine.some((enemy) => enemy.id === selectedEnemyId);
     if (!selectedAlive) {
-      setSelectedEnemyId(
-        battle.enemies.find((enemy) => enemy.hpCurrent > 0)?.id ?? null,
-      );
+      setSelectedEnemyId(frontLine[0]?.id ?? null);
     }
   }, [battle, selectedEnemyId]);
 
@@ -634,6 +668,12 @@ export default function HomePage() {
             .map((ability) => [ability.id, ability]),
         ).values(),
       )
+    : [];
+  const frontLineEnemies = battle
+    ? battle.enemies
+        .map((enemy, index) => ({ enemy, index }))
+        .filter(({ enemy }) => enemy.hpCurrent > 0)
+        .slice(0, FRONT_LINE_SIZE)
     : [];
 
   const persist = (character: GameCharacter) =>
@@ -972,10 +1012,9 @@ export default function HomePage() {
       setMessage(`${ability.name} estará disponível em ${cooldown} turno(s).`);
       return;
     }
+    const frontLine = activeFrontLine(battle.enemies);
     const target =
-      battle.enemies.find(
-        (enemy) => enemy.id === selectedEnemyId && enemy.hpCurrent > 0,
-      ) ?? battle.enemies.find((enemy) => enemy.hpCurrent > 0);
+      frontLine.find((enemy) => enemy.id === selectedEnemyId) ?? frontLine[0];
     if (target && target.id !== selectedEnemyId) setSelectedEnemyId(target.id);
     const next = resolveHuntTurn(battle, ability, target?.id);
     setBattle(next);
@@ -1652,9 +1691,9 @@ export default function HomePage() {
                   ))}
               </select>
               <select value={devCreatureCount} onChange={(event) => setDevCreatureCount(Number(event.target.value))}>
-                <option value={1}>1x</option>
-                <option value={2}>2x</option>
-                <option value={3}>3x</option>
+                {Array.from({ length: MAX_ENCOUNTER_SIZE }, (_, index) => index + 1).map((count) => (
+                  <option key={count} value={count}>{count}x</option>
+                ))}
               </select>
               <button className="primary" disabled={!devCreatureId || !selected} onClick={forceDevEncounter}>
                 Iniciar combate
@@ -1810,34 +1849,32 @@ export default function HomePage() {
                 <div className="battle-v6-section-title">
                   <span>INIMIGOS</span>
                 </div>
-                <div className={`battle-v6-enemy-grid enemy-count-${Math.min(3, battle.enemies.length)}`}>
-                  {battle.enemies.map((enemy, index) => {
+                <div className={`battle-v6-enemy-grid enemy-count-${frontLineEnemies.length}`}>
+                  {frontLineEnemies.map(({ enemy, index }) => {
                     const selectedTarget = enemy.id === selectedEnemyId;
-                    const defeated = enemy.hpCurrent <= 0;
                     const creature = battle.creatures[index];
                     return (
                       <article
-                        className={`battle-v6-unit-card battle-v6-enemy-card ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${defeated ? "unit-defeated" : ""} ${battleEffect?.targetId === enemy.id ? `hit-${battleEffect.kind}` : ""}`}
+                        className={`battle-v6-unit-card battle-v6-enemy-card ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${battleEffect?.targetId === enemy.id ? `hit-${battleEffect.kind}` : ""}`}
                         key={enemy.id}
                         role="button"
-                        tabIndex={defeated ? -1 : 0}
+                        tabIndex={0}
                         aria-pressed={selectedTarget}
-                        aria-label={`${selectedTarget ? "Alvo atual" : "Selecionar"} ${enemy.name}`}
+                        aria-label={`${selectedTarget ? "Alvo atual" : "Selecionar"} ${enemy.name}. Toque duas vezes para ver detalhes.`}
                         onClick={() => {
-                          if (!defeated) {
-                            setSelectedEnemyId(enemy.id);
-                            setMessage(`${enemy.name} selecionado como alvo.`);
-                          }
+                          setSelectedEnemyId(enemy.id);
+                          setMessage(`${enemy.name} selecionado como alvo.`);
                         }}
+                        onDoubleClick={() => setInspectedCreatureIndex(index)}
                         onKeyDown={(event) => {
-                          if (!defeated && (event.key === "Enter" || event.key === " ")) {
+                          if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
                             setSelectedEnemyId(enemy.id);
                             setMessage(`${enemy.name} selecionado como alvo.`);
                           }
                         }}
                       >
-                        {selectedTarget && !defeated && (
+                        {selectedTarget && (
                           <span className="battle-v6-target-reticle" aria-hidden="true">⌖</span>
                         )}
                         {battleEffect?.targetId === enemy.id && (
@@ -1846,6 +1883,7 @@ export default function HomePage() {
                             aria-hidden="true"
                           >{battleEffect.damage ? `-${battleEffect.damage}` : ""}</span>
                         )}
+                        <span className="battle-v6-level-badge">Nv. {creature.level}</span>
                         <div className="battle-v6-portrait">
                           {enemy.portraitPath ? (
                             <img src={enemy.portraitPath} alt={`Retrato de ${enemy.name}`} />
@@ -1855,24 +1893,9 @@ export default function HomePage() {
                           <CreatureFrameOverlay family={creature.family} rarity={creature.rarity} />
                         </div>
                         <div className="battle-v6-card-copy">
-                          <strong>{enemy.name}</strong>
-                          <CombatEffects effects={enemy.activeEffects} />
                           <div className="battle-v6-bar hp" aria-label={`HP ${enemy.hpCurrent} de ${enemy.hpMax}`}>
                             <b style={{ width: `${Math.max(0, (enemy.hpCurrent / enemy.hpMax) * 100)}%` }} />
                             <em>{enemy.hpCurrent}/{enemy.hpMax}</em>
-                          </div>
-                          <div className="battle-v6-card-footer">
-                            <span>{defeated ? "DERROTADO" : selectedTarget ? "ALVO" : "TOQUE PARA MIRAR"}</span>
-                            <button
-                              type="button"
-                              aria-label={`Inspecionar ${enemy.name}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setInspectedCreatureIndex(index);
-                              }}
-                            >
-                              i
-                            </button>
                           </div>
                         </div>
                       </article>
@@ -1894,41 +1917,39 @@ export default function HomePage() {
                     className={`battle-v6-unit-card battle-v6-player-card ${battleEffect?.targetId === battle.player.id ? `hit-${battleEffect.kind}` : ""}`}
                     role="button"
                     tabIndex={0}
-                    aria-label="Abrir equipamentos do herói"
+                    aria-label={`${summary!.name}. Toque duas vezes para ver equipamentos.`}
                     onDoubleClick={() => setShowBattleLoadout(true)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") setShowBattleLoadout(true);
                     }}
                   >
-                    <span className="battle-v6-turn-ribbon">SUA VEZ</span>
                     {battleEffect?.targetId === battle.player.id && (
                       <span className={`battle-impact ${battleEffect.kind}`} aria-hidden="true">
                         {battleEffect.damage ? `-${battleEffect.damage}` : ""}
                       </span>
                     )}
                     {castEffect && <span className={`class-cast class-cast-${castEffect.classId}`} aria-hidden="true" />}
+                    <span className="battle-v6-level-badge">Nv. {summary!.level}</span>
                     <img src={summary!.portraitPath} alt={`Retrato de ${summary!.name}`} />
                     <div className="battle-v6-card-copy">
-                      <small>{summary!.className} · Nv. {summary!.level}</small>
-                      <strong>{summary!.name} <i className="online-dot" /></strong>
-                      <CombatEffects effects={battle.player.activeEffects} />
                       <div className="battle-v6-bar hp" aria-label={`HP ${battle.player.hpCurrent} de ${battle.player.hpMax}`}>
                         <b style={{ width: `${Math.max(0, (battle.player.hpCurrent / battle.player.hpMax) * 100)}%` }} />
                         <em>{battle.player.hpCurrent}/{battle.player.hpMax}</em>
                       </div>
-                      <div className="battle-v6-bar mp" aria-label={`MP ${battle.player.mpCurrent} de ${battle.player.mpMax}`}>
-                        <b style={{ width: `${Math.max(0, (battle.player.mpCurrent / battle.player.mpMax) * 100)}%` }} />
-                        <em>{battle.player.mpCurrent}/{battle.player.mpMax}</em>
-                      </div>
                     </div>
                   </article>
                   {battle.companion && (
-                    <article className="battle-v6-companion-card" title={battle.companion.description}>
+                    <article
+                      className="battle-v6-companion-card"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${battle.companion.name}. Toque duas vezes para ver detalhes.`}
+                      onDoubleClick={() => setShowCompanionDetail(true)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") setShowCompanionDetail(true);
+                      }}
+                    >
                       <img src={battle.companion.portraitPath} alt={battle.companion.name} />
-                      <div>
-                        <small>COMPANHEIRO</small>
-                        <strong>{battle.companion.name}</strong>
-                      </div>
                     </article>
                   )}
                 </div>
@@ -2037,13 +2058,21 @@ export default function HomePage() {
       {showBattleLoadout && battle && view === "hunt" && selected && (
         <EquipmentLoadoutModal
           character={selected}
+          activeEffects={battle.player.activeEffects}
           onClose={() => setShowBattleLoadout(false)}
         />
       )}
       {inspectedCreatureIndex !== null && battle && view === "hunt" && battle.creatures[inspectedCreatureIndex] && (
         <CreatureLoadoutModal
           creature={battle.creatures[inspectedCreatureIndex]}
+          activeEffects={battle.enemies[inspectedCreatureIndex]?.activeEffects ?? []}
           onClose={() => setInspectedCreatureIndex(null)}
+        />
+      )}
+      {showCompanionDetail && battle?.companion && view === "hunt" && (
+        <CompanionDetailModal
+          companion={battle.companion}
+          onClose={() => setShowCompanionDetail(false)}
         />
       )}
       {!(battle && view === "hunt") && <MusicToggle enabled={musicEnabled} onToggle={toggleMusic} />}

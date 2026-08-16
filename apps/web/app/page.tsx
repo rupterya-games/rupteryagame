@@ -55,6 +55,7 @@ import { CityHub } from "@/components/CityHub";
 import { CreatureFrameOverlay, creatureFrameClassName, creatureRarityLabels, resolveCreatureRarity } from "@/components/CreatureFamilyBadge";
 import { StatusEffectIcon } from "@/components/StatusEffectIcon";
 import { GateMap } from "@/components/GateMap";
+import { HexBattlePrototype } from "@/components/HexBattlePrototype";
 import { QuestBoard } from "@/components/QuestBoard";
 import { MarketPanels } from "@/components/MarketPanels";
 import { LoginScreen } from "@/components/LoginScreen";
@@ -70,7 +71,8 @@ type View =
   | "presets"
   | "hunt"
   | "bestiary"
-  | "dev";
+  | "dev"
+  | "hexlab";
 type BattleEffect = {
   kind: "physical" | "magical" | "dragonfire";
   targetId: string;
@@ -1727,6 +1729,15 @@ export default function HomePage() {
           </section>
         </section>
       )}
+      {view === "hexlab" && (
+        <section className="panel">
+          <div className="section-title">
+            <span>Laboratório Hex (experimental)</span>
+            <button onClick={() => setView("lobby")}>Lobby</button>
+          </div>
+          <HexBattlePrototype />
+        </section>
+      )}
       {view === "hunt" && (
         <section className="hunt-view">
           {!battle ? (
@@ -2172,6 +2183,12 @@ export default function HomePage() {
           onClick={() => setView("dev")}
         >
           Dev
+        </button>
+        <button
+          className={view === "hexlab" ? "active" : ""}
+          onClick={() => setView("hexlab")}
+        >
+          Hex Lab
         </button>
       </nav>}
     </main>

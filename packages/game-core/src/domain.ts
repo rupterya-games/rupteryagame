@@ -1,5 +1,18 @@
 export type DamageFamily = "physical" | "magical" | "hybrid";
-export type StatusEffectKind = "bleed" | "burn" | "poison" | "blind";
+export type StatusEffectKind =
+  | "bleed"
+  | "burn"
+  | "poison"
+  | "blind"
+  | "stun"
+  | "silence"
+  | "marked"
+  | "taunted"
+  | "guard"
+  | "evasion"
+  | "position_lock"
+  | "enraged";
+export type CombatPosition = "front" | "center" | "back";
 export type AbilitySlotKind = "skill" | "ultimate" | "stance" | "passive";
 export type SecretArtPath = "martial" | "mystic" | "arcane";
 export type AbilitySource = "class" | "lineage" | "school" | "secret_art" | "creature";
@@ -40,10 +53,51 @@ export interface StatusEffectApplication {
   /** Dano fixo aplicado ao fim de cada turno. Prioritário sobre percentual. */
   flatDamage?: number;
   percentMaxHp?: number;
+  /** Guarda: redução percentual do dano recebido enquanto ativo. */
+  damageReductionPercent?: number;
+  /** Evasão: bônus somado à chance de esquiva efetiva enquanto ativo. */
+  dodgeBonus?: number;
+  /** Buffs de bando/aliado: bônus percentual somado ao dano bruto causado. */
+  damageBonusPercent?: number;
+  criticalChanceBonus?: number;
+  statusChanceBonus?: number;
+  /** Id do combatente que aplicou o efeito (usado por "taunted" para forçar alvo). */
+  sourceId?: string;
 }
 
 export interface CombatStatusEffect extends StatusEffectApplication {
   sourceName: string;
+}
+
+/**
+ * Habilidade de criatura estruturada (arquétipos comuns têm 2, raros/elite 3,
+ * chefes 4, chefes de mundo 5). `aiTrigger` é uma pequena expressão textual
+ * ("turn == 1", "hp_self < 30%", "target_position == back" etc.) avaliada por
+ * `evaluateTrigger` em rules.ts. `specialEffects` é uma lista de efeitos com
+ * forma livre (`kind` + campos específicos), interpretados por
+ * `applySpecialEffects` em rules.ts.
+ */
+export interface CreatureSpecialEffect {
+  kind: string;
+  [key: string]: string | number | boolean | string[] | undefined;
+}
+
+export interface CreatureAbilityDefinition {
+  id: string;
+  name: string;
+  damageFamily: "physical" | "magical" | "none";
+  scaling: number;
+  cooldownTurns: number;
+  target: string;
+  description: string;
+  aiTrigger: string;
+  statusEffects?: StatusEffectApplication[];
+  specialEffects?: CreatureSpecialEffect[];
+  /** Habilidade carregada: anuncia na rodada N, resolve na N+1. */
+  chargeTurns?: number;
+  /** Reação: não consome a ação normal e nunca dispara outra reação. */
+  reaction?: boolean;
+  oncePerBattle?: boolean;
 }
 
 export interface CharacterVitals {
@@ -229,6 +283,8 @@ export interface HuntCreatureDefinition {
   archetype?: string;
   /** Papel no bando ("leader" | "regular" | "fodder"), usado pela moral em combate. */
   role?: string;
+  /** Kit estruturado de habilidades (2 comum, 3 raro/elite, 4 chefe, 5 chefe de mundo). */
+  abilities?: CreatureAbilityDefinition[];
 }
 
 export interface HuntRegionDefinition {
@@ -259,10 +315,26 @@ export interface HuntCombatant {
   archetype?: string;
   /** Papel no bando, usado pela moral em combate. */
   role?: string;
-  /** Postura de guarda já disparada nesta batalha (tanque). */
-  guardTriggered?: boolean;
-  /** Evasão já disparada nesta batalha (batedor). */
-  evasiveTriggered?: boolean;
+  /** Kit estruturado de habilidades, copiado da criatura de origem ao entrar em batalha. */
+  abilities?: CreatureAbilityDefinition[];
+  /** Recarga por habilidade, chave = CreatureAbilityDefinition.id. */
+  abilityCooldowns?: Record<string, number>;
+  /** Habilidade carregada na rodada anterior, resolvendo nesta. */
+  charging?: { abilityId: string } | null;
+  /** Rodadas restantes de imunidade a novo atordoamento. */
+  stunImmuneTurns?: number;
+  /** Ids de habilidades oncePerBattle já usadas nesta luta. */
+  usedOncePerBattle?: string[];
+  /** Posição tática (só o jogador troca de posição hoje; inimigos ficam "front"). */
+  position?: CombatPosition;
+  /** True só na rodada em que a posição mudou — consumido pelos gatilhos de reação. */
+  changedPositionThisTurn?: boolean;
+  /** Bônus percentual consumido pelo próximo dano causado por este combatente. */
+  nextDamageBonusPercent?: number;
+  /** Rastro mínimo para gatilhos de IA como "dodged_last_turn"/"attacked_last_turn". */
+  lastAbilityUsed?: string;
+  dodgedLastTurn?: boolean;
+  attackedLastTurn?: boolean;
 }
 
 export interface HuntCompanion {

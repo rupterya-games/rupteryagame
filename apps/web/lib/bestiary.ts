@@ -11,6 +11,7 @@ import type {
   StatusEffectKind,
 } from "@rupterya/game-core";
 import { baseDropRateByLootRarity, deriveCreatureStats, deriveRewards, rarityProfiles } from "@rupterya/game-core";
+import { creatureAbilitiesById } from "./creature-abilities";
 import { lootItemsById, materialsById } from "./loot-catalog";
 import { solitaryCreatureIds, warbandMembership, warbands, warbandsById } from "./warbands";
 
@@ -124,6 +125,7 @@ function makeCreature(seed: CreatureSeed): BestiaryCreature {
     loot: buildLoot(seed, rewards.goldReward),
     loreEntry: seed.lore,
     codexKills: seed.codexKills ?? (seed.rarity === "common" ? 25 : seed.rarity === "rare" ? 10 : seed.rarity === "elite" ? 5 : 1),
+    abilities: creatureAbilitiesById[seed.id] ?? [],
   };
 }
 

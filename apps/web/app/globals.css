@@ -684,6 +684,11 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .battle-v6-cost { min-width:47px; padding:5px 6px; border:1px solid #24518a; border-radius:9px; background:#0b1a2a; color:#74b6ff; font-size:9px; font-style:normal; font-weight:800; text-align:center; }
 .battle-v6-cd { position:absolute; right:8px; bottom:4px; padding:2px 5px; border:1px solid #82554f; border-radius:999px; background:#2b1515; color:#e8a09a; font-size:7px; font-style:normal; font-weight:900; letter-spacing:.04em; }
 .battle-v6-skill.combat-action-disabled { opacity:.48; filter:saturate(.55); cursor:not-allowed; }
+.battle-v6-status-warning { margin:0; padding:7px 10px; border:1px solid #82554f; border-radius:8px; background:#2b1515; color:#e8a09a; font-size:11px; font-weight:700; }
+.battle-v6-position-row { display:flex; align-items:center; gap:6px; margin-top:2px; }
+.battle-v6-position-row>span { color:#a9956e; font-size:9px; text-transform:uppercase; letter-spacing:.08em; }
+.battle-v6-position-button { flex:1; padding:7px 6px; border:1px solid #6f5936; border-radius:8px; background:#121a14; color:#c9bd9e; font-size:10px; font-weight:700; }
+.battle-v6-position-button.active { border-color:#d4a44c; background:#20240f; color:#f2c86e; box-shadow:0 0 10px #d8a3452b; }
 
 .battle-v6-log { overflow:hidden; border:1px solid #5d4c31; border-radius:9px; background:#0b110e; }
 .battle-v6-log summary { display:flex; align-items:center; justify-content:space-between; min-height:42px; padding:8px 11px; color:#c8a65e; cursor:pointer; list-style:none; font-family:Georgia,"Times New Roman",serif; font-size:12px; }

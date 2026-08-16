@@ -1,4 +1,4 @@
-import type { EquipmentItem, StatusEffectApplication, StatusEffectKind } from "./domain";
+import type { CreatureAbilityDefinition, EquipmentItem, StatusEffectApplication, StatusEffectKind } from "./domain";
 
 // ---------------------------------------------------------------------------
 // RNG determinístico e resolução de loot
@@ -390,6 +390,8 @@ export interface BestiaryCreature {
   loreEntry?: string;
   /** Abates necessários para completar a página do bestiário. */
   codexKills: number;
+  /** Kit estruturado de habilidades (2 comum, 3 raro/elite, 4 chefe, 5 chefe de mundo). */
+  abilities: CreatureAbilityDefinition[];
 }
 
 export interface BestiaryRegion {

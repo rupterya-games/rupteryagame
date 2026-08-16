@@ -9,11 +9,14 @@ import {
   activeFrontLine,
   activePreset,
   dropBreakChanceByRarity,
+  positionLabels,
   resolveHuntTurn,
+  resolveRepositionTurn,
   statusEffectLabels,
 } from "@rupterya/game-core";
 import type {
   AbilityDefinition,
+  CombatPosition,
   CombatStatusEffect,
   GameCharacter,
   HuntBattleState,
@@ -388,6 +391,7 @@ function bestiaryCreatureForHunt(creatureId: string): HuntCreatureDefinition {
     equippedItems: legacy?.equippedItems,
     featuredItemCandidates: legacy?.featuredItemCandidates,
     equipmentProfileId: legacy?.equipmentProfileId,
+    abilities: source.abilities,
   };
 }
 
@@ -1052,6 +1056,27 @@ export default function HomePage() {
           ? "Vitória registrada: XP, ouro e o spot da instância foram concluídos."
           : "Derrota registrada: o spot não foi consumido e poderá ser tentado novamente após a cura.",
       );
+    }
+  };
+  const reposition = (position: CombatPosition) => {
+    if (!battle || !selected) return;
+    const next = resolveRepositionTurn(battle, position);
+    setBattle(next);
+    if (next.status !== "active") {
+      let settled = repository.settleHunt(account, selected, next);
+      if (next.status === "victory" && pendingEncounterSpot) {
+        const settledCharacter = settled.characters.find((entry) => entry.id === selected.id);
+        if (settledCharacter) settled = repository.recordSpot(settled, settledCharacter, pendingEncounterSpot.levelId, pendingEncounterSpot.spotId);
+      }
+      setAccount(settled);
+      setPendingEncounterSpot(null);
+      setMessage(
+        next.status === "victory"
+          ? "Vitória registrada: XP, ouro e o spot da instância foram concluídos."
+          : "Derrota registrada: o spot não foi consumido e poderá ser tentado novamente após a cura.",
+      );
+    } else {
+      setMessage(`Posição alterada para ${positionLabels[position]}.`);
     }
   };
   const applyDevLevel = () => {
@@ -1980,13 +2005,18 @@ export default function HomePage() {
 
                 {battle.status === "active" ? (
                   <section className="battle-v6-actions">
+                    {battle.player.activeEffects.some((effect) => effect.kind === "stun") && (
+                      <p className="battle-v6-status-warning">Atordoado: você perde este turno.</p>
+                    )}
                     <div className="battle-v6-skill-grid">
                       {battleAbilities.map((ability, abilityIndex) => {
                         const cooldown = battle.cooldowns[ability.id] ?? 0;
                         const manaCost = ability.manaCost ?? 0;
                         const blockedByMana = battle.player.mpCurrent < manaCost;
                         const noTarget = !selectedEnemyId;
-                        const disabled = cooldown > 0 || blockedByMana || noTarget;
+                        const stunned = battle.player.activeEffects.some((effect) => effect.kind === "stun");
+                        const silenced = ability.damageFamily === "magical" && battle.player.activeEffects.some((effect) => effect.kind === "silence");
+                        const disabled = cooldown > 0 || blockedByMana || noTarget || stunned || silenced;
                         const icon = ability.damageFamily === "magical"
                           ? "✦"
                           : abilityIndex === 0
@@ -2012,9 +2042,23 @@ export default function HomePage() {
                             {cooldown > 0 && <i className="battle-v6-cd">CD {cooldown}</i>}
                             {cooldown === 0 && blockedByMana && <i className="battle-v6-cd">SEM MP</i>}
                             {cooldown === 0 && !blockedByMana && noTarget && <i className="battle-v6-cd">SEM ALVO</i>}
+                            {cooldown === 0 && !blockedByMana && !noTarget && silenced && <i className="battle-v6-cd">SILENCIADO</i>}
                           </button>
                         );
                       })}
+                    </div>
+                    <div className="battle-v6-position-row">
+                      <span>Posição</span>
+                      {(["front", "center", "back"] as CombatPosition[]).map((position) => (
+                        <button
+                          key={position}
+                          type="button"
+                          className={`battle-v6-position-button ${(battle.player.position ?? "front") === position ? "active" : ""}`}
+                          onClick={() => reposition(position)}
+                        >
+                          {positionLabels[position]}
+                        </button>
+                      ))}
                     </div>
                   </section>
                 ) : (

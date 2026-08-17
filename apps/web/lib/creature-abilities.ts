@@ -13,7 +13,7 @@ export const creatureAbilitiesById: Record<string, CreatureAbilityDefinition[]> 
   ],
   "leech-bat": [
     { id: "leech-bat-bite", name: "Mordida Sanguínea", damageFamily: "physical", scaling: 0.9, cooldownTurns: 0, target: "single_enemy", description: "Morde e tenta abrir uma ferida.", aiTrigger: "always", statusEffects: [{ kind: "bleed", chance: 10, turns: 2, percentMaxHp: 1 }] },
-    { id: "leech-bat-hit-run", name: "Bater e Sumir", damageFamily: "physical", scaling: 0.75, cooldownTurns: 2, target: "single_enemy", description: "Ataca e ganha +20 pp de Esquiva até o início do próximo turno.", aiTrigger: "hp_self < 30%", statusEffects: [{ kind: "evasion", chance: 100, turns: 1, dodgeBonus: 20 }] },
+    { id: "leech-bat-hit-run", name: "Bater e Sumir", damageFamily: "physical", scaling: 0.75, cooldownTurns: 2, target: "single_enemy", description: "Ataca e ganha +20 pp de Esquiva até o início do próximo turno.", aiTrigger: "hp_self < 30%", selfStatusEffects: [{ kind: "evasion", chance: 100, turns: 1, dodgeBonus: 20 }] },
   ],
   raider: [
     { id: "raider-cut", name: "Corte Oportunista", damageFamily: "physical", scaling: 1.0, cooldownTurns: 0, target: "single_enemy", description: "Golpe de lâmina com chance de Sangramento.", aiTrigger: "always", statusEffects: [{ kind: "bleed", chance: 8, turns: 2, percentMaxHp: 2 }] },
@@ -37,7 +37,7 @@ export const creatureAbilitiesById: Record<string, CreatureAbilityDefinition[]> 
   ],
   "vampire-wanderer": [
     { id: "vampire-wanderer-drain", name: "Drenar Sangue", damageFamily: "physical", scaling: 0.95, cooldownTurns: 2, target: "single_enemy", description: "Fere o alvo e cura 50% do dano causado.", aiTrigger: "hp_self < 55%", statusEffects: [{ kind: "bleed", chance: 14, turns: 2, percentMaxHp: 2 }], specialEffects: [{ kind: "lifesteal", percentOfDamage: 50 }] },
-    { id: "vampire-wanderer-mist-step", name: "Passo de Névoa", damageFamily: "physical", scaling: 0.75, cooldownTurns: 2, target: "single_enemy", description: "Golpe curto seguido de reposicionamento; ganha +20 pp de Esquiva por 1 turno.", aiTrigger: "dodged_last_turn", statusEffects: [{ kind: "evasion", chance: 100, turns: 1, dodgeBonus: 20 }] },
+    { id: "vampire-wanderer-mist-step", name: "Passo de Névoa", damageFamily: "physical", scaling: 0.75, cooldownTurns: 2, target: "single_enemy", description: "Golpe curto seguido de reposicionamento; ganha +20 pp de Esquiva por 1 turno.", aiTrigger: "dodged_last_turn", selfStatusEffects: [{ kind: "evasion", chance: 100, turns: 1, dodgeBonus: 20 }] },
   ],
   "barrel-witch": [
     { id: "barrel-witch-acid", name: "Borrifo Ácido", damageFamily: "magical", scaling: 1.0, cooldownTurns: 0, target: "single_enemy", description: "Ataque mágico corrosivo que pode Envenenar.", aiTrigger: "target_not_poisoned", statusEffects: [{ kind: "poison", chance: 20, turns: 3, percentMaxHp: 3 }] },
@@ -73,7 +73,7 @@ export const creatureAbilitiesById: Record<string, CreatureAbilityDefinition[]> 
   ],
   "rupture-shard": [
     { id: "rupture-shard-cut", name: "Corte de Ruptura", damageFamily: "physical", scaling: 1.0, cooldownTurns: 0, target: "single_enemy", description: "Estilhaço atravessa o alvo e pode causar Sangramento.", aiTrigger: "always", statusEffects: [{ kind: "bleed", chance: 20, turns: 2, percentMaxHp: 2 }] },
-    { id: "rupture-shard-shift", name: "Deslocamento Fraturado", damageFamily: "physical", scaling: 0.8, cooldownTurns: 2, target: "single_enemy", description: "Ataca enquanto muda de posição e ganha +15 pp de Esquiva por 1 turno.", aiTrigger: "attacked_last_turn", statusEffects: [{ kind: "evasion", chance: 100, turns: 1, dodgeBonus: 15 }] },
+    { id: "rupture-shard-shift", name: "Deslocamento Fraturado", damageFamily: "physical", scaling: 0.8, cooldownTurns: 2, target: "single_enemy", description: "Ataca enquanto muda de posição e ganha +15 pp de Esquiva por 1 turno.", aiTrigger: "attacked_last_turn", selfStatusEffects: [{ kind: "evasion", chance: 100, turns: 1, dodgeBonus: 15 }] },
   ],
   "hollow-echo": [
     { id: "hollow-echo-reflect", name: "Reflexo Oco", damageFamily: "none", scaling: 0, cooldownTurns: 3, target: "last_enemy_actor", description: "Repete a última habilidade ativa usada pelo alvo com 60% do dano/efeito original; não copia ultimate, summon ou outra cópia.", aiTrigger: "target_used_ability", specialEffects: [{ kind: "copy_last_ability", effectPercent: 60 }] },
@@ -111,7 +111,7 @@ export const creatureAbilitiesById: Record<string, CreatureAbilityDefinition[]> 
     { id: "fractured-archon-shard", name: "Estilhaço Magistral", damageFamily: "magical", scaling: 1.05, cooldownTurns: 0, target: "single_enemy", description: "Projétil arcano que pode causar Queimadura.", aiTrigger: "always", statusEffects: [{ kind: "burn", chance: 30, turns: 4, percentMaxHp: 4 }] },
     { id: "fractured-archon-judgment", name: "Juízo Fraturado", damageFamily: "magical", scaling: 2.35, cooldownTurns: 5, target: "all_enemies", description: "Golpe carregado e telegrafado por 1 turno; atinge todos os inimigos e pode causar Cegueira.", aiTrigger: "turn % 5 == 0", statusEffects: [{ kind: "blind", chance: 22, turns: 2 }], chargeTurns: 1 },
     { id: "fractured-archon-converge", name: "Convergir", damageFamily: "none", scaling: 0, cooldownTurns: 4, target: "self", description: "Quando o recurso especial estiver cheio, fortalece a próxima habilidade ofensiva em +50% de dano.", aiTrigger: "resource_full", specialEffects: [{ kind: "empower_next_damage", bonusPercent: 50 }] },
-    { id: "fractured-archon-phase-two", name: "Fase Dois — Autoridade Partida", damageFamily: "none", scaling: 0, cooldownTurns: 0, target: "self", description: "Uma vez por batalha abaixo de 50% de Vida: +20% de Dano Mágico e -15% de dano recebido pelo resto da batalha.", aiTrigger: "hp_self < 50%", specialEffects: [{ kind: "permanent_phase_buff", damageBonusPercent: 20, selfDefensePenaltyPercent: -15 }], oncePerBattle: true },
+    { id: "fractured-archon-phase-two", name: "Fase Dois — Autoridade Partida", damageFamily: "none", scaling: 0, cooldownTurns: 0, target: "self", description: "Uma vez por batalha abaixo de 50% de Vida: +20% de Dano Mágico e -15% de dano recebido pelo resto da batalha.", aiTrigger: "hp_self < 50%", specialEffects: [{ kind: "permanent_phase_buff", magicalDamageBonusPercent: 20, damageReductionPercent: 15 }], oncePerBattle: true },
   ],
   "slag-beetle": [
     { id: "slag-beetle-bite", name: "Mandíbula de Escória", damageFamily: "physical", scaling: 1.0, cooldownTurns: 0, target: "single_enemy", description: "Ataque simples de mandíbula reforçada.", aiTrigger: "always" },
@@ -151,7 +151,7 @@ export const creatureAbilitiesById: Record<string, CreatureAbilityDefinition[]> 
   "slag-drake": [
     { id: "slag-drake-bite", name: "Mordida de Escória", damageFamily: "physical", scaling: 1.1, cooldownTurns: 0, target: "single_enemy", description: "Mordida superaquecida que pode causar Queimadura.", aiTrigger: "always", statusEffects: [{ kind: "burn", chance: 38, turns: 4, percentMaxHp: 5 }] },
     { id: "slag-drake-breath", name: "Sopro de Escória", damageFamily: "physical", scaling: 1.35, cooldownTurns: 3, target: "all_enemies", description: "Sopro de fragmentos incandescentes. Usa Dano Físico contra Defesa Física e pode causar Queimadura.", aiTrigger: "allies_alive >= 1", statusEffects: [{ kind: "burn", chance: 38, turns: 4, percentMaxHp: 5 }] },
-    { id: "slag-drake-dive", name: "Voo Rasante", damageFamily: "physical", scaling: 1.5, cooldownTurns: 3, target: "single_enemy", description: "Ataque em mergulho; depois ganha +20 pp de Esquiva por 1 turno.", aiTrigger: "hp_self < 40%", statusEffects: [{ kind: "evasion", chance: 100, turns: 1, dodgeBonus: 20 }] },
+    { id: "slag-drake-dive", name: "Voo Rasante", damageFamily: "physical", scaling: 1.5, cooldownTurns: 3, target: "single_enemy", description: "Ataque em mergulho; depois ganha +20 pp de Esquiva por 1 turno.", aiTrigger: "hp_self < 40%", selfStatusEffects: [{ kind: "evasion", chance: 100, turns: 1, dodgeBonus: 20 }] },
   ],
   "slag-colossus": [
     { id: "slag-colossus-fist", name: "Punho de Escória", damageFamily: "physical", scaling: 1.1, cooldownTurns: 0, target: "single_enemy", description: "Golpe direto que pode causar Queimadura.", aiTrigger: "always", statusEffects: [{ kind: "burn", chance: 26, turns: 3, percentMaxHp: 4 }] },
@@ -172,7 +172,7 @@ export const creatureAbilitiesById: Record<string, CreatureAbilityDefinition[]> 
   ],
   "goblin-fundeiro": [
     { id: "goblin-slinger-shot", name: "Pedrada de Funda", damageFamily: "physical", scaling: 1.0, cooldownTurns: 0, target: "single_enemy", description: "Ataque à distância que pode causar Cegueira.", aiTrigger: "distance > 1", statusEffects: [{ kind: "blind", chance: 16, turns: 1 }] },
-    { id: "goblin-slinger-retreat", name: "Recuo Covarde", damageFamily: "physical", scaling: 0.7, cooldownTurns: 2, target: "single_enemy", description: "Ataca enquanto recua e ganha +15 pp de Esquiva por 1 turno.", aiTrigger: "target_adjacent", statusEffects: [{ kind: "evasion", chance: 100, turns: 1, dodgeBonus: 15 }] },
+    { id: "goblin-slinger-retreat", name: "Recuo Covarde", damageFamily: "physical", scaling: 0.7, cooldownTurns: 2, target: "single_enemy", description: "Ataca enquanto recua e ganha +15 pp de Esquiva por 1 turno.", aiTrigger: "target_adjacent", selfStatusEffects: [{ kind: "evasion", chance: 100, turns: 1, dodgeBonus: 15 }] },
   ],
   "goblin-montador": [
     { id: "goblin-rider-charge", name: "Investida Montada", damageFamily: "physical", scaling: 1.35, cooldownTurns: 3, target: "single_enemy", description: "Investida de abertura que pode causar Sangramento.", aiTrigger: "turn == 1", statusEffects: [{ kind: "bleed", chance: 14, turns: 2, percentMaxHp: 2 }] },

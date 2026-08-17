@@ -1,4 +1,16 @@
-export const GAME_VERSION = "0.1.0";
+export const GAME_VERSION = "1.0.0";
 export * from "./domain";
+export * from "./damage-types";
+export * from "./keywords";
+export * from "./traits";
+export * from "./battlefield";
+export * from "./action-resolver";
+export * from "./turn-queue";
+export * from "./companions";
+export * from "./exploration";
+export * from "./morality-kingdoms";
+export * from "./bestiary-v1";
+export * from "./ai-tactical";
 export * from "./rules";
 export * from "./bestiary";
+export * from "./progression";

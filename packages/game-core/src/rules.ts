@@ -1,4 +1,28 @@
-import type { AbilityDefinition, Axial, CharacterCombatStats, CharacterPreset, ClassDefinition, CombatLoadout, CombatPosition, CombatStatusEffect, CreatureAbilityDefinition, CreatureSpecialEffect, EquippedItems, EquipmentItem, GameCharacter, HuntBattleLog, HuntBattleState, HuntCombatant, HuntCompanion, HuntCreatureDefinition, LoadoutSlot, StatusEffectApplication, StatusEffectKind } from "./domain";
+import type { AbilityAreaDefinition, AbilityDefinition, AITacticalIntent, AITacticalProfile, Axial, BattleTerrainCell, BattlefieldState, CharacterCombatStats, CharacterPreset, ClassDefinition, CombatLoadout, CombatPosition, CombatStatusEffect, CreatureAbilityDefinition, CreatureSpecialEffect, EquippedItems, EquipmentItem, GameCharacter, HuntBattleLog, HuntBattleState, HuntCombatant, HuntCompanion, HuntCreatureDefinition, LoadoutSlot, StatusEffectApplication, StatusEffectKind } from "./domain";
+
+import {
+  resolveEnemyTacticalProfile,
+  chooseEnemyTacticalDestination,
+  evaluateTrigger,
+  abilityTacticalScore,
+  pickCreatureAbility,
+  REACTION_TRIGGERS,
+  DEFAULT_BASIC_ATTACK,
+  TACTICAL_WEIGHTS,
+} from "./ai-tactical";
+import type { TriggerContext } from "./ai-tactical";
+
+export {
+  resolveEnemyTacticalProfile,
+  chooseEnemyTacticalDestination,
+  evaluateTrigger,
+  abilityTacticalScore,
+  pickCreatureAbility,
+  REACTION_TRIGGERS,
+  DEFAULT_BASIC_ATTACK,
+  TACTICAL_WEIGHTS,
+};
+export type { TriggerContext };
 
 export const LOADOUT_SLOTS: ReadonlyArray<{ key: LoadoutSlot; label: string; kind: AbilityDefinition["slotKind"] }> = [
   { key: "skill1", label: "Habilidade 1", kind: "skill" }, { key: "skill2", label: "Habilidade 2", kind: "skill" }, { key: "skill3", label: "Habilidade 3", kind: "skill" }, { key: "skill4", label: "Habilidade 4", kind: "skill" }, { key: "ultimate", label: "Ultimate", kind: "ultimate" }, { key: "stance", label: "Postura", kind: "stance" }, { key: "passive", label: "Passiva", kind: "passive" },
@@ -44,68 +68,260 @@ export const ENGINE_MAX_ENCOUNTER_SIZE = 8;
 // Tabuleiro hexagonal do campo de batalha
 // ---------------------------------------------------------------------------
 
-/** Raio do tabuleiro (19 células) — mesmo tamanho já validado no protótipo Hex Lab. */
-export const BOARD_RADIUS = 2;
-/** Onde o jogador começa toda batalha (centro do tabuleiro). */
-export const PLAYER_START_CELL: Axial = { q: 0, r: 0 };
-/** Células fixas da linha de frente inimiga, por índice de slot (0, 1, 2). Quando o
- * ocupante de um slot morre, o próximo da reserva assume o MESMO índice — e portanto a
- * mesma célula — automaticamente, via activeFrontLine(). */
-export const ENEMY_SLOT_CELLS: Axial[] = [
-  { q: 2, r: -2 },
-  { q: 2, r: -1 },
-  { q: 2, r: 0 },
+import {
+  BOARD_RADIUS,
+  AXIAL_DIRECTIONS,
+  hexKey,
+  hexDistance,
+  hexDirectionToward,
+  relativeArc,
+  boardCells,
+  terrainCellAt,
+  isBlockedCell,
+  terrainMovementCost,
+  terrainCoverPercent,
+  hasLineOfSight,
+  effectiveVisionRange,
+  canUnitSeeCell,
+  rangedCoverPercent,
+  applyBattlefieldCover,
+  hexLine,
+  reachableCells,
+} from "./battlefield";
+
+export {
+  BOARD_RADIUS,
+  AXIAL_DIRECTIONS,
+  hexKey,
+  hexDistance,
+  hexDirectionToward,
+  relativeArc,
+  boardCells,
+  terrainCellAt,
+  isBlockedCell,
+  terrainMovementCost,
+  terrainCoverPercent,
+  hasLineOfSight,
+  effectiveVisionRange,
+  canUnitSeeCell,
+  rangedCoverPercent,
+  applyBattlefieldCover,
+  hexLine,
+  reachableCells,
+};
+
+export const PLAYER_START_CELL: Axial = { q: 0, r: 2 };
+export const ENEMY_FRONT_SPAWN_CELLS: Axial[] = [
+  { q: 0, r: -1 }, { q: 1, r: -2 }, { q: -1, r: -1 }, { q: 2, r: -2 }, { q: -2, r: 0 },
 ];
-/** Alcance de movimento do jogador por rodada. Igual pra todas as classes por enquanto. */
+export const ENEMY_BACK_SPAWN_CELLS: Axial[] = [
+  { q: 0, r: -3 }, { q: 1, r: -3 }, { q: -1, r: -2 }, { q: 2, r: -3 }, { q: -2, r: -1 },
+];
+export const ENEMY_SLOT_CELLS: Axial[] = ENEMY_FRONT_SPAWN_CELLS.slice(0, FRONT_LINE_SIZE);
 export const PLAYER_MOVE_RANGE = 2;
 
-const AXIAL_DIRECTIONS: Axial[] = [
-  { q: 1, r: 0 },
-  { q: 1, r: -1 },
-  { q: 0, r: -1 },
-  { q: -1, r: 0 },
-  { q: -1, r: 1 },
-  { q: 0, r: 1 },
-];
-
-const hexKey = (cell: Axial) => `${cell.q},${cell.r}`;
-
-export function hexDistance(a: Axial, b: Axial): number {
-  return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
+export function isAdjacent(a: Axial, b: Axial): boolean { return hexDistance(a, b) === 1; }
+export function isInZoneOfControl(cell: Axial, enemies: HuntCombatant[]): boolean {
+  return enemies.some((enemy) => enemy.hpCurrent > 0 && enemy.position && isAdjacent(cell, enemy.position));
 }
 
-export function boardCells(): Axial[] {
-  const cells: Axial[] = [];
-  for (let q = -BOARD_RADIUS; q <= BOARD_RADIUS; q += 1) {
-    const rMin = Math.max(-BOARD_RADIUS, -q - BOARD_RADIUS);
-    const rMax = Math.min(BOARD_RADIUS, -q + BOARD_RADIUS);
-    for (let r = rMin; r <= rMax; r += 1) cells.push({ q, r });
-  }
-  return cells;
-}
+const terrainKey = (q: number, r: number) => `${q},${r}`;
 
-/** Flood-fill respeitando o tabuleiro e células ocupadas — alcance de movimento real. */
-export function reachableCells(start: Axial, range: number, board: Axial[], occupied: Set<string>): Axial[] {
-  const boardKeys = new Set(board.map(hexKey));
-  const distances = new Map<string, number>([[hexKey(start), 0]]);
-  const queue: Axial[] = [start];
-  while (queue.length) {
-    const current = queue.shift()!;
-    const distance = distances.get(hexKey(current))!;
-    if (distance >= range) continue;
-    for (const direction of AXIAL_DIRECTIONS) {
-      const next = { q: current.q + direction.q, r: current.r + direction.r };
-      const nextKey = hexKey(next);
-      if (!boardKeys.has(nextKey) || occupied.has(nextKey) || distances.has(nextKey)) continue;
-      distances.set(nextKey, distance + 1);
-      queue.push(next);
+const REGION_OBSTACLES: Record<string, Record<string, Partial<BattleTerrainCell>>> = {
+  fiordevalle: {
+    "-2,1": { obstacle: "tree", blocked: true, blocksLineOfSight: true },
+    "2,0": { obstacle: "tree", blocked: true, blocksLineOfSight: true },
+    "-1,0": { obstacle: "wall", blocked: true, blocksLineOfSight: true },
+    "1,1": { obstacle: "rock", blocked: true, blocksLineOfSight: false },
+  },
+  eldravia: {
+    "-2,1": { obstacle: "crystal", blocked: true, blocksLineOfSight: true },
+    "2,0": { obstacle: "crystal", blocked: true, blocksLineOfSight: true },
+    "-1,0": { obstacle: "pillar", blocked: true, blocksLineOfSight: true },
+    "1,1": { obstacle: "pillar", blocked: true, blocksLineOfSight: true },
+  },
+  dustfall: {
+    "-2,1": { obstacle: "rock", blocked: true, blocksLineOfSight: true },
+    "2,0": { obstacle: "rock", blocked: true, blocksLineOfSight: true },
+    "-1,0": { obstacle: "wall", blocked: true, blocksLineOfSight: true },
+    "1,1": { obstacle: "rock", blocked: true, blocksLineOfSight: false },
+  },
+};
+
+export function createBattlefield(regionId: string, variant = 0): BattlefieldState {
+  const normalizedRegion = regionId in REGION_OBSTACLES ? regionId : "fiordevalle";
+  const obstacles = REGION_OBSTACLES[normalizedRegion] ?? {};
+  const cells: BattleTerrainCell[] = boardCells().map((position) => {
+    const key = terrainKey(position.q, position.r);
+    const parity = Math.abs(position.q * 3 + position.r * 5 + variant) % 5;
+    let terrain: BattleTerrainCell["terrain"] = "plain";
+    let movementCost = 1;
+    let coverPercent = 0;
+    if (normalizedRegion === "fiordevalle") {
+      if (parity === 0) { terrain = "forest"; movementCost = 2; coverPercent = 15; }
+      else if (parity === 1) { terrain = "ruins"; coverPercent = 20; }
+      else if (parity === 3) { terrain = "forest"; movementCost = 2; }
+      else if (parity === 4) { terrain = "swamp"; movementCost = 2; }
+    } else if (normalizedRegion === "eldravia") {
+      if (parity === 0) { terrain = "glass"; coverPercent = 8; }
+      else if (parity === 1) { terrain = "glass"; }
+      else if (parity === 2) { terrain = "ruins"; coverPercent = 20; }
+      else if (parity === 4) { terrain = "rift"; movementCost = 2; }
+    } else {
+      terrain = parity <= 2 ? "sand" : parity === 3 ? "ruins" : "swamp";
+      movementCost = terrain === "swamp" ? 2 : 1;
+      coverPercent = terrain === "ruins" ? 20 : 0;
     }
-  }
-  distances.delete(hexKey(start));
-  return [...distances.keys()].map((entry) => {
-    const [q, r] = entry.split(",").map(Number);
-    return { q, r };
+    return { position, terrain, movementCost, coverPercent, ...(obstacles[key] ?? {}) };
   });
+  const fogEnabled = normalizedRegion === "fiordevalle" ? variant % 2 === 0 : normalizedRegion === "eldravia" ? variant % 3 === 0 : variant % 4 === 0;
+  const fogLabel = normalizedRegion === "dustfall" ? "Bruma de Escória" : normalizedRegion === "eldravia" ? "Névoa de Ruptura" : "Neblina";
+  return { cells, fog: { enabled: fogEnabled, baseVisionRange: fogEnabled ? 3 : 99, label: fogLabel } };
+}
+
+export function visibleCellsForUnit(unit: HuntCombatant, battlefield: BattlefieldState): Axial[] {
+  return boardCells().filter((cell) => canUnitSeeCell(unit, cell, battlefield));
+}
+
+/** Resolve a geometria de uma habilidade para preview e dano real. */
+export function abilityAreaCells(origin: Axial, target: Axial, area: AbilityAreaDefinition | undefined, range: number, board = boardCells()): Axial[] {
+  const shape = area?.shape ?? "single";
+  const boardKeys = new Set(board.map(hexKey));
+  if (shape === "all") return [...board];
+  if (shape === "radius") {
+    const radius = Math.max(0, area?.radius ?? 1);
+    return board.filter((cell) => hexDistance(cell, target) <= radius);
+  }
+  if (shape === "ring") {
+    const radius = Math.max(1, area?.radius ?? 1);
+    return board.filter((cell) => hexDistance(cell, target) === radius);
+  }
+  if (shape === "connected") {
+    const offsets = area?.offsets?.length ? area.offsets : [{ q: 0, r: 0 }];
+    return offsets
+      .map((offset) => ({ q: target.q + offset.q, r: target.r + offset.r }))
+      .filter((cell) => boardKeys.has(hexKey(cell)));
+  }
+  if (shape === "line") {
+    return hexLine(origin, target).slice(1, Math.max(1, range) + 1).filter((cell) => boardKeys.has(hexKey(cell)));
+  }
+  if (shape === "cone") {
+    const facing = hexDirectionToward(origin, target);
+    const allowedDirections = new Set([(facing + 5) % 6, facing, (facing + 1) % 6]);
+    return board.filter((cell) => {
+      const distance = hexDistance(origin, cell);
+      return distance > 0 && distance <= range && allowedDirections.has(hexDirectionToward(origin, cell));
+    });
+  }
+  return boardKeys.has(hexKey(target)) ? [target] : [];
+}
+
+export function creatureAbilityArea(ability: CreatureAbilityDefinition): AbilityAreaDefinition {
+  if (ability.area) return ability.area;
+  const normalized = `${ability.name} ${ability.description}`.toLowerCase();
+  if (ability.target === "all_enemies" || ability.target === "battlefield") {
+    if (normalized.includes("linha") || normalized.includes("varrer")) return { shape: "line" };
+    if (normalized.includes("cone") || normalized.includes("frente")) return { shape: "cone" };
+    if (normalized.includes("campo inteiro") || normalized.includes("todo o campo")) return { shape: "all" };
+    return { shape: "radius", radius: normalized.includes("cratera") || normalized.includes("desmoron") ? 2 : 1 };
+  }
+  return { shape: "single" };
+}
+
+function enemyMoveRange(enemy: HuntCombatant): number {
+  if (enemy.archetype === "caster" || enemy.archetype === "skirmisher" || enemy.archetype === "swarm") return 2;
+  return 1;
+}
+
+const DEFAULT_COMBAT_SPEED = 10;
+const ARCHETYPE_SPEED_FALLBACK: Record<string, number> = { swarm: 13, skirmisher: 14, brute: 8, caster: 10, tank: 7 };
+
+export function combatantSpeed(combatant: HuntCombatant): number {
+  return Math.max(1, Math.round(combatant.stats.speed ?? ARCHETYPE_SPEED_FALLBACK[combatant.archetype ?? ""] ?? DEFAULT_COMBAT_SPEED));
+}
+
+/** Ordem real da rodada. Empates favorecem o Player; entre IAs o id deixa o resultado determinístico. */
+export function buildInitiativeOrder(player: HuntCombatant, enemies: HuntCombatant[]): string[] {
+  const active = activeFrontLine(enemies).filter((enemy) => enemy.hpCurrent > 0);
+  return [player, ...active]
+    .sort((a, b) => {
+      const speedDiff = combatantSpeed(b) - combatantSpeed(a);
+      if (speedDiff !== 0) return speedDiff;
+      if (a.id === player.id && b.id !== player.id) return -1;
+      if (b.id === player.id && a.id !== player.id) return 1;
+      return a.id.localeCompare(b.id);
+    })
+    .map((entry) => entry.id);
+}
+
+/** Alcance provisório até todas as 112 habilidades receberem range explícito na Fase 4. */
+export function playerAbilityRange(ability: AbilityDefinition, player: HuntCombatant): number | undefined {
+  return ability.range === undefined ? undefined : Math.max(1, ability.range + (player.rangeBonus ?? 0));
+}
+
+export function creatureAbilityRange(ability: CreatureAbilityDefinition, self?: HuntCombatant): number {
+  if (ability.range !== undefined) return ability.range;
+  if (ability.damageFamily === "none" || ability.target === "self" || ability.target === "all_allies" || ability.target === "battlefield") return 99;
+  if ((ability.specialEffects ?? []).some((effect) => effect.kind === "gap_close")) return 3;
+  if (ability.damageFamily === "magical") return 3;
+  if (self?.archetype === "caster") return 3;
+  if (self?.archetype === "skirmisher") return 2;
+  return 1;
+}
+
+function preferredEnemySpawnCells(enemy: HuntCombatant): Axial[] {
+  return enemy.archetype === "caster"
+    ? [...ENEMY_BACK_SPAWN_CELLS, ...ENEMY_FRONT_SPAWN_CELLS]
+    : [...ENEMY_FRONT_SPAWN_CELLS, ...ENEMY_BACK_SPAWN_CELLS];
+}
+
+/** Garante posição única para toda IA ativa. Reservas recebem posição apenas ao entrar na linha ativa. */
+/** B1 fix: fallback seguro que nunca empilha inimigos na mesma célula. */
+function ensureActiveEnemyPositions(enemies: HuntCombatant[], playerPosition: Axial, battlefield: BattlefieldState): HuntCombatant[] {
+  const activeIds = new Set(activeFrontLine(enemies).map((enemy) => enemy.id));
+  const validCells = new Set(boardCells().map(hexKey));
+  const occupied = new Set<string>([hexKey(playerPosition)]);
+  return enemies.map((enemy) => {
+    if (!activeIds.has(enemy.id) || enemy.hpCurrent <= 0) return enemy;
+    let position = enemy.position;
+    if (!position || !validCells.has(hexKey(position)) || occupied.has(hexKey(position)) || isBlockedCell(battlefield, position)) {
+      position = preferredEnemySpawnCells(enemy).find((cell) => !occupied.has(hexKey(cell)) && !isBlockedCell(battlefield, cell))
+        ?? boardCells().filter((cell) => !occupied.has(hexKey(cell)) && !isBlockedCell(battlefield, cell)).sort((a, b) => hexDistance(b, playerPosition) - hexDistance(a, playerPosition))[0];
+      // B1: Se absolutamente nenhuma célula estiver livre (edge case extremo),
+      // manter a posição original em vez de forçar colisão em ENEMY_FRONT_SPAWN_CELLS[0].
+      if (!position) {
+        position = enemy.position ?? ENEMY_FRONT_SPAWN_CELLS[0];
+      }
+    }
+    occupied.add(hexKey(position));
+    return { ...enemy, position, facing: hexDirectionToward(position, playerPosition) };
+  });
+}
+
+
+
+type ForcedMoveMode = "push" | "pull" | "force";
+
+function forcedMoveDestination(target: Axial, source: Axial, occupied: Set<string>, mode: ForcedMoveMode, distance = 1, battlefield?: BattlefieldState): Axial {
+  const validKeys = new Set(boardCells().map(hexKey));
+  let current = target;
+  for (let step = 0; step < Math.max(1, distance); step += 1) {
+    const candidates = AXIAL_DIRECTIONS
+      .map((direction) => ({ q: current.q + direction.q, r: current.r + direction.r }))
+      .filter((cell) => validKeys.has(hexKey(cell)) && !occupied.has(hexKey(cell)) && (!battlefield || !isBlockedCell(battlefield, cell)));
+    if (!candidates.length) break;
+    candidates.sort((a, b) => {
+      const da = hexDistance(a, source); const db = hexDistance(b, source);
+      if (mode === "push") return db - da;
+      if (mode === "pull") return da - db;
+      return hexKey(a).localeCompare(hexKey(b));
+    });
+    const next = candidates[0] ?? current;
+    occupied.delete(hexKey(current));
+    occupied.add(hexKey(next));
+    current = next;
+  }
+  return current;
 }
 
 /** Classifica uma distância em rótulo, só pra avaliar gatilhos "target_position == front/center/back" do bestiário. */
@@ -146,24 +362,67 @@ const DOT_KINDS = new Set<StatusEffectKind>(["bleed", "burn", "poison"]);
 const STUN_MAX_TURNS = 1;
 const STUN_IMMUNITY_TURNS = 2;
 
-function tickEffects(combatant: HuntCombatant, turn: number, logs: HuntBattleLog[]): HuntCombatant {
-  let hpCurrent = combatant.hpCurrent;
+function finishOwnerTurnEffects(combatant: HuntCombatant, turn: number, logs: HuntBattleLog[]): HuntCombatant {
   const activeEffects: CombatStatusEffect[] = [];
   let stunImmuneTurns = combatant.stunImmuneTurns ?? 0;
+  let startedStunImmunity = false;
+
   for (const effect of combatant.activeEffects) {
     if (DOT_KINDS.has(effect.kind)) {
-      const damage = effectDotDamage(effect, combatant.hpMax);
-      hpCurrent = Math.max(0, hpCurrent - damage);
-      logs.push({ turn, tone: "system", text: `${combatant.name} sofre ${damage} de ${statusEffectLabels[effect.kind].toLowerCase()}.` });
+      activeEffects.push(effect);
+      continue;
     }
-    if (effect.turns > 1) activeEffects.push({ ...effect, turns: effect.turns - 1 });
-    else {
-      logs.push({ turn, tone: "system", text: `${statusEffectLabels[effect.kind]} em ${combatant.name} terminou.` });
-      if (effect.kind === "stun") stunImmuneTurns = Math.max(stunImmuneTurns, STUN_IMMUNITY_TURNS);
+
+    // Efeito aplicado pelo próprio combatente durante esta ação começa a contar
+    // a partir do próximo turno do dono; assim um buff de 1T não expira antes
+    // de produzir qualquer efeito defensivo/reacional.
+    const selfAppliedThisTurn = effect.appliedTurn === turn && effect.sourceId === combatant.id;
+    if (selfAppliedThisTurn && effect.kind !== "stun") {
+      activeEffects.push(effect);
+      continue;
+    }
+
+    if (effect.turns > 1) {
+      activeEffects.push({ ...effect, turns: effect.turns - 1 });
+      continue;
+    }
+
+    logs.push({ turn, tone: "system", text: `${statusEffectLabels[effect.kind]} em ${combatant.name} terminou.` });
+    if (effect.kind === "stun") {
+      stunImmuneTurns = Math.max(stunImmuneTurns, STUN_IMMUNITY_TURNS);
+      startedStunImmunity = true;
     }
   }
-  if (stunImmuneTurns > 0) stunImmuneTurns -= 1;
-  return { ...combatant, hpCurrent, activeEffects, stunImmuneTurns, dodgedLastTurn: false, attackedLastTurn: false, changedPositionThisTurn: false };
+
+  // A imunidade de 2 turnos começa DEPOIS do turno perdido por stun. Ela só
+  // consome um contador nos turnos seguintes do próprio dono.
+  if (!startedStunImmunity && stunImmuneTurns > 0) stunImmuneTurns -= 1;
+  return { ...combatant, activeEffects, stunImmuneTurns, changedPositionThisTurn: false };
+}
+
+function tickEndOfRoundDots(combatant: HuntCombatant, turn: number, logs: HuntBattleLog[]): HuntCombatant {
+  let hpCurrent = combatant.hpCurrent;
+  const activeEffects: CombatStatusEffect[] = [];
+  for (const effect of combatant.activeEffects) {
+    if (!DOT_KINDS.has(effect.kind)) {
+      activeEffects.push(effect);
+      continue;
+    }
+
+    // Regra de Rupterya: um DoT aplicado na rodada N começa a ticar somente no
+    // fim da rodada N+1. A duração conta ticks reais, não o momento de aplicação.
+    if ((effect.appliedTurn ?? Number.NEGATIVE_INFINITY) >= turn) {
+      activeEffects.push(effect);
+      continue;
+    }
+
+    const damage = effectDotDamage(effect, combatant.hpMax);
+    hpCurrent = Math.max(0, hpCurrent - damage);
+    logs.push({ turn, tone: "system", text: `${combatant.name} sofre ${damage} de ${statusEffectLabels[effect.kind].toLowerCase()}.` });
+    if (effect.turns > 1) activeEffects.push({ ...effect, turns: effect.turns - 1 });
+    else logs.push({ turn, tone: "system", text: `${statusEffectLabels[effect.kind]} em ${combatant.name} terminou.` });
+  }
+  return { ...combatant, hpCurrent, activeEffects };
 }
 
 function applyEffects(target: HuntCombatant, applications: StatusEffectApplication[], sourceName: string, turn: number, logs: HuntBattleLog[], sourceId?: string): HuntCombatant {
@@ -177,13 +436,22 @@ function applyEffects(target: HuntCombatant, applications: StatusEffectApplicati
     const finalChance = application.chance * (1 - resistance / 100);
     if (Math.random() * 100 >= finalChance) continue;
     const turns = application.kind === "stun" ? Math.min(STUN_MAX_TURNS, application.turns) : application.turns;
-    const effect: CombatStatusEffect = { ...application, turns, sourceName, sourceId };
     const existing = activeEffects.findIndex((entry) => entry.kind === application.kind);
+    const previous = existing >= 0 ? activeEffects[existing] : undefined;
+    const effect: CombatStatusEffect = {
+      ...application,
+      turns,
+      sourceName,
+      sourceId: sourceId ?? application.sourceId,
+      appliedTurn: previous?.appliedTurn ?? turn,
+    };
     if (existing >= 0) activeEffects[existing] = {
+      ...previous,
       ...effect,
-      turns: Math.max(effect.turns, activeEffects[existing].turns),
-      flatDamage: Math.max(effect.flatDamage ?? 0, activeEffects[existing].flatDamage ?? 0) || undefined,
-      percentMaxHp: Math.max(effect.percentMaxHp ?? 0, activeEffects[existing].percentMaxHp ?? 0),
+      turns: Math.max(effect.turns, previous!.turns),
+      appliedTurn: previous!.appliedTurn ?? effect.appliedTurn,
+      flatDamage: Math.max(effect.flatDamage ?? 0, previous!.flatDamage ?? 0) || undefined,
+      percentMaxHp: Math.max(effect.percentMaxHp ?? 0, previous!.percentMaxHp ?? 0),
     };
     else activeEffects.push(effect);
     logs.push({ turn, tone: "system", text: `${sourceName} aplica ${statusEffectLabels[application.kind]} em ${target.name} por ${effect.turns} turno(s).` });
@@ -206,12 +474,16 @@ function effectiveDodge(defender: HuntCombatant): number {
   return defender.stats.dodgeChance + bonus;
 }
 function guardMultiplier(defender: HuntCombatant): number {
-  const reduction = defender.activeEffects.filter((effect) => effect.kind === "guard").reduce((sum, effect) => sum + (effect.damageReductionPercent ?? 0), 0);
+  const temporaryReduction = defender.activeEffects.filter((effect) => effect.kind === "guard").reduce((sum, effect) => sum + (effect.damageReductionPercent ?? 0), 0);
+  const reduction = temporaryReduction + (defender.permanentDamageReductionPercent ?? 0);
   return Math.max(0.1, 1 - Math.min(90, reduction) / 100);
 }
 
 function attack(input: { attacker: HuntCombatant; defender: HuntCombatant; rawDamage: number; kind: "physical" | "magical"; effects: StatusEffectApplication[]; sourceName: string; turn: number; logs: HuntBattleLog[]; sourceId?: string }) {
   const blinded = input.attacker.activeEffects.some((effect) => effect.kind === "blind");
+  const damageBonusPercent = input.attacker.activeEffects.reduce((sum, effect) => sum + (effect.damageBonusPercent ?? 0), 0);
+  const criticalChanceBonus = input.attacker.activeEffects.reduce((sum, effect) => sum + (effect.criticalChanceBonus ?? 0), 0);
+  const statusChanceBonus = input.attacker.activeEffects.reduce((sum, effect) => sum + (effect.statusChanceBonus ?? 0), 0);
   const hitChance = Math.max(10, 100 - effectiveDodge(input.defender) - (blinded ? 35 : 0));
   if (Math.random() * 100 >= hitChance) {
     input.logs.push({ turn: input.turn, tone: "system", text: `${input.sourceName} erra ${input.defender.name}${blinded ? " por cegueira" : " por esquiva"}.` });
@@ -219,12 +491,15 @@ function attack(input: { attacker: HuntCombatant; defender: HuntCombatant; rawDa
   }
   // Sorte de mesa: um golpe que acerta pode sair "fraco" (fumble), mas nunca vira erro nem pune o atacante.
   const fumble = Math.random() * 100 < FUMBLE_CHANCE;
-  const critical = !fumble && Math.random() * 100 < input.attacker.stats.criticalChance;
+  const critical = !fumble && Math.random() * 100 < input.attacker.stats.criticalChance + criticalChanceBonus;
   const blocked = input.kind === "physical" && Math.random() * 100 < input.defender.stats.blockChance;
   const multiplier = (fumble ? FUMBLE_DAMAGE_MULTIPLIER : critical ? 1.5 : 1) * (blocked ? BLOCK_DAMAGE_MULTIPLIER : 1) * guardMultiplier(input.defender);
-  const dealt = mitigateDamage(Math.round(input.rawDamage * multiplier), input.kind, input.defender.stats);
+  const dealt = mitigateDamage(Math.round(input.rawDamage * (1 + damageBonusPercent / 100) * multiplier), input.kind, input.defender.stats);
   let defender: HuntCombatant = { ...input.defender, hpCurrent: Math.max(0, input.defender.hpCurrent - dealt), dodgedLastTurn: false, attackedLastTurn: true };
-  if (!fumble) defender = applyEffects(defender, input.effects, input.sourceName, input.turn, input.logs, input.sourceId);
+  const enhancedEffects = statusChanceBonus
+    ? input.effects.map((effect) => ({ ...effect, chance: Math.min(100, effect.chance + statusChanceBonus) }))
+    : input.effects;
+  if (!fumble) defender = applyEffects(defender, enhancedEffects, input.sourceName, input.turn, input.logs, input.sourceId);
   return { defender, dealt, critical, fumble, blocked };
 }
 
@@ -297,7 +572,10 @@ function rewardFor(state: HuntBattleState, turn: number) {
   return { reward: { xp, gold: state.creatures.reduce((sum, creature) => sum + creature.goldReward, 0), itemIds, fragments, memoryUpdates }, logs };
 }
 
-export function createHuntBattle(input: { regionId: string; player: HuntCombatant; creatures: HuntCreatureDefinition[]; companion?: HuntCompanion | null; itemMemories?: Record<string, number>; masteredCreatureIds?: string[] }): HuntBattleState {
+export function createHuntBattle(input: { regionId: string; player: HuntCombatant; creatures: HuntCreatureDefinition[]; companion?: HuntCompanion | null; itemMemories?: Record<string, number>; masteredCreatureIds?: string[]; battlefield?: BattlefieldState }): HuntBattleState {
+  const id = battleId();
+  const variant = [...id].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const battlefield = input.battlefield ?? createBattlefield(input.regionId, variant);
   const creatures = input.creatures.map((creature) => {
     const equippedItems = featuredItemsFor(creature, input.itemMemories ?? {});
     return { ...creature, equippedItems, equippedItem: equippedItems[0] };
@@ -308,83 +586,39 @@ export function createHuntBattle(input: { regionId: string; player: HuntCombatan
     const itemEffects = creature.equippedItems?.flatMap((item) => item.statusEffects ?? []) ?? [];
     const highRarity = ["elite", "boss", "worldboss"].includes(creature.rarity);
     return {
-      id: `${creature.id}-${index}`, creatureId: creature.id, archetype: creature.archetype, role: creature.role, name: creature.name, portraitPath: creature.portraitPath,
-      hpCurrent: hpMax, hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: [...(creature.statusEffects ?? []), ...itemEffects],
+      id: `${creature.id}-${index}`, creatureId: creature.id, archetype: creature.archetype, role: creature.role, tacticalProfile: creature.tacticalProfile ?? resolveEnemyTacticalProfile(creature), name: creature.name, portraitPath: creature.portraitPath,
+      hpCurrent: hpMax, hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: [...(creature.abilities?.length ? [] : (creature.statusEffects ?? [])), ...itemEffects],
       abilities: creature.abilities ?? [], abilityCooldowns: {}, charging: null, stunImmuneTurns: 0, usedOncePerBattle: [], changedPositionThisTurn: false,
-      stats: { physicalDamage: creature.physicalDamage + (itemModifiers.physicalDamage ?? 0), magicalDamage: (creature.magicalDamage ?? 0) + (itemModifiers.magicalDamage ?? 0), physicalDefense: creature.physicalDefense + (itemModifiers.physicalDefense ?? 0), magicalDefense: creature.magicalDefense + (itemModifiers.magicalDefense ?? 0), criticalChance: (highRarity ? 12 : creature.rarity === "rare" ? 7 : 4) + (itemModifiers.criticalChance ?? 0), dodgeChance: (creature.rarity === "rare" ? 5 : 2) + (itemModifiers.dodgeChance ?? 0), blockChance: (creature.blockChance ?? 0) + (itemModifiers.blockChance ?? 0), bleedChance: itemModifiers.bleedChance ?? 0, burnChance: itemModifiers.burnChance ?? 0, poisonChance: itemModifiers.poisonChance ?? 0, blindChance: itemModifiers.blindChance ?? 0, bleedResistance: itemModifiers.bleedResistance ?? 0, burnResistance: itemModifiers.burnResistance ?? 0, poisonResistance: itemModifiers.poisonResistance ?? 0, blindResistance: itemModifiers.blindResistance ?? 0 },
+      visionRange: creature.archetype === "caster" || creature.archetype === "skirmisher" ? 4 : 3,
+      visionTraits: /vampire|mist|bruma|wolf|crow|corvo|specter|echo/i.test(`${creature.id} ${creature.name}`) ? ["fog_sight"] : [],
+      stats: { speed: (creature.speed ?? ARCHETYPE_SPEED_FALLBACK[creature.archetype ?? ""] ?? DEFAULT_COMBAT_SPEED) + (itemModifiers.speed ?? 0), physicalDamage: creature.physicalDamage + (itemModifiers.physicalDamage ?? 0), magicalDamage: (creature.magicalDamage ?? 0) + (itemModifiers.magicalDamage ?? 0), physicalDefense: creature.physicalDefense + (itemModifiers.physicalDefense ?? 0), magicalDefense: creature.magicalDefense + (itemModifiers.magicalDefense ?? 0), criticalChance: (highRarity ? 12 : creature.rarity === "rare" ? 7 : 4) + (itemModifiers.criticalChance ?? 0), dodgeChance: (creature.rarity === "rare" ? 5 : 2) + (itemModifiers.dodgeChance ?? 0), blockChance: (creature.blockChance ?? 0) + (itemModifiers.blockChance ?? 0), bleedChance: itemModifiers.bleedChance ?? 0, burnChance: itemModifiers.burnChance ?? 0, poisonChance: itemModifiers.poisonChance ?? 0, blindChance: itemModifiers.blindChance ?? 0, bleedResistance: itemModifiers.bleedResistance ?? 0, burnResistance: itemModifiers.burnResistance ?? 0, poisonResistance: itemModifiers.poisonResistance ?? 0, blindResistance: itemModifiers.blindResistance ?? 0 },
     };
   });
-  const initialTurn = preparePlayerTurn({ ...input.player, activeEffects: input.player.activeEffects ?? emptyEffects(), onHitEffects: input.player.onHitEffects ?? [], position: input.player.position ?? PLAYER_START_CELL }, {});
-  return { id: battleId(), regionId: input.regionId, creatures, player: initialTurn.player, companion: input.companion ?? null, enemies, masteredCreatureIds: input.masteredCreatureIds ?? [], lastPetTargetId: null, lastPetDamage: 0, cooldowns: initialTurn.cooldowns, turn: 1, status: "active", reward: null, log: [{ turn: 0, tone: "system", text: creatures.length > 1 ? `Emboscada: ${creatures.length} inimigos bloqueiam o caminho.` : `${creatures[0].name} bloqueia o caminho.` }] };
+  const playerPosition = input.player.position ?? PLAYER_START_CELL;
+  const normalizedPlayer: HuntCombatant = {
+    ...input.player,
+    activeEffects: input.player.activeEffects ?? emptyEffects(),
+    onHitEffects: input.player.onHitEffects ?? [],
+    position: playerPosition,
+    facing: input.player.facing ?? 2,
+    visionRange: input.player.visionRange ?? 3,
+    visionTraits: input.player.visionTraits ?? [],
+    stats: { ...input.player.stats, speed: input.player.stats.speed ?? DEFAULT_COMBAT_SPEED },
+  };
+  const positionedEnemies = ensureActiveEnemyPositions(enemies, playerPosition, battlefield);
+  const baseState: HuntBattleState = { id, regionId: input.regionId, creatures, battlefield, player: normalizedPlayer, companion: input.companion ?? null, enemies: positionedEnemies, masteredCreatureIds: input.masteredCreatureIds ?? [], lastPetTargetId: null, lastPetDamage: 0, cooldowns: {}, movementUsed: false, initiativeOrder: [], initiativeIndex: 0, currentActorId: null, turn: 1, status: "active", reward: null, log: [
+    { turn: 0, tone: "system", text: creatures.length > 1 ? `Emboscada: ${creatures.length} inimigos ocupam o campo.` : `${creatures[0].name} bloqueia o caminho.` },
+    { turn: 0, tone: "system", text: battlefield.fog.enabled ? `${battlefield.fog.label} ativa: visão e linha de visão passam a limitar alvos.` : `Campo sem neblina: obstáculos ainda bloqueiam linha de visão e concedem cobertura.` },
+  ] };
+  return initializeInitiative(baseState);
 }
 
-// ---------------------------------------------------------------------------
-// IA de habilidades de criatura
-// ---------------------------------------------------------------------------
-
-interface TriggerContext {
-  turn: number;
-  self: HuntCombatant;
-  target: HuntCombatant;
-  alliesAlive: number;
-  distance: number;
-}
-
-function hasBuff(combatant: HuntCombatant): boolean {
-  return combatant.activeEffects.some((effect) => effect.kind === "guard" || effect.kind === "evasion" || effect.kind === "enraged" || (effect.damageBonusPercent ?? 0) > 0);
-}
-
-/**
- * Avalia as pequenas expressões de aiTrigger do bestiário ("turn == 1",
- * "hp_self < 30%", "target_position == back" etc). Gatilhos dependentes de
- * um sistema que não existe (ex.: "resource_full", sem medidor de recurso)
- * nunca disparam — a habilidade cai para a próxima da lista, normalmente o
- * ataque básico "always".
- */
-export function evaluateTrigger(trigger: string, ctx: TriggerContext): boolean {
-  const t = trigger.trim();
-  if (t === "always") return true;
-  if (t === "turn == 1") return ctx.turn === 1;
-  const modMatch = t.match(/^turn % (\d+) == 0$/);
-  if (modMatch) return ctx.turn % Number(modMatch[1]) === 0;
-  if (t === "hp_self == 0") return ctx.self.hpCurrent === 0;
-  const cmpMatch = t.match(/^(hp_self|target_hp|mp_self)\s*(<|>|>=|==)\s*(\d+)%$/);
-  if (cmpMatch) {
-    const [, subject, op, valueStr] = cmpMatch;
-    const value = Number(valueStr);
-    const percent = subject === "hp_self" ? (ctx.self.hpCurrent / Math.max(1, ctx.self.hpMax)) * 100
-      : subject === "target_hp" ? (ctx.target.hpCurrent / Math.max(1, ctx.target.hpMax)) * 100
-      : (ctx.self.mpCurrent / Math.max(1, ctx.self.mpMax)) * 100;
-    if (op === "<") return percent < value;
-    if (op === ">") return percent > value;
-    if (op === ">=") return percent >= value;
-    return Math.abs(percent - value) < 0.01;
-  }
-  const alliesMatch = t.match(/^(?:allies_alive|allies_same_species|enemy_count) >= (\d+)$/);
-  if (alliesMatch) return ctx.alliesAlive >= Number(alliesMatch[1]);
-  if (t === "target_not_poisoned") return !ctx.target.activeEffects.some((effect) => effect.kind === "poison");
-  if (t === "target_not_blind") return !ctx.target.activeEffects.some((effect) => effect.kind === "blind");
-  if (t === "target_not_burning") return !ctx.target.activeEffects.some((effect) => effect.kind === "burn");
-  if (t === "target_has_poison") return ctx.target.activeEffects.some((effect) => effect.kind === "poison");
-  if (t === "target_has_marked") return ctx.target.activeEffects.some((effect) => effect.kind === "marked");
-  if (t === "target_has_buff") return hasBuff(ctx.target);
-  if (t === "target_used_ability") return Boolean(ctx.target.lastAbilityUsed);
-  if (t === "dodged_last_turn") return Boolean(ctx.self.dodgedLastTurn);
-  if (t === "attacked_last_turn") return Boolean(ctx.self.attackedLastTurn);
-  if (t === "distance > 1") return ctx.distance > 1;
-  if (t === "target_adjacent") return ctx.distance <= 1;
-  const posMatch = t.match(/^target_position == (front|center|back)$/);
-  if (posMatch) return positionLabelForDistance(ctx.distance) === posMatch[1];
-  if (t === "target_changed_position" || t === "target_attempted_escape_or_position_change") return Boolean(ctx.target.changedPositionThisTurn);
-  // "resource_full" depende de um medidor de recurso que este motor não tem — nunca dispara.
-  if (t === "resource_full") return false;
-  return false;
-}
 
 interface SpecialEffectContext {
   self: HuntCombatant;
   player: HuntCombatant;
   enemies: HuntCombatant[];
+  battlefield: BattlefieldState;
   turn: number;
   logs: HuntBattleLog[];
   damageDealt?: number;
@@ -392,10 +626,46 @@ interface SpecialEffectContext {
 }
 
 function cloneAsMinion(source: HuntCombatant, index: number): HuntCombatant {
-  // Sem acesso ao catálogo de criaturas (vive em apps/web), a invocação usa o
-  // próprio invocador como molde: mesma família de ataques, HP bem menor.
+  // O catálogo completo vive em apps/web e não pode ser importado pelo game-core.
+  // O fallback precisa ser seguro: uma cria NUNCA herda kit/fases/invocações de boss.
   const hpMax = Math.max(1, Math.round(source.hpMax * 0.45));
-  return { ...source, id: `${source.id}-cria-${index}-${Date.now()}`, name: `${source.name} (cria)`, hpCurrent: hpMax, hpMax, activeEffects: [], abilityCooldowns: {}, charging: null, usedOncePerBattle: [] };
+  const magical = source.stats.magicalDamage > source.stats.physicalDamage;
+  const basicAbility: CreatureAbilityDefinition = {
+    id: `${source.id}-summoned-basic`,
+    name: magical ? "Rajada da Cria" : "Golpe da Cria",
+    damageFamily: magical ? "magical" : "physical",
+    scaling: 0.75,
+    cooldownTurns: 0,
+    target: "single_enemy",
+    description: "Ataque simples do reforço invocado.",
+    aiTrigger: "always",
+    range: magical ? 3 : 1,
+  };
+  return {
+    ...source,
+    id: `${source.id}-cria-${index}-${Date.now()}`,
+    creatureId: undefined,
+    name: `${source.name} (cria)`,
+    hpCurrent: hpMax,
+    hpMax,
+    stats: {
+      ...source.stats,
+      physicalDamage: Math.max(1, Math.round(source.stats.physicalDamage * 0.6)),
+      magicalDamage: Math.max(0, Math.round(source.stats.magicalDamage * 0.6)),
+      physicalDefense: Math.max(0, Math.round(source.stats.physicalDefense * 0.7)),
+      magicalDefense: Math.max(0, Math.round(source.stats.magicalDefense * 0.7)),
+    },
+    role: "fodder",
+    activeEffects: [],
+    onHitEffects: [],
+    abilities: [basicAbility],
+    abilityCooldowns: {},
+    charging: null,
+    usedOncePerBattle: [],
+    position: undefined,
+    nextDamageBonusPercent: 0,
+    permanentDamageReductionPercent: 0,
+  };
 }
 
 /** Interpreta os `specialEffects` de uma habilidade de criatura. Efeitos que dependem de
@@ -448,17 +718,27 @@ function applySpecialEffects(effects: CreatureSpecialEffect[] | undefined, ctx: 
       }
       case "permanent_phase_buff":
       case "permanent_damage_buff": {
-        const flag = `${effect.kind}`;
-        if (!(self.usedOncePerBattle ?? []).includes(flag)) {
-          const dmgBonus = Number(effect.bonusPercent ?? effect.damageBonusPercent ?? 0) / 100;
-          const defensePenalty = Number(effect.selfDefensePenaltyPercent ?? 0) / 100;
-          self = {
-            ...self,
-            stats: { ...self.stats, physicalDamage: Math.round(self.stats.physicalDamage * (1 + dmgBonus)), magicalDamage: Math.round(self.stats.magicalDamage * (1 + dmgBonus)), physicalDefense: Math.round(self.stats.physicalDefense * (1 - defensePenalty)), magicalDefense: Math.round(self.stats.magicalDefense * (1 - defensePenalty)), criticalChance: self.stats.criticalChance + Number(effect.criticalChanceBonus ?? 0) },
-            usedOncePerBattle: [...(self.usedOncePerBattle ?? []), flag],
-          };
-          ctx.logs.push({ turn: ctx.turn, tone: "enemy", text: `${self.name} entra em fúria: bônus permanente de combate ativado.` });
-        }
+        // A trava de repetição pertence à habilidade (`oncePerBattle`), não ao
+        // tipo genérico do efeito. Assim um boss pode ter Fase 2 e Fase 3 com
+        // `permanent_phase_buff` sem uma bloquear a outra por engano.
+        const genericDamageBonus = Number(effect.bonusPercent ?? effect.damageBonusPercent ?? 0) / 100;
+        const physicalDamageBonus = Number(effect.physicalDamageBonusPercent ?? 0) / 100;
+        const magicalDamageBonus = Number(effect.magicalDamageBonusPercent ?? 0) / 100;
+        const defensePenalty = Number(effect.selfDefensePenaltyPercent ?? 0) / 100;
+        const damageReduction = Number(effect.damageReductionPercent ?? 0);
+        self = {
+          ...self,
+          permanentDamageReductionPercent: Math.min(90, Math.max(0, (self.permanentDamageReductionPercent ?? 0) + damageReduction)),
+          stats: {
+            ...self.stats,
+            physicalDamage: Math.round(self.stats.physicalDamage * (1 + genericDamageBonus + physicalDamageBonus)),
+            magicalDamage: Math.round(self.stats.magicalDamage * (1 + genericDamageBonus + magicalDamageBonus)),
+            physicalDefense: Math.max(0, Math.round(self.stats.physicalDefense * (1 - defensePenalty))),
+            magicalDefense: Math.max(0, Math.round(self.stats.magicalDefense * (1 - defensePenalty))),
+            criticalChance: self.stats.criticalChance + Number(effect.criticalChanceBonus ?? 0),
+          },
+        };
+        ctx.logs.push({ turn: ctx.turn, tone: "enemy", text: `${self.name} entra em fúria: bônus permanente de combate ativado.` });
         break;
       }
       case "self_hp_cost_after_cast": {
@@ -490,21 +770,28 @@ function applySpecialEffects(effects: CreatureSpecialEffect[] | undefined, ctx: 
         if (echo.dealt) ctx.logs.push({ turn: ctx.turn, tone: "enemy", text: `${self.name} ecoa a última ação e causa ${echo.dealt} de dano.` });
         break;
       }
+      case "force_position_change":
+      case "push":
+      case "pull": {
+        if (player.position && self.position && !player.activeEffects.some((entry) => entry.kind === "position_lock")) {
+          const occupied = new Set(activeFrontLine(enemies).flatMap((entry) => entry.position ? [hexKey(entry.position)] : []));
+          const mode: ForcedMoveMode = effect.kind === "push" ? "push" : effect.kind === "pull" ? "pull" : "force";
+          const destination = forcedMoveDestination(player.position, self.position, occupied, mode, Number(effect.distance ?? 1), ctx.battlefield);
+          if (hexKey(destination) !== hexKey(player.position)) {
+            player = { ...player, position: destination, changedPositionThisTurn: true };
+            const label = mode === "push" ? "empurra" : mode === "pull" ? "puxa" : "desloca";
+            ctx.logs.push({ turn: ctx.turn, tone: "enemy", text: `${self.name} ${label} ${player.name} para outro hexágono.` });
+          }
+        }
+        break;
+      }
       default:
-        break; // damage_bonus_per_ally / conditional_damage_bonus / turn_scaling_damage: aplicados no cálculo de dano. force_position_change/gap_close: sistema de posição.
+        break; // damage_bonus_per_ally / conditional_damage_bonus / turn_scaling_damage: aplicados no cálculo de dano. gap_close é tratado pela movimentação tática da IA.
     }
   }
   return { self, player, enemies };
 }
 
-const DEFAULT_BASIC_ATTACK: CreatureAbilityDefinition = { id: "basic-attack", name: "Ataque Básico", damageFamily: "physical", scaling: 1, cooldownTurns: 0, target: "single_enemy", description: "Ataque direto.", aiTrigger: "always" };
-const REACTION_TRIGGERS = new Set(["target_changed_position", "target_attempted_escape_or_position_change"]);
-
-function pickCreatureAbility(self: HuntCombatant, ctx: TriggerContext): CreatureAbilityDefinition {
-  const pool = self.abilities?.length ? self.abilities : [DEFAULT_BASIC_ATTACK];
-  const usable = pool.filter((ability) => !ability.reaction && (self.abilityCooldowns?.[ability.id] ?? 0) === 0 && !(ability.damageFamily === "magical" && self.activeEffects.some((effect) => effect.kind === "silence")));
-  return usable.find((ability) => evaluateTrigger(ability.aiTrigger, ctx)) ?? usable[usable.length - 1] ?? DEFAULT_BASIC_ATTACK;
-}
 
 /** Dano bruto de uma habilidade de criatura, já com moral de bando, bônus condicional
  * por aliados vivos e o consumo de um eventual `empower_next_damage` pendente. */
@@ -523,28 +810,34 @@ function creatureAbilityRawDamage(ability: CreatureAbilityDefinition, self: Hunt
 // Resolução de rodada
 // ---------------------------------------------------------------------------
 
-function runEnemyPhase(turn: number, player0: HuntCombatant, enemies0: HuntCombatant[], logs: HuntBattleLog[], masteryMultiplier: (creatureId?: string) => number): { player: HuntCombatant; enemies: HuntCombatant[]; defeated: boolean } {
+function runEnemyPhase(turn: number, player0: HuntCombatant, enemies0: HuntCombatant[], battlefield: BattlefieldState, logs: HuntBattleLog[], masteryMultiplier: (creatureId?: string) => number, actorIds?: Set<string>): { player: HuntCombatant; enemies: HuntCombatant[]; defeated: boolean } {
   let player = player0;
-  let enemies = enemies0;
+  let enemies = ensureActiveEnemyPositions(enemies0, player.position ?? PLAYER_START_CELL, battlefield);
   const slots = activeFrontLine(enemies);
   for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
     const enemyRef = slots[slotIndex];
+    if (actorIds && !actorIds.has(enemyRef.id)) continue;
     let workingEnemy = enemies.find((entry) => entry.id === enemyRef.id) ?? enemyRef;
     if (workingEnemy.hpCurrent <= 0) continue;
+
     if (workingEnemy.abilityCooldowns && Object.keys(workingEnemy.abilityCooldowns).length) {
       const nextCooldowns = Object.fromEntries(Object.entries(workingEnemy.abilityCooldowns).map(([id, turns]): [string, number] => [id, Math.max(0, turns - 1)]).filter(([, turns]) => turns > 0));
       workingEnemy = { ...workingEnemy, abilityCooldowns: nextCooldowns };
     }
     if (workingEnemy.activeEffects.some((effect) => effect.kind === "stun")) {
       logs.push({ turn, tone: "system", text: `${workingEnemy.name} está atordoado e perde o turno.` });
+      workingEnemy = finishOwnerTurnEffects({ ...workingEnemy, dodgedLastTurn: false, attackedLastTurn: false }, turn, logs);
       enemies = enemies.map((entry) => (entry.id === workingEnemy.id ? workingEnemy : entry));
       continue;
     }
 
     const frontIds = activeFrontLine(enemies).map((entry) => entry.id);
     const alliesAlive = frontIds.filter((id) => id !== workingEnemy.id).length;
-    const slotCell = ENEMY_SLOT_CELLS[slotIndex] ?? ENEMY_SLOT_CELLS[0];
-    const ctx: TriggerContext = { turn, self: workingEnemy, target: player, alliesAlive, distance: hexDistance(slotCell, player.position ?? PLAYER_START_CELL) };
+    const playerPosition = player.position ?? PLAYER_START_CELL;
+    const enemyPosition = workingEnemy.position ?? ENEMY_FRONT_SPAWN_CELLS[0];
+    const couldSeeAtTurnStart = canUnitSeeCell(workingEnemy, playerPosition, battlefield);
+    if (couldSeeAtTurnStart) workingEnemy = { ...workingEnemy, lastKnownTargetPosition: { ...playerPosition } };
+    let ctx: TriggerContext = { turn, self: workingEnemy, target: player, alliesAlive, distance: hexDistance(enemyPosition, playerPosition) };
 
     let chosenAbility: CreatureAbilityDefinition;
     let isChargeResolution = false;
@@ -552,18 +845,85 @@ function runEnemyPhase(turn: number, player0: HuntCombatant, enemies0: HuntComba
       chosenAbility = workingEnemy.abilities?.find((entry) => entry.id === workingEnemy.charging?.abilityId) ?? DEFAULT_BASIC_ATTACK;
       isChargeResolution = true;
     } else {
-      chosenAbility = pickCreatureAbility(workingEnemy, ctx);
+      chosenAbility = pickCreatureAbility(workingEnemy, ctx, battlefield, enemies, couldSeeAtTurnStart);
+    }
+
+    // `dodged_last_turn` / `attacked_last_turn` são eventos de janela única.
+    // A habilidade atual ainda enxerga o snapshot em `ctx`, mas os flags são
+    // consumidos antes da ação. Se um contra-golpe ou outro ataque ocorrer DURANTE
+    // esta ação, `attack()` os marca novamente e o próximo turno poderá reagir.
+    workingEnemy = { ...workingEnemy, dodgedLastTurn: false, attackedLastTurn: false };
+    enemies = enemies.map((entry) => (entry.id === workingEnemy.id ? workingEnemy : entry));
+
+    // A IA agora possui seu próprio recurso de movimento antes da ação. Golpes já
+    // carregados não reposicionam: a posição anunciada faz parte do telegraph.
+    if (!isChargeResolution && chosenAbility.damageFamily !== "none") {
+      const tactical = chooseEnemyTacticalDestination(workingEnemy, player, enemies, chosenAbility, battlefield);
+      const destination = tactical.destination;
+      const startPosition = workingEnemy.position ?? enemyPosition;
+      if (hexKey(destination) !== hexKey(startPosition)) {
+        workingEnemy = { ...workingEnemy, position: destination, facing: hexDirectionToward(destination, playerPosition), changedPositionThisTurn: true, tacticalIntent: tactical.intent };
+        enemies = enemies.map((entry) => (entry.id === workingEnemy.id ? workingEnemy : entry));
+        logs.push({ turn, tone: "enemy", text: `${workingEnemy.name}: ${tactical.intent.label.toLowerCase()} — reposiciona-se pelo campo.` });
+      } else {
+        workingEnemy = { ...workingEnemy, changedPositionThisTurn: false, facing: hexDirectionToward(startPosition, playerPosition), tacticalIntent: tactical.intent };
+      }
+      const seesAfterMove = canUnitSeeCell(workingEnemy, playerPosition, battlefield);
+      if (seesAfterMove) {
+        workingEnemy = { ...workingEnemy, lastKnownTargetPosition: { ...playerPosition } };
+        enemies = enemies.map((entry) => (entry.id === workingEnemy.id ? workingEnemy : entry));
+      }
+      ctx = { ...ctx, self: workingEnemy, distance: hexDistance(workingEnemy.position ?? startPosition, playerPosition) };
+      // Se a IA começou sem visão e encontrou o Player durante a busca, ela escolhe a melhor
+      // ação disponível agora, sem usar informação escondida antes do movimento.
+      if (!couldSeeAtTurnStart && seesAfterMove) chosenAbility = pickCreatureAbility(workingEnemy, ctx, battlefield, enemies, true);
+    } else {
+      const chargeIntent: AITacticalIntent | undefined = isChargeResolution ? { kind: "control_zone", label: "Resolver ameaça", targetCell: workingEnemy.charging?.targetCell } : workingEnemy.tacticalIntent;
+      workingEnemy = { ...workingEnemy, facing: hexDirectionToward(workingEnemy.position ?? enemyPosition, playerPosition), tacticalIntent: chargeIntent };
+      ctx = { ...ctx, self: workingEnemy };
+    }
+
+    const actionRange = creatureAbilityRange(chosenAbility, workingEnemy);
+    const chargedCells = workingEnemy.charging?.affectedCells ?? [];
+    const playerInsideChargedArea = chargedCells.some((cell) => hexKey(cell) === hexKey(playerPosition));
+    const canSeePlayer = canUnitSeeCell(workingEnemy, playerPosition, battlefield);
+    const requiresPlayerTarget = !["self", "all_allies", "battlefield"].includes(chosenAbility.target);
+    const spatiallyInvalid = requiresPlayerTarget && (!canSeePlayer || ctx.distance > actionRange);
+    if ((chosenAbility.damageFamily !== "none" || requiresPlayerTarget) && (isChargeResolution ? !playerInsideChargedArea : spatiallyInvalid)) {
+      if (isChargeResolution) {
+        workingEnemy = { ...workingEnemy, charging: null };
+        logs.push({ turn, tone: "system", text: `${workingEnemy.name} resolve ${chosenAbility.name}, mas ${player.name} saiu dos hexágonos telegrafados.` });
+      } else {
+        logs.push({ turn, tone: "enemy", text: canSeePlayer ? `${workingEnemy.name} não alcança ${player.name} nesta rodada.` : `${workingEnemy.name} perde ${player.name} de vista entre a neblina/obstáculos.` });
+      }
+      workingEnemy = finishOwnerTurnEffects(workingEnemy, turn, logs);
+      enemies = enemies.map((entry) => (entry.id === workingEnemy.id ? workingEnemy : entry));
+      continue;
     }
 
     if (!isChargeResolution && chosenAbility.chargeTurns) {
-      workingEnemy = { ...workingEnemy, charging: { abilityId: chosenAbility.id }, abilityCooldowns: { ...workingEnemy.abilityCooldowns, [chosenAbility.id]: chosenAbility.cooldownTurns } };
-      logs.push({ turn, tone: "enemy", text: `${workingEnemy.name} prepara ${chosenAbility.name}: ${chosenAbility.description}` });
+      const targetCell = { ...playerPosition };
+      const affectedCells = abilityAreaCells(workingEnemy.position ?? enemyPosition, targetCell, creatureAbilityArea(chosenAbility), actionRange);
+      workingEnemy = {
+        ...workingEnemy,
+        charging: { abilityId: chosenAbility.id, targetCell, affectedCells, startedTurn: turn },
+        abilityCooldowns: { ...workingEnemy.abilityCooldowns, [chosenAbility.id]: chosenAbility.cooldownTurns },
+        usedOncePerBattle: chosenAbility.oncePerBattle
+          ? [...new Set([...(workingEnemy.usedOncePerBattle ?? []), chosenAbility.id])]
+          : workingEnemy.usedOncePerBattle,
+      };
+      logs.push({ turn, tone: "enemy", text: `${workingEnemy.name} prepara ${chosenAbility.name}: ${affectedCells.length} hexágono(s) ficam ameaçados. ${chosenAbility.description}` });
+      workingEnemy = finishOwnerTurnEffects(workingEnemy, turn, logs);
       enemies = enemies.map((entry) => (entry.id === workingEnemy.id ? workingEnemy : entry));
       continue;
     }
     workingEnemy = isChargeResolution
       ? { ...workingEnemy, charging: null }
-      : chosenAbility.cooldownTurns ? { ...workingEnemy, abilityCooldowns: { ...workingEnemy.abilityCooldowns, [chosenAbility.id]: chosenAbility.cooldownTurns } } : workingEnemy;
+      : {
+          ...workingEnemy,
+          ...(chosenAbility.cooldownTurns ? { abilityCooldowns: { ...workingEnemy.abilityCooldowns, [chosenAbility.id]: chosenAbility.cooldownTurns } } : {}),
+          ...(chosenAbility.oncePerBattle ? { usedOncePerBattle: [...new Set([...(workingEnemy.usedOncePerBattle ?? []), chosenAbility.id])] } : {}),
+        };
 
     const hadLeader = enemies.some((entry) => entry.role === "leader");
     const leaderAlive = enemies.some((entry) => entry.role === "leader" && entry.hpCurrent > 0);
@@ -575,37 +935,170 @@ function runEnemyPhase(turn: number, player0: HuntCombatant, enemies0: HuntComba
         else if (chosenAbility.target === "all_allies") enemies = enemies.map((entry) => (frontIds.includes(entry.id) && entry.hpCurrent > 0 ? applyEffects(entry, chosenAbility.statusEffects!, workingEnemy.name, turn, logs, workingEnemy.id) : entry));
         else player = applyEffects(player, chosenAbility.statusEffects, workingEnemy.name, turn, logs, workingEnemy.id);
       }
-      const special = applySpecialEffects(chosenAbility.specialEffects, { self: workingEnemy, player, enemies, turn, logs, frontLineIds: frontIds });
+      const special = applySpecialEffects(chosenAbility.specialEffects, { self: workingEnemy, player, enemies, battlefield, turn, logs, frontLineIds: frontIds });
       workingEnemy = special.self; player = special.player; enemies = special.enemies;
       enemies = enemies.map((entry) => (entry.id === workingEnemy.id ? workingEnemy : entry));
       logs.push({ turn, tone: "enemy", text: `${workingEnemy.name} usa ${chosenAbility.name}.` });
     } else {
       const rawDamage = creatureAbilityRawDamage(chosenAbility, workingEnemy, player, ctx, moraleMult);
+      const cover = applyBattlefieldCover(rawDamage, workingEnemy.position ?? enemyPosition, playerPosition, battlefield);
       if (workingEnemy.nextDamageBonusPercent) workingEnemy = { ...workingEnemy, nextDamageBonusPercent: 0 };
-      const counter = attack({ attacker: workingEnemy, defender: player, rawDamage, kind: chosenAbility.damageFamily, effects: chosenAbility.statusEffects ?? [], sourceName: workingEnemy.name, turn, logs, sourceId: workingEnemy.id });
+      const counter = attack({ attacker: workingEnemy, defender: player, rawDamage: cover.rawDamage, kind: chosenAbility.damageFamily, effects: chosenAbility.statusEffects ?? [], sourceName: workingEnemy.name, turn, logs, sourceId: workingEnemy.id });
+      if (cover.coverPercent > 0) logs.push({ turn, tone: "system", text: `${player.name} recebe ${cover.coverPercent}% de cobertura do terreno contra o ataque à distância.` });
       player = counter.defender;
       const moraleNote = moraleMult < 1 ? ", com a moral quebrada," : isChargeResolution ? ", com o golpe carregado," : "";
       if (counter.dealt) logs.push({ turn, tone: "enemy", text: `${workingEnemy.name}${moraleNote} usa ${chosenAbility.name} e causa ${counter.dealt} de dano${counter.critical ? " crítico" : counter.fumble ? " (golpe fraco)" : ""}${counter.blocked ? " · bloqueado" : ""}.` });
       else logs.push({ turn, tone: "enemy", text: `${workingEnemy.name} usa ${chosenAbility.name}, mas erra.` });
 
-      const special = applySpecialEffects(chosenAbility.specialEffects, { self: workingEnemy, player, enemies, turn, logs, damageDealt: counter.dealt, frontLineIds: frontIds });
+      if (chosenAbility.selfStatusEffects?.length) {
+        workingEnemy = applyEffects(workingEnemy, chosenAbility.selfStatusEffects, workingEnemy.name, turn, logs, workingEnemy.id);
+      }
+      const special = applySpecialEffects(chosenAbility.specialEffects, { self: workingEnemy, player, enemies, battlefield, turn, logs, damageDealt: counter.dealt, frontLineIds: frontIds });
       workingEnemy = special.self; player = special.player; enemies = special.enemies;
       enemies = enemies.map((entry) => (entry.id === workingEnemy.id ? workingEnemy : entry));
 
-      if (player.hpCurrent === 0) { logs.push({ turn, tone: "defeat", text: `${player.name} caiu. HP permanece em 0 até receber cura.` }); return { player, enemies, defeated: true }; }
+      if (player.hpCurrent === 0) { logs.push({ turn, tone: "defeat", text: `${player.name} caiu. HP permanece em 0 até receber cura.` }); return { player, enemies: ensureActiveEnemyPositions(enemies, player.position ?? PLAYER_START_CELL, battlefield), defeated: true }; }
 
-      // Reação do Samurai: só pode acontecer depois de um ataque direto que acertou.
-      // Ela não consome ação e não chama nenhuma outra reação, preservando o contrato
-      // de combate "reação não dispara reação".
+      // Reação do Samurai: reação não consome ação e não dispara outra reação.
       if (counter.dealt > 0 && player.counterAttack && Math.random() * 100 < player.counterAttack.chance) {
         const retaliation = attack({ attacker: player, defender: workingEnemy, rawDamage: Math.round(Math.max(1, Math.round(player.stats.physicalDamage * player.counterAttack.scaling)) * masteryMultiplier(workingEnemy.creatureId)), kind: "physical", effects: [], sourceName: player.counterAttack.sourceName, turn, logs, sourceId: player.id });
         enemies = enemies.map((entry) => (entry.id === workingEnemy.id ? retaliation.defender : entry));
         logs.push({ turn, tone: "player", text: retaliation.dealt ? `${player.counterAttack.sourceName}: ${player.name} contra-ataca ${workingEnemy.name} e causa ${retaliation.dealt} de dano${retaliation.critical ? " crítico" : retaliation.fumble ? " (golpe fraco)" : ""}${retaliation.blocked ? " · bloqueado" : ""}.` : `${player.counterAttack.sourceName}: ${player.name} tenta contra-atacar, mas não acerta.` });
       }
     }
+    workingEnemy = enemies.find((entry) => entry.id === workingEnemy.id) ?? workingEnemy;
+    workingEnemy = finishOwnerTurnEffects(workingEnemy, turn, logs);
+    enemies = enemies.map((entry) => (entry.id === workingEnemy.id ? workingEnemy : entry));
     enemies = enemies.map((entry) => maybeRevive(entry, logs, turn));
   }
+  enemies = ensureActiveEnemyPositions(enemies, player.position ?? PLAYER_START_CELL, battlefield);
   return { player, enemies, defeated: false };
+}
+
+function runInitiativeActor(turn: number, actorId: string, player: HuntCombatant, enemies: HuntCombatant[], battlefield: BattlefieldState, logs: HuntBattleLog[], masteryMultiplier: (creatureId?: string) => number) {
+  const result = runEnemyPhase(turn, player, enemies, battlefield, logs, masteryMultiplier, new Set([actorId]));
+  return result;
+}
+
+function companionEndOfRound(state: HuntBattleState, player: HuntCombatant, enemies: HuntCombatant[], cooldowns: Record<string, number>, logs: HuntBattleLog[]) {
+  if (!state.companion || enemies.every((enemy) => enemy.hpCurrent === 0)) {
+    return { player, enemies, cooldowns, lastPetTargetId: null as string | null, lastPetDamage: 0 };
+  }
+  const masteredCreatureIds = state.masteredCreatureIds ?? [];
+  const masteryMultiplier = (creatureId?: string) => (creatureId && masteredCreatureIds.includes(creatureId) ? 1 + MASTERY_DAMAGE_BONUS : 1);
+  const petTarget = activeFrontLine(enemies)
+    .filter((enemy) => enemy.position && canUnitSeeCell(player, enemy.position, state.battlefield))
+    .sort((left, right) => left.hpCurrent - right.hpCurrent)[0];
+  if (!petTarget) return { player, enemies, cooldowns, lastPetTargetId: null as string | null, lastPetDamage: 0 };
+  const petFumble = Math.random() * 100 < FUMBLE_CHANCE;
+  const petRawDamage = Math.max(1, Math.round(player.stats.magicalDamage * state.companion.magicalDamageScaling * masteryMultiplier(petTarget.creatureId) * (petFumble ? FUMBLE_DAMAGE_MULTIPLIER : 1)));
+  const petCover = applyBattlefieldCover(petRawDamage, player.position ?? PLAYER_START_CELL, petTarget.position ?? ENEMY_FRONT_SPAWN_CELLS[0], state.battlefield);
+  const petDamage = mitigateDamage(petCover.rawDamage, "magical", petTarget.stats);
+  if (petCover.coverPercent > 0) logs.push({ turn: state.turn, tone: "system", text: `${petTarget.name} recebe ${petCover.coverPercent}% de cobertura contra ${state.companion.name}.` });
+  enemies = enemies.map((enemy) => (enemy.id === petTarget.id ? maybeRevive({ ...enemy, hpCurrent: Math.max(0, enemy.hpCurrent - petDamage) }, logs, state.turn) : enemy));
+  logs.push({ turn: state.turn, tone: "player", text: `${state.companion.name} lança Bola de Fogo em ${petTarget.name} e causa ${petDamage} de dano mágico${petFumble ? " (golpe fraco)" : ""}.` });
+  return { player, enemies, cooldowns, lastPetTargetId: petTarget.id, lastPetDamage: petDamage };
+}
+
+/**
+ * Depois que o Player consome sua ação, a fila real continua: IAs mais lentas
+ * concluem a rodada, o companion resolve no fim da rodada, uma nova ordem é
+ * recalculada e IAs mais rápidas podem agir antes do próximo turno do Player.
+ */
+function advanceInitiativeAfterPlayer(state: HuntBattleState, player0: HuntCombatant, enemies0: HuntCombatant[], cooldowns0: Record<string, number>, logs: HuntBattleLog[]): HuntBattleState {
+  let player = player0;
+  let enemies = ensureActiveEnemyPositions(enemies0, player.position ?? PLAYER_START_CELL, state.battlefield);
+  let cooldowns = { ...cooldowns0 };
+  const masteredCreatureIds = state.masteredCreatureIds ?? [];
+  const masteryMultiplier = (creatureId?: string) => (creatureId && masteredCreatureIds.includes(creatureId) ? 1 + MASTERY_DAMAGE_BONUS : 1);
+  const currentOrder = state.initiativeOrder?.length ? state.initiativeOrder : buildInitiativeOrder(player, enemies);
+  const playerIndex = Math.max(0, currentOrder.indexOf(player.id));
+
+  for (const actorId of currentOrder.slice(playerIndex + 1)) {
+    if (actorId === player.id) continue;
+    const result = runInitiativeActor(state.turn, actorId, player, enemies, state.battlefield, logs, masteryMultiplier);
+    player = result.player;
+    enemies = result.enemies;
+    if (result.defeated) return { ...state, player, enemies, cooldowns, currentActorId: actorId, status: "defeat", log: logs };
+  }
+
+  const pet = companionEndOfRound(state, player, enemies, cooldowns, logs);
+  player = pet.player;
+  enemies = pet.enemies;
+  cooldowns = pet.cooldowns;
+
+  // Efeitos contínuos pertencem ao FIM DA RODADA e nunca ticam na rodada em
+  // que foram aplicados. Isso mantém "4 turnos" = 4 ticks reais.
+  player = tickEndOfRoundDots(player, state.turn, logs);
+  enemies = enemies.map((enemy) => maybeRevive(tickEndOfRoundDots(enemy, state.turn, logs), logs, state.turn));
+  if (player.hpCurrent === 0) {
+    return { ...state, player, enemies, cooldowns, lastPetTargetId: pet.lastPetTargetId, lastPetDamage: pet.lastPetDamage, status: "defeat", log: [...logs, { turn: state.turn, tone: "defeat", text: `${player.name} caiu no fim da rodada pelos efeitos contínuos.` }] };
+  }
+  if (enemies.every((enemy) => enemy.hpCurrent === 0)) {
+    const loot = rewardFor(state, state.turn);
+    return { ...state, player, enemies, cooldowns, lastPetTargetId: pet.lastPetTargetId, lastPetDamage: pet.lastPetDamage, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] };
+  }
+
+  const nextTurn = state.turn + 1;
+  enemies = ensureActiveEnemyPositions(enemies, player.position ?? PLAYER_START_CELL, state.battlefield);
+  const nextOrder = buildInitiativeOrder(player, enemies);
+  const nextPlayerIndex = Math.max(0, nextOrder.indexOf(player.id));
+  logs.push({ turn: nextTurn, tone: "system", text: `Rodada ${nextTurn}: iniciativa recalculada por Velocidade.` });
+
+  for (const actorId of nextOrder.slice(0, nextPlayerIndex)) {
+    const result = runInitiativeActor(nextTurn, actorId, player, enemies, state.battlefield, logs, masteryMultiplier);
+    player = result.player;
+    enemies = result.enemies;
+    if (result.defeated) return { ...state, turn: nextTurn, player, enemies, cooldowns, initiativeOrder: nextOrder, initiativeIndex: nextOrder.indexOf(actorId), currentActorId: actorId, status: "defeat", log: logs };
+  }
+
+  const prepared = preparePlayerTurn(player, cooldowns);
+  return {
+    ...state,
+    player: prepared.player,
+    enemies: ensureActiveEnemyPositions(enemies, prepared.player.position ?? PLAYER_START_CELL, state.battlefield),
+    cooldowns: prepared.cooldowns,
+    movementUsed: false,
+    lastPetTargetId: pet.lastPetTargetId,
+    lastPetDamage: pet.lastPetDamage,
+    initiativeOrder: nextOrder,
+    initiativeIndex: nextPlayerIndex,
+    currentActorId: prepared.player.id,
+    turn: nextTurn,
+    log: [...logs, { turn: nextTurn, tone: "system", text: `Turno de ${prepared.player.name}: +${PLAYER_MP_REGEN_PER_TURN} MP, recargas reduzidas · Velocidade ${combatantSpeed(prepared.player)}.` }],
+  };
+}
+
+/** Inicializa a luta e deixa IAs mais rápidas agirem antes do primeiro turno do Player. */
+function initializeInitiative(state: HuntBattleState): HuntBattleState {
+  let player = state.player;
+  let enemies = ensureActiveEnemyPositions(state.enemies, player.position ?? PLAYER_START_CELL, state.battlefield);
+  const logs = [...state.log];
+  const order = buildInitiativeOrder(player, enemies);
+  const playerIndex = Math.max(0, order.indexOf(player.id));
+  const masteredCreatureIds = state.masteredCreatureIds ?? [];
+  const masteryMultiplier = (creatureId?: string) => (creatureId && masteredCreatureIds.includes(creatureId) ? 1 + MASTERY_DAMAGE_BONUS : 1);
+  logs.push({ turn: 1, tone: "system", text: `Iniciativa: ${order.map((id) => id === player.id ? `${player.name} (${combatantSpeed(player)})` : `${enemies.find((enemy) => enemy.id === id)?.name ?? id} (${combatantSpeed(enemies.find((enemy) => enemy.id === id)!)})`).join(" → ")}.` });
+
+  for (const actorId of order.slice(0, playerIndex)) {
+    const result = runInitiativeActor(1, actorId, player, enemies, state.battlefield, logs, masteryMultiplier);
+    player = result.player;
+    enemies = result.enemies;
+    if (result.defeated) return { ...state, player, enemies, initiativeOrder: order, initiativeIndex: order.indexOf(actorId), currentActorId: actorId, status: "defeat", log: logs };
+  }
+
+  const prepared = preparePlayerTurn(player, state.cooldowns);
+  return {
+    ...state,
+    player: prepared.player,
+    enemies,
+    cooldowns: prepared.cooldowns,
+    initiativeOrder: order,
+    initiativeIndex: playerIndex,
+    currentActorId: prepared.player.id,
+    movementUsed: false,
+    log: [...logs, { turn: 1, tone: "system", text: `Turno de ${prepared.player.name}: +${PLAYER_MP_REGEN_PER_TURN} MP · Velocidade ${combatantSpeed(prepared.player)}.` }],
+  };
 }
 
 function finalizeRound(state: HuntBattleState, player: HuntCombatant, enemies: HuntCombatant[], cooldowns: Record<string, number>, logs: HuntBattleLog[]): HuntBattleState {
@@ -613,30 +1106,15 @@ function finalizeRound(state: HuntBattleState, player: HuntCombatant, enemies: H
     const loot = rewardFor(state, state.turn);
     return { ...state, player, enemies, cooldowns, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] };
   }
-  const masteredCreatureIds = state.masteredCreatureIds ?? [];
-  const masteryMultiplier = (creatureId?: string) => (creatureId && masteredCreatureIds.includes(creatureId) ? 1 + MASTERY_DAMAGE_BONUS : 1);
-  if (!state.companion) {
-    const prepared = preparePlayerTurn(player, cooldowns);
-    return { ...state, player: prepared.player, enemies, cooldowns: prepared.cooldowns, lastPetTargetId: null, lastPetDamage: 0, turn: state.turn + 1, log: [...logs, { turn: state.turn + 1, tone: "system", text: `Início do turno: +${PLAYER_MP_REGEN_PER_TURN} MP e recargas reduzidas.` }] };
-  }
-  const petTarget = activeFrontLine(enemies).sort((left, right) => left.hpCurrent - right.hpCurrent)[0];
-  const petFumble = Math.random() * 100 < FUMBLE_CHANCE;
-  const petRawDamage = Math.max(1, Math.round(player.stats.magicalDamage * state.companion.magicalDamageScaling * masteryMultiplier(petTarget.creatureId) * (petFumble ? FUMBLE_DAMAGE_MULTIPLIER : 1)));
-  const petDamage = mitigateDamage(petRawDamage, "magical", petTarget.stats);
-  enemies = enemies.map((enemy) => (enemy.id === petTarget.id ? maybeRevive({ ...enemy, hpCurrent: Math.max(0, enemy.hpCurrent - petDamage) }, logs, state.turn) : enemy));
-  logs.push({ turn: state.turn, tone: "player", text: `${state.companion.name} lança Bola de Fogo em ${petTarget.name} e causa ${petDamage} de dano mágico${petFumble ? " (golpe fraco)" : ""}.` });
-  if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const loot = rewardFor(state, state.turn); return { ...state, player, enemies, cooldowns, lastPetTargetId: petTarget.id, lastPetDamage: petDamage, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] }; }
-  const prepared = preparePlayerTurn(player, cooldowns);
-  return { ...state, player: prepared.player, enemies, cooldowns: prepared.cooldowns, lastPetTargetId: petTarget.id, lastPetDamage: petDamage, turn: state.turn + 1, log: [...logs, { turn: state.turn + 1, tone: "system", text: `Início do turno: +${PLAYER_MP_REGEN_PER_TURN} MP e recargas reduzidas.` }] };
+  return advanceInitiativeAfterPlayer(state, player, enemies, cooldowns, logs);
 }
 
 export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefinition, targetId?: string): HuntBattleState {
   if (state.status !== "active") return state;
+  if (state.currentActorId && state.currentActorId !== state.player.id) return { ...state, log: [...state.log, { turn: state.turn, tone: "system", text: "Aguardando o turno do Player na fila de iniciativa." }] };
   const logs = [...state.log];
-  let player = tickEffects(state.player, state.turn, logs);
-  if (player.hpCurrent === 0) return { ...state, player, status: "defeat", log: [...logs, { turn: state.turn, tone: "defeat", text: `${player.name} caiu pelos efeitos ativos.` }] };
-  let enemies = state.enemies.map((enemy) => tickEffects(enemy, state.turn, logs));
-  if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const loot = rewardFor(state, state.turn); return { ...state, player, enemies, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `Os efeitos derrotaram a emboscada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] }; }
+  let player = state.player;
+  let enemies = ensureActiveEnemyPositions(state.enemies, player.position ?? PLAYER_START_CELL, state.battlefield);
 
   let cooldowns = { ...state.cooldowns };
   const masteredCreatureIds = state.masteredCreatureIds ?? [];
@@ -658,30 +1136,64 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
     const tauntEffect = player.activeEffects.find((effect) => effect.kind === "taunted");
     const taunter = tauntEffect?.sourceId ? frontLine.find((entry) => entry.id === tauntEffect.sourceId) : undefined;
     const primaryEnemy = taunter ?? frontLine.find((entry) => entry.id === targetId) ?? frontLine[0];
-    const primarySlot = frontLine.indexOf(primaryEnemy);
-    const targetCell = ENEMY_SLOT_CELLS[primarySlot] ?? ENEMY_SLOT_CELLS[0];
-    const distanceToTarget = hexDistance(player.position ?? PLAYER_START_CELL, targetCell);
-    if (ability.range && distanceToTarget > ability.range) return { ...state, player, enemies, log: [...logs, { turn: state.turn, tone: "system", text: `${ability.name} está fora de alcance — chegue mais perto de ${primaryEnemy.name}.` }] };
+    const targetCell = primaryEnemy.position ?? ENEMY_FRONT_SPAWN_CELLS[0];
+    const playerCell = player.position ?? PLAYER_START_CELL;
+    const distanceToTarget = hexDistance(playerCell, targetCell);
+    if (!canUnitSeeCell(player, targetCell, state.battlefield)) return { ...state, player, enemies, log: [...logs, { turn: state.turn, tone: "system", text: `${primaryEnemy.name} não está na sua linha de visão.` }] };
+    const abilityRange = playerAbilityRange(ability, player);
+    if (abilityRange !== undefined && distanceToTarget > abilityRange) return { ...state, player, enemies, log: [...logs, { turn: state.turn, tone: "system", text: `${ability.name} está fora de alcance — chegue mais perto de ${primaryEnemy.name}.` }] };
     const kind = ability.damageFamily === "magical" ? "magical" : "physical";
-    const targetMastered = masteryMultiplier(primaryEnemy.creatureId) > 1;
-    const hit = attack({ attacker: player, defender: primaryEnemy, rawDamage: Math.round(abilityRawDamage(ability, player.stats) * masteryMultiplier(primaryEnemy.creatureId)), kind, effects: [...(ability.statusEffects ?? []), ...player.onHitEffects], sourceName: `${player.name} usa ${ability.name}`, turn: state.turn, logs, sourceId: player.id });
-    player = { ...player, mpCurrent: player.mpCurrent - manaCost, lastAbilityUsed: ability.id };
-    let updatedTarget = hit.defender;
-    if (updatedTarget.charging && hit.dealt > 0) {
-      const chargingAbility = updatedTarget.abilities?.find((entry) => entry.id === updatedTarget.charging?.abilityId);
-      logs.push({ turn: state.turn, tone: "system", text: `${updatedTarget.name} é interrompido no meio do carregamento de ${chargingAbility?.name ?? "uma habilidade"} e perde a recarga inteira.` });
-      updatedTarget = { ...updatedTarget, charging: null, abilityCooldowns: { ...updatedTarget.abilityCooldowns, ...(chargingAbility ? { [chargingAbility.id]: chargingAbility.cooldownTurns } : {}) } };
+    const effectiveRange = abilityRange ?? Math.max(1, distanceToTarget);
+    const affectedCells = abilityAreaCells(playerCell, targetCell, ability.area, effectiveRange);
+    const affectedKeys = new Set(affectedCells.map(hexKey));
+    const impacted = frontLine.filter((enemy) => enemy.position && affectedKeys.has(hexKey(enemy.position)));
+    const targets = impacted;
+    let totalDamage = 0; let landedHits = 0; let criticalHits = 0;
+    for (const target of targets) {
+      const targetPosition = target.position ?? targetCell;
+      const baseRawDamage = Math.round(abilityRawDamage(ability, player.stats) * masteryMultiplier(target.creatureId));
+      const cover = applyBattlefieldCover(baseRawDamage, playerCell, targetPosition, state.battlefield);
+      const hit = attack({ attacker: player, defender: target, rawDamage: cover.rawDamage, kind, effects: [...(ability.statusEffects ?? []), ...player.onHitEffects], sourceName: `${player.name} usa ${ability.name}`, turn: state.turn, logs, sourceId: player.id });
+      if (cover.coverPercent > 0) logs.push({ turn: state.turn, tone: "system", text: `${target.name} recebe ${cover.coverPercent}% de cobertura do terreno contra o ataque à distância.` });
+      totalDamage += hit.dealt;
+      if (hit.dealt > 0) landedHits += 1;
+      if (hit.critical) criticalHits += 1;
+      let updatedTarget = hit.defender;
+      let forcedMoved = false;
+      if (hit.dealt > 0 && updatedTarget.position) {
+        const positionEffect = ability.specialEffects?.find((effect) => ["force_position_change", "push", "pull"].includes(effect.kind));
+        if (positionEffect && !updatedTarget.activeEffects.some((entry) => entry.kind === "position_lock")) {
+          const occupied = new Set(enemies.filter((entry) => entry.id !== updatedTarget.id && entry.hpCurrent > 0).flatMap((entry) => entry.position ? [hexKey(entry.position)] : []));
+          occupied.add(hexKey(playerCell));
+          const mode: ForcedMoveMode = positionEffect.kind === "push" ? "push" : positionEffect.kind === "pull" ? "pull" : "force";
+          const destination = forcedMoveDestination(updatedTarget.position, playerCell, occupied, mode, Number(positionEffect.distance ?? 1), state.battlefield);
+          if (hexKey(destination) !== hexKey(updatedTarget.position)) {
+            forcedMoved = true;
+            updatedTarget = { ...updatedTarget, position: destination, changedPositionThisTurn: true, facing: hexDirectionToward(destination, playerCell) };
+            const label = mode === "push" ? "empurra" : mode === "pull" ? "puxa" : "desloca";
+            logs.push({ turn: state.turn, tone: "player", text: `${player.name} ${label} ${updatedTarget.name} para outro hexágono.` });
+          }
+        }
+      }
+      if (updatedTarget.charging && hit.dealt > 0) {
+        const stunApplied = updatedTarget.activeEffects.some((effect) => effect.kind === "stun" && effect.sourceId === player.id && effect.appliedTurn === state.turn);
+        const explicitInterrupt = ability.specialEffects?.some((effect) => effect.kind === "interrupt") ?? false;
+        if (stunApplied || forcedMoved || explicitInterrupt) {
+          const chargingAbility = updatedTarget.abilities?.find((entry) => entry.id === updatedTarget.charging?.abilityId);
+          logs.push({ turn: state.turn, tone: "system", text: `${updatedTarget.name} é interrompido no meio do carregamento de ${chargingAbility?.name ?? "uma habilidade"} e perde a recarga inteira.` });
+          updatedTarget = { ...updatedTarget, charging: null, abilityCooldowns: { ...updatedTarget.abilityCooldowns, ...(chargingAbility ? { [chargingAbility.id]: chargingAbility.cooldownTurns } : {}) } };
+        }
+      }
+      enemies = enemies.map((entry) => maybeRevive(entry.id === updatedTarget.id ? updatedTarget : entry, logs, state.turn));
     }
-    enemies = enemies.map((entry) => maybeRevive(entry.id === updatedTarget.id ? updatedTarget : entry, logs, state.turn));
+    player = { ...player, mpCurrent: player.mpCurrent - manaCost, lastAbilityUsed: ability.id };
 
-    logs.push({ turn: state.turn, tone: "player", text: hit.dealt ? `${player.name} usa ${ability.name} e causa ${hit.dealt} de dano${hit.critical ? " crítico" : hit.fumble ? " (golpe fraco)" : ""}${hit.blocked ? " · bloqueado" : ""}${targetMastered ? " · maestria do Bestiário" : ""}.` : `${player.name} usa ${ability.name}, mas não acerta.` });
+    logs.push({ turn: state.turn, tone: "player", text: landedHits ? `${player.name} usa ${ability.name} e atinge ${landedHits} alvo(s), causando ${totalDamage} de dano total${criticalHits ? ` · ${criticalHits} crítico(s)` : ""}.` : `${player.name} usa ${ability.name}, mas não acerta.` });
     if (ability.cooldownTurns) cooldowns[ability.id] = ability.cooldownTurns;
     if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const loot = rewardFor(state, state.turn); return { ...state, player, enemies, cooldowns, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `A emboscada foi derrotada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] }; }
   }
 
-  const phase = runEnemyPhase(state.turn, player, enemies, logs, masteryMultiplier);
-  player = phase.player; enemies = phase.enemies;
-  if (phase.defeated) return { ...state, player, enemies, cooldowns, status: "defeat", log: logs };
+  player = finishOwnerTurnEffects(player, state.turn, logs);
   return finalizeRound(state, player, enemies, cooldowns, logs);
 }
 
@@ -694,42 +1206,65 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
  */
 export function resolveMoveTurn(state: HuntBattleState, destination: Axial): HuntBattleState {
   if (state.status !== "active") return state;
+  if (state.currentActorId && state.currentActorId !== state.player.id) return state;
   const logs = [...state.log];
-  let player = tickEffects(state.player, state.turn, logs);
-  if (player.hpCurrent === 0) return { ...state, player, status: "defeat", log: [...logs, { turn: state.turn, tone: "defeat", text: `${player.name} caiu pelos efeitos ativos.` }] };
-  let enemies = state.enemies.map((enemy) => tickEffects(enemy, state.turn, logs));
-  if (enemies.every((enemy) => enemy.hpCurrent === 0)) { const loot = rewardFor(state, state.turn); return { ...state, player, enemies, status: "victory", reward: loot.reward, log: [...logs, ...loot.logs, { turn: state.turn, tone: "victory", text: `Os efeitos derrotaram a emboscada. +${loot.reward.xp} XP global · +${loot.reward.gold} ouro.` }] }; }
-
-  const cooldowns = { ...state.cooldowns };
-  const masteredCreatureIds = state.masteredCreatureIds ?? [];
-  const masteryMultiplier = (creatureId?: string) => (creatureId && masteredCreatureIds.includes(creatureId) ? 1 + MASTERY_DAMAGE_BONUS : 1);
-  const playerStunned = player.activeEffects.some((effect) => effect.kind === "stun");
-  const previousPosition = player.position ?? PLAYER_START_CELL;
-  const occupiedByEnemies = new Set(ENEMY_SLOT_CELLS.slice(0, activeFrontLine(enemies).length).map(hexKey));
-  const reachable = new Set(reachableCells(previousPosition, PLAYER_MOVE_RANGE, boardCells(), occupiedByEnemies).map(hexKey));
-  const validMove = !playerStunned && reachable.has(hexKey(destination));
-  const changed = validMove && (destination.q !== previousPosition.q || destination.r !== previousPosition.r);
-  player = changed ? { ...player, position: destination, changedPositionThisTurn: true } : { ...player, changedPositionThisTurn: false };
-  logs.push({ turn: state.turn, tone: "system", text: playerStunned ? `${player.name} está atordoado e não consegue se mover.` : changed ? `${player.name} se move.` : `${player.name} mantém a posição.` });
-
-  if (changed) {
-    for (const enemyRef of activeFrontLine(enemies)) {
-      const enemy = enemies.find((entry) => entry.id === enemyRef.id) ?? enemyRef;
-      if (enemy.hpCurrent <= 0) continue;
-      const reactionAbility = enemy.abilities?.find((entry) => entry.reaction && REACTION_TRIGGERS.has(entry.aiTrigger) && (enemy.abilityCooldowns?.[entry.id] ?? 0) === 0);
-      if (!reactionAbility) continue;
-      const rawDamage = Math.round((reactionAbility.damageFamily === "magical" ? enemy.stats.magicalDamage : enemy.stats.physicalDamage) * reactionAbility.scaling);
-      const counter = attack({ attacker: enemy, defender: player, rawDamage, kind: reactionAbility.damageFamily === "magical" ? "magical" : "physical", effects: reactionAbility.statusEffects ?? [], sourceName: `${enemy.name} (reação: ${reactionAbility.name})`, turn: state.turn, logs, sourceId: enemy.id });
-      player = counter.defender;
-      if (counter.dealt) logs.push({ turn: state.turn, tone: "enemy", text: `${enemy.name} reage com ${reactionAbility.name} e causa ${counter.dealt} de dano${counter.critical ? " crítico" : ""}.` });
-      const updatedEnemy = reactionAbility.cooldownTurns ? { ...enemy, abilityCooldowns: { ...enemy.abilityCooldowns, [reactionAbility.id]: reactionAbility.cooldownTurns } } : enemy;
-      enemies = enemies.map((entry) => (entry.id === enemy.id ? updatedEnemy : entry));
-      if (player.hpCurrent === 0) return { ...state, player, enemies, cooldowns, status: "defeat", log: [...logs, { turn: state.turn, tone: "defeat", text: `${player.name} caiu. HP permanece em 0 até receber cura.` }] };
-    }
+  if (state.movementUsed) {
+    return { ...state, log: [...logs, { turn: state.turn, tone: "system", text: `${state.player.name} já usou o movimento desta rodada.` }] };
   }
 
-  const phase = runEnemyPhase(state.turn, player, enemies, logs, masteryMultiplier);
-  player = phase.player; enemies = phase.enemies;
-  if (phase.defeated) return { ...state, player, enemies, cooldowns, status: "defeat", log: logs };
-  return finalizeRound(state, player, enemies, cooldowns, logs);
+  let player = state.player;
+  let enemies = state.enemies;
+  const playerStunned = player.activeEffects.some((effect) => effect.kind === "stun");
+  const previousPosition = player.position ?? PLAYER_START_CELL;
+  enemies = ensureActiveEnemyPositions(enemies, previousPosition, state.battlefield);
+  const occupiedByEnemies = new Set(activeFrontLine(enemies).flatMap((enemy) => enemy.position ? [hexKey(enemy.position)] : []));
+  const reachable = new Set(reachableCells(previousPosition, PLAYER_MOVE_RANGE, boardCells(), occupiedByEnemies, state.battlefield).map(hexKey));
+  const validMove = !playerStunned && reachable.has(hexKey(destination));
+  const changed = validMove && (destination.q !== previousPosition.q || destination.r !== previousPosition.r);
+
+  if (!changed) {
+    logs.push({ turn: state.turn, tone: "system", text: playerStunned ? `${player.name} está atordoado e não consegue se mover.` : `${player.name} não pode se mover para esse hexágono.` });
+    return { ...state, player: { ...player, changedPositionThisTurn: false }, enemies, log: logs };
+  }
+
+  player = { ...player, position: destination, facing: hexDirectionToward(previousPosition, destination), changedPositionThisTurn: true };
+  logs.push({ turn: state.turn, tone: "system", text: `${player.name} se move e ainda pode realizar uma ação.` });
+
+  // Reações de movimento resolvem imediatamente, mas não iniciam a fase inimiga.
+  // Assim preservamos o contrato: movimento + ação no mesmo turno.
+  for (const enemyRef of activeFrontLine(enemies)) {
+    const enemy = enemies.find((entry) => entry.id === enemyRef.id) ?? enemyRef;
+    if (enemy.hpCurrent <= 0) continue;
+    const reactionAbility = enemy.abilities?.find((entry) => entry.reaction && REACTION_TRIGGERS.has(entry.aiTrigger) && (enemy.abilityCooldowns?.[entry.id] ?? 0) === 0);
+    if (!reactionAbility || !enemy.position) continue;
+    const reactionRange = creatureAbilityRange(reactionAbility, enemy);
+    if (hexDistance(enemy.position, destination) > reactionRange || !canUnitSeeCell(enemy, destination, state.battlefield)) continue;
+    const rawDamage = Math.round((reactionAbility.damageFamily === "magical" ? enemy.stats.magicalDamage : enemy.stats.physicalDamage) * reactionAbility.scaling);
+    const reactionCover = applyBattlefieldCover(rawDamage, enemy.position, destination, state.battlefield);
+    const counter = attack({ attacker: enemy, defender: player, rawDamage: reactionCover.rawDamage, kind: reactionAbility.damageFamily === "magical" ? "magical" : "physical", effects: reactionAbility.statusEffects ?? [], sourceName: `${enemy.name} (reação: ${reactionAbility.name})`, turn: state.turn, logs, sourceId: enemy.id });
+    if (reactionCover.coverPercent > 0) logs.push({ turn: state.turn, tone: "system", text: `${player.name} recebe ${reactionCover.coverPercent}% de cobertura contra a reação.` });
+    player = counter.defender;
+    if (counter.dealt) logs.push({ turn: state.turn, tone: "enemy", text: `${enemy.name} reage com ${reactionAbility.name} e causa ${counter.dealt} de dano${counter.critical ? " crítico" : ""}.` });
+    const updatedEnemy = reactionAbility.cooldownTurns ? { ...enemy, abilityCooldowns: { ...enemy.abilityCooldowns, [reactionAbility.id]: reactionAbility.cooldownTurns } } : enemy;
+    enemies = enemies.map((entry) => (entry.id === enemy.id ? updatedEnemy : entry));
+    if (player.hpCurrent === 0) return { ...state, player, enemies, movementUsed: true, status: "defeat", log: [...logs, { turn: state.turn, tone: "defeat", text: `${player.name} caiu durante o movimento.` }] };
+  }
+
+  return { ...state, player, enemies, movementUsed: true, log: logs };
+}
+
+/**
+ * Aguardar consome a ação restante sem mover. É o equivalente explícito a
+ * "passar turno": efeitos são processados, a IA realiza sua fase e uma nova
+ * rodada do jogador começa. Movimento anterior permanece válido.
+ */
+export function resolveWaitTurn(state: HuntBattleState): HuntBattleState {
+  if (state.status !== "active") return state;
+  if (state.currentActorId && state.currentActorId !== state.player.id) return state;
+  const logs = [...state.log];
+  let player = state.player;
+  let enemies = ensureActiveEnemyPositions(state.enemies, player.position ?? PLAYER_START_CELL, state.battlefield);
+  logs.push({ turn: state.turn, tone: "system", text: `${player.name} aguarda e encerra a ação.` });
+  player = finishOwnerTurnEffects(player, state.turn, logs);
+  return finalizeRound(state, player, enemies, { ...state.cooldowns }, logs);
 }

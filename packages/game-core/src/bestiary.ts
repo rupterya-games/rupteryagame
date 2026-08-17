@@ -165,6 +165,8 @@ export interface CreatureStatBlock {
   criticalChance: number;
   dodgeChance: number;
   blockChance: number;
+  /** Velocidade base usada na fila real de iniciativa. */
+  speed: number;
 }
 
 interface ArchetypeProfile {
@@ -176,15 +178,16 @@ interface ArchetypeProfile {
   crit: number;
   dodge: number;
   block: number;
+  speed: number;
 }
 
 /** Perfis de combate. Ajustar aqui rebalanceia o bestiário inteiro. */
 export const archetypeProfiles: Record<CreatureArchetype, ArchetypeProfile> = {
-  swarm: { hp: 0.55, phys: 0.7, magic: 0.0, pdef: 0.6, mdef: 0.6, crit: 3, dodge: 8, block: 0 },
-  skirmisher: { hp: 0.85, phys: 1.25, magic: 0.0, pdef: 0.8, mdef: 0.8, crit: 12, dodge: 14, block: 0 },
-  brute: { hp: 1.35, phys: 1.15, magic: 0.0, pdef: 1.05, mdef: 0.7, crit: 6, dodge: 3, block: 5 },
-  caster: { hp: 0.75, phys: 0.25, magic: 1.35, pdef: 0.6, mdef: 1.4, crit: 8, dodge: 6, block: 0 },
-  tank: { hp: 1.8, phys: 0.75, magic: 0.0, pdef: 1.5, mdef: 1.2, crit: 3, dodge: 2, block: 16 },
+  swarm: { hp: 0.55, phys: 0.7, magic: 0.0, pdef: 0.6, mdef: 0.6, crit: 3, dodge: 8, block: 0, speed: 13 },
+  skirmisher: { hp: 0.85, phys: 1.25, magic: 0.0, pdef: 0.8, mdef: 0.8, crit: 12, dodge: 14, block: 0, speed: 14 },
+  brute: { hp: 1.35, phys: 1.15, magic: 0.0, pdef: 1.05, mdef: 0.7, crit: 6, dodge: 3, block: 5, speed: 8 },
+  caster: { hp: 0.75, phys: 0.25, magic: 1.35, pdef: 0.6, mdef: 1.4, crit: 8, dodge: 6, block: 0, speed: 10 },
+  tank: { hp: 1.8, phys: 0.75, magic: 0.0, pdef: 1.5, mdef: 1.2, crit: 3, dodge: 2, block: 16, speed: 7 },
 };
 
 interface RarityProfile {
@@ -221,6 +224,7 @@ export function deriveCreatureStats(
     criticalChance: a.crit,
     dodgeChance: a.dodge,
     blockChance: round(a.block * r.defense),
+    speed: a.speed,
   };
 }
 

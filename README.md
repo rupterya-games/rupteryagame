@@ -49,3 +49,8 @@ Leia [CODEX_START_HERE.md](CODEX_START_HERE.md) antes de alterar a arquitetura o
 ## Mundo V3
 
 O fluxo de cidade e exploração foi reorganizado em `world.ts`, `quests.ts` e `economy.ts`, com UI separada em `CityHub`, `GateMap`, `QuestBoard` e `MarketPanels`. FiorDeValle, Eldravia e Dustfall possuem 4 saídas x 3 níveis e progressão persistente por personagem. Consulte `docs/WORLD_V3_IMPLEMENTATION.md` antes de expandir novas cidades ou instâncias.
+
+
+## Roadmap
+
+O plano oficial de evolução está em `docs/ROADMAP_RUPTERYA.md`. Consulte também `docs/WORKLOG_2026-08-17.md` antes de mexer no motor tático.

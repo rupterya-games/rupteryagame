@@ -4,6 +4,7 @@ import {
   characterPower,
   createHuntBattle,
   emptyEquipment,
+  normalizeMoralInclination,
   setLoadoutAbility,
 } from "@rupterya/game-core";
 import type {
@@ -33,6 +34,7 @@ const classSkinIds: Record<string, readonly string[]> = {
 };
 const validSkinForClass = (classId: string, skinId?: string) => classSkinIds[classId]?.includes(skinId ?? "default") ? skinId ?? "default" : "default";
 const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+const CURRENT_PROGRESSION_VERSION = 3;
 
 export const emptyWorldProgress = (): CharacterWorldProgress => ({
   exploredSpotsByLevel: {},
@@ -45,6 +47,9 @@ export const emptyWorldProgress = (): CharacterWorldProgress => ({
   consumables: {},
   reputationByCity: {},
   notorietyByCity: {},
+  heroGuildByCity: {},
+  blackHouseByCity: {},
+  neutralOrganizationByCity: {},
 });
 
 export const xpToNextLevel = (level: number) => Math.round(120 + level * 34 + Math.pow(level, 1.35) * 8);
@@ -104,11 +109,14 @@ function normalizeWorldProgress(progress?: CharacterWorldProgress): CharacterWor
     consumables: progress?.consumables ?? {},
     reputationByCity: progress?.reputationByCity ?? {},
     notorietyByCity: progress?.notorietyByCity ?? {},
+    heroGuildByCity: progress?.heroGuildByCity ?? {},
+    blackHouseByCity: progress?.blackHouseByCity ?? {},
+    neutralOrganizationByCity: progress?.neutralOrganizationByCity ?? {},
   };
 }
 
 function withWorldProgress(character: GameCharacter): GameCharacter {
-  return { ...character, worldProgress: normalizeWorldProgress(character.worldProgress) };
+  return { ...character, moralInclination: normalizeMoralInclination(character.moralInclination), worldProgress: normalizeWorldProgress(character.worldProgress) };
 }
 
 function applyCharacterXp(character: GameCharacter, gainedXp: number): GameCharacter {
@@ -136,7 +144,7 @@ export class DevCharacterRepository {
   private saveQueue: Promise<unknown> = Promise.resolve();
 
   emptyAccount(userId = this.userId ?? "offline"): DevAccount {
-    return { id: userId, progressionVersion: 2, characterSlots: 6, characters: [] };
+    return { id: userId, progressionVersion: CURRENT_PROGRESSION_VERSION, characterSlots: 6, characters: [] };
   }
 
   async loadForUser(userId: string): Promise<DevAccount> {
@@ -152,7 +160,7 @@ export class DevCharacterRepository {
     // Migração: nível e XP eram compartilhados pela conta inteira. Agora cada
     // personagem evolui sozinho — quem já tinha progresso herda o valor antigo
     // uma única vez; personagens novos sempre começam do Nv. 0.
-    let needsMigration = stored.globalLevel !== undefined || stored.globalXp !== undefined;
+    let needsMigration = stored.progressionVersion !== CURRENT_PROGRESSION_VERSION || stored.globalLevel !== undefined || stored.globalXp !== undefined;
     const legacyClasses: Record<string, string> = { warrior: "guardian" };
     const characters = stored.characters.map((character) => {
       const classId = legacyClasses[character.classId] ?? character.classId;
@@ -196,7 +204,7 @@ export class DevCharacterRepository {
     });
     const migrated: DevAccount = {
       id: userId,
-      progressionVersion: 2,
+      progressionVersion: CURRENT_PROGRESSION_VERSION,
       characterSlots: stored.characterSlots,
       characters,
     };
@@ -247,6 +255,7 @@ export class DevCharacterRepository {
       inventoryItemIds: starterItemIdsForClass(definition.id),
       itemMemories: {},
       fragments: {},
+      moralInclination: { hero: 0, neutral: 100, villain: 0 },
       ownedAbilityIds: unlockedClassAbilityIds(definition.id, 0),
       presets: [preset],
       activePresetId: preset.id,
@@ -486,6 +495,7 @@ export class DevCharacterRepository {
     const equippedItems = Object.values(character.equipment).flatMap((itemId) => equipment.filter((item) => item.id === itemId));
     const onHitEffects = equippedItems.flatMap((item) => item.statusEffects ?? []);
     const preset = activePreset(character);
+    const archerFalconEyeActive = character.classId === "archer" && preset.loadout.stance === "archer-stance";
     const samuraiPassiveActive = character.classId === "samurai" && preset.loadout.passive === "samurai-passive";
     const counterAttack = samuraiPassiveActive
       ? {
@@ -516,6 +526,9 @@ export class DevCharacterRepository {
         activeEffects: [],
         onHitEffects,
         counterAttack,
+        visionRange: character.classId === "archer" ? (archerFalconEyeActive ? 4 : 3) : character.classId === "mage" ? 3 : character.classId === "samurai" ? 4 : 3,
+        visionTraits: character.classId === "archer" ? ["keen_sight"] : character.classId === "mage" ? ["darkvision"] : [],
+        rangeBonus: archerFalconEyeActive ? 1 : 0,
       },
     });
   }

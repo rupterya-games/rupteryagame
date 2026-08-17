@@ -18,6 +18,66 @@ export interface Axial {
   q: number;
   r: number;
 }
+
+export type TerrainKind = "plain" | "forest" | "ruins" | "swamp" | "sand" | "glass" | "rift";
+export type ObstacleKind = "tree" | "rock" | "pillar" | "wall" | "crystal";
+export type VisionTrait = "fog_sight" | "darkvision" | "keen_sight";
+
+/** Perfil de decisão espacial da IA. O arquétipo continua descrevendo stats;
+ * o perfil tático descreve COMO a criatura usa o tabuleiro. */
+export type AITacticalProfile =
+  | "flanker"
+  | "enforcer"
+  | "artillery"
+  | "predator"
+  | "sentinel"
+  | "swarm"
+  | "controller";
+
+export type AITacticalIntentKind =
+  | "flank"
+  | "advance"
+  | "retreat"
+  | "seek_cover"
+  | "protect_leader"
+  | "surround"
+  | "hunt"
+  | "hold"
+  | "control_zone"
+  | "attack";
+
+export interface AITacticalIntent {
+  kind: AITacticalIntentKind;
+  label: string;
+  /** Hex que a IA escolheu como destino nesta decisão, quando houver. */
+  targetCell?: Axial;
+}
+
+export interface BattleTerrainCell {
+  position: Axial;
+  terrain: TerrainKind;
+  /** Custo de movimento em pontos. 1 = normal, 2 = terreno difícil. */
+  movementCost: number;
+  /** Hex não pode ser ocupado. */
+  blocked?: boolean;
+  /** Obstáculo impede linha de visão através do hex. */
+  blocksLineOfSight?: boolean;
+  /** Cobertura leve/pesada aplicada a ataques à distância contra quem ocupa o hex. */
+  coverPercent?: number;
+  obstacle?: ObstacleKind;
+}
+
+export interface BattleFogState {
+  enabled: boolean;
+  /** Limite base de visão quando há neblina; traits da unidade podem modificar. */
+  baseVisionRange: number;
+  label: string;
+}
+
+export interface BattlefieldState {
+  cells: BattleTerrainCell[];
+  fog: BattleFogState;
+}
 export type AbilitySlotKind = "skill" | "ultimate" | "stance" | "passive";
 export type SecretArtPath = "martial" | "mystic" | "arcane";
 export type AbilitySource = "class" | "lineage" | "school" | "secret_art" | "creature";
@@ -33,6 +93,8 @@ export interface AdventureAttributes {
 }
 
 export interface CharacterCombatStats {
+  /** Velocidade/Iniciativa. Opcional durante a migração; ausência usa valor neutro no motor futuro. */
+  speed?: number;
   physicalDamage: number;
   magicalDamage: number;
   physicalDefense: number;
@@ -55,7 +117,7 @@ export interface StatusEffectApplication {
   kind: StatusEffectKind;
   chance: number;
   turns: number;
-  /** Dano fixo aplicado ao fim de cada turno. Prioritário sobre percentual. */
+  /** Dano fixo aplicado no fim da rodada. Prioritário sobre percentual. */
   flatDamage?: number;
   percentMaxHp?: number;
   /** Guarda: redução percentual do dano recebido enquanto ativo. */
@@ -72,6 +134,8 @@ export interface StatusEffectApplication {
 
 export interface CombatStatusEffect extends StatusEffectApplication {
   sourceName: string;
+  /** Rodada em que o efeito entrou. DoTs nunca ticam nesta mesma rodada. */
+  appliedTurn?: number;
 }
 
 /**
@@ -87,6 +151,47 @@ export interface CreatureSpecialEffect {
   [key: string]: string | number | boolean | string[] | undefined;
 }
 
+export type AbilityAreaShape = "single" | "radius" | "ring" | "line" | "cone" | "connected" | "all";
+
+export interface AbilityAreaDefinition {
+  /** Geometria tática desenhada e resolvida no tabuleiro hexagonal. */
+  shape: AbilityAreaShape;
+  /** Raio ao redor do hex alvo para áreas circulares/anel. */
+  radius?: number;
+  /** Área conectada customizada: offsets axiais relativos ao hex alvo. */
+  offsets?: Axial[];
+}
+
+export type KnownAITrigger =
+  | "always"
+  | "turn == 1"
+  | "hp_self == 0"
+  | "hp_self < 30%"
+  | "hp_self < 50%"
+  | "target_hp < 40%"
+  | "target_hp < 50%"
+  | "target_adjacent"
+  | "distance > 1"
+  | "target_position == front"
+  | "target_position == center"
+  | "target_position == back"
+  | "target_not_poisoned"
+  | "target_not_blind"
+  | "target_not_burning"
+  | "target_has_poison"
+  | "target_has_marked"
+  | "target_has_buff"
+  | "target_used_ability"
+  | "target_changed_position"
+  | "target_attempted_escape_or_position_change"
+  | "dodged_last_turn"
+  | "attacked_last_turn"
+  | "allies_alive == 0"
+  | "allies_alive <= 1"
+  | "allies_alive >= 2";
+
+export type AITriggerExpression = KnownAITrigger | (string & {});
+
 export interface CreatureAbilityDefinition {
   id: string;
   name: string;
@@ -95,11 +200,17 @@ export interface CreatureAbilityDefinition {
   cooldownTurns: number;
   target: string;
   description: string;
-  aiTrigger: string;
+  aiTrigger: AITriggerExpression;
   statusEffects?: StatusEffectApplication[];
+  /** Efeitos aplicados no próprio usuário após a habilidade (ex.: evasão de recuo). */
+  selfStatusEffects?: StatusEffectApplication[];
   specialEffects?: CreatureSpecialEffect[];
   /** Habilidade carregada: anuncia na rodada N, resolve na N+1. */
   chargeTurns?: number;
+  /** Alcance tático em hexágonos. Ausente usa o alcance padrão do arquétipo/canal. */
+  range?: number;
+  /** Forma da área. Ausente = alvo único. */
+  area?: AbilityAreaDefinition;
   /** Reação: não consome a ação normal e nunca dispara outra reação. */
   reaction?: boolean;
   oncePerBattle?: boolean;
@@ -145,10 +256,13 @@ export interface AbilityDefinition {
   manaCost?: number;
   cooldownTurns?: number;
   statusEffects?: StatusEffectApplication[];
+  specialEffects?: CreatureSpecialEffect[];
   keywords?: string[];
   source: AbilitySource;
   /** Alcance em hexágonos no tabuleiro de batalha. Ausente = sem restrição de distância. */
   range?: number;
+  /** Forma da área no grid. Ausente = alvo único. */
+  area?: AbilityAreaDefinition;
 }
 
 export interface SecretArtDefinition extends AbilityDefinition {
@@ -222,6 +336,10 @@ export interface CharacterBuild {
 }
 
 
+export type MoralAxis = "hero" | "neutral" | "villain";
+export interface MoralInclination { hero: number; neutral: number; villain: number; }
+export interface OrganizationProgress { level: number; reputation: number; }
+
 export interface CharacterWorldProgress {
   exploredSpotsByLevel: Record<string, string[]>;
   discoveredCreatureIds: string[];
@@ -233,6 +351,11 @@ export interface CharacterWorldProgress {
   consumables: Record<string, number>;
   reputationByCity: Record<string, number>;
   notorietyByCity: Record<string, number>;
+  /** Progressão independente por organização e por Reino. */
+  heroGuildByCity?: Record<string, OrganizationProgress>;
+  blackHouseByCity?: Record<string, OrganizationProgress>;
+  /** Reservado ao terceiro caminho neutro (Companhia/Casa de Contratos). */
+  neutralOrganizationByCity?: Record<string, OrganizationProgress>;
 }
 
 export interface GameCharacter {
@@ -254,6 +377,8 @@ export interface GameCharacter {
   inventoryItemIds: string[];
   itemMemories?: Record<string, number>;
   fragments?: Partial<Record<ItemRarity, number>>;
+  /** Moral individual: soma esperada = 100. Não concede buff/debuff de combate. */
+  moralInclination?: MoralInclination;
   worldProgress?: CharacterWorldProgress;
 }
 
@@ -276,6 +401,8 @@ export interface HuntCreatureDefinition {
   hpMax: number;
   physicalDamage: number;
   magicalDamage?: number;
+  /** Velocidade da criatura para a futura fila de iniciativa. */
+  speed?: number;
   physicalDefense: number;
   magicalDefense: number;
   blockChance?: number;
@@ -288,6 +415,8 @@ export interface HuntCreatureDefinition {
   equipmentProfileId?: string;
   /** Perfil tático ("tank" | "skirmisher" | "brute" | "caster" | "swarm"), usado pela IA em combate. */
   archetype?: string;
+  /** Override opcional do comportamento espacial. Sem override, o motor deriva pelo arquétipo/id. */
+  tacticalProfile?: AITacticalProfile;
   /** Papel no bando ("leader" | "regular" | "fodder"), usado pela moral em combate. */
   role?: string;
   /** Kit estruturado de habilidades (2 comum, 3 raro/elite, 4 chefe, 5 chefe de mundo). */
@@ -320,24 +449,40 @@ export interface HuntCombatant {
   counterAttack?: { chance: number; scaling: number; sourceName: string };
   /** Perfil tático herdado da criatura, usado pela IA em combate. */
   archetype?: string;
+  /** Perfil de decisão espacial resolvido para esta criatura. */
+  tacticalProfile?: AITacticalProfile;
+  /** Intenção atual, usada pelo HUD apenas quando a criatura está visível. */
+  tacticalIntent?: AITacticalIntent;
+  /** Último hex em que este combatente realmente viu o alvo. Evita IA “enxergar” através da neblina. */
+  lastKnownTargetPosition?: Axial;
   /** Papel no bando, usado pela moral em combate. */
   role?: string;
   /** Kit estruturado de habilidades, copiado da criatura de origem ao entrar em batalha. */
   abilities?: CreatureAbilityDefinition[];
   /** Recarga por habilidade, chave = CreatureAbilityDefinition.id. */
   abilityCooldowns?: Record<string, number>;
-  /** Habilidade carregada na rodada anterior, resolvendo nesta. */
-  charging?: { abilityId: string } | null;
+  /** Habilidade carregada na rodada anterior. A área é congelada no início do telegraph. */
+  charging?: { abilityId: string; targetCell?: Axial; affectedCells?: Axial[]; startedTurn?: number } | null;
   /** Rodadas restantes de imunidade a novo atordoamento. */
   stunImmuneTurns?: number;
   /** Ids de habilidades oncePerBattle já usadas nesta luta. */
   usedOncePerBattle?: string[];
-  /** Posição real no tabuleiro hexagonal. Só o jogador se move hoje; inimigos ficam em células fixas por slot de linha de frente (ver ENEMY_SLOT_CELLS). */
+  /** Posição real no tabuleiro hexagonal durante a batalha. */
   position?: Axial;
+  /** Direção 0–5 que a unidade encara. Base para frente/flanco/costas. */
+  facing?: number;
+  /** Alcance visual próprio. Em neblina limita quais hexes/alvos a unidade percebe. */
+  visionRange?: number;
+  /** Traços especiais de visão usados por classes/criaturas. */
+  visionTraits?: VisionTrait[];
+  /** Bônus tático somado ao RANGE das habilidades do Player (ex.: Olho de Falcão). */
+  rangeBonus?: number;
   /** True só na rodada em que a posição mudou — consumido pelos gatilhos de reação. */
   changedPositionThisTurn?: boolean;
   /** Bônus percentual consumido pelo próximo dano causado por este combatente. */
   nextDamageBonusPercent?: number;
+  /** Redução permanente de dano recebida por fases de chefe, independente da Defesa. */
+  permanentDamageReductionPercent?: number;
   /** Rastro mínimo para gatilhos de IA como "dodged_last_turn"/"attacked_last_turn". */
   lastAbilityUsed?: string;
   dodgedLastTurn?: boolean;
@@ -362,6 +507,8 @@ export interface HuntBattleState {
   id: string;
   regionId: string;
   creatures: HuntCreatureDefinition[];
+  /** Terreno, obstáculos, cobertura e condição de neblina desta batalha. */
+  battlefield: BattlefieldState;
   player: HuntCombatant;
   companion: HuntCompanion | null;
   enemies: HuntCombatant[];
@@ -370,6 +517,14 @@ export interface HuntBattleState {
   lastPetTargetId: string | null;
   lastPetDamage: number;
   cooldowns: Record<string, number>;
+  /** Movimento e ação são recursos separados. Mover não encerra mais a rodada. */
+  movementUsed?: boolean;
+  /** Ordem real de iniciativa da rodada atual. Contém Player + linha de frente viva. */
+  initiativeOrder?: string[];
+  /** Índice do ator que está com o turno aberto. Quando a UI é entregue ao jogador, aponta para o Player. */
+  initiativeIndex?: number;
+  /** Ator atual. Em solo a UI só permanece interativa quando este id é o Player. */
+  currentActorId?: string | null;
   turn: number;
   status: "active" | "victory" | "defeat";
   log: HuntBattleLog[];

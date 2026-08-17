@@ -1,13 +1,13 @@
-import type { AbilityDefinition, ClassDefinition, EquipmentItem, HuntCompanion, HuntCreatureDefinition, HuntRegionDefinition, StatusEffectApplication } from "@rupterya/game-core";
+import type { AbilityAreaDefinition, AbilityDefinition, ClassDefinition, EquipmentItem, HuntCompanion, HuntCreatureDefinition, HuntRegionDefinition, StatusEffectApplication } from "@rupterya/game-core";
 
 const classArt = (name: string) => `/art/classes/${name}.jpeg`;
 
 export const classes: ClassDefinition[] = [
-  { id: "guardian", name: "Guardião", role: "Espada e escudo", portraitPath: classArt("guardian"), description: "Linha de frente de FiorDeValle. Protege a rota e suporta ataques pesados.", baseVitals: { hpMax: 360, mpMax: 54, morale: 100, gold: 780 }, baseStats: { physicalDamage: 49, magicalDamage: 10, physicalDefense: 46, magicalDefense: 20, criticalChance: 5, dodgeChance: 3, blockChance: 10, bleedChance: 4, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 10, burnResistance: 4, poisonResistance: 8, blindResistance: 6 }, adventure: { perception: 6, knowledge: 4, strength: 10, agility: 4 } },
-  { id: "duelist", name: "Duelista", role: "Duas lâminas", portraitPath: classArt("duelist"), description: "DPS marcial veloz que abre brechas com crítico, esquiva e pressão constante.", baseVitals: { hpMax: 292, mpMax: 62, morale: 100, gold: 780 }, baseStats: { physicalDamage: 61, magicalDamage: 12, physicalDefense: 27, magicalDefense: 19, criticalChance: 12, dodgeChance: 8, blockChance: 0, bleedChance: 10, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 4, burnResistance: 3, poisonResistance: 5, blindResistance: 7 }, adventure: { perception: 7, knowledge: 3, strength: 8, agility: 10 } },
-  { id: "archer", name: "Arqueiro", role: "Arco e aljava", portraitPath: classArt("archer"), description: "Batedor de fronteira que converte distância, munição e percepção em dano preciso.", baseVitals: { hpMax: 258, mpMax: 72, morale: 100, gold: 780 }, baseStats: { physicalDamage: 56, magicalDamage: 15, physicalDefense: 23, magicalDefense: 23, criticalChance: 11, dodgeChance: 9, blockChance: 0, bleedChance: 7, burnChance: 0, poisonChance: 4, blindChance: 6, bleedResistance: 4, burnResistance: 4, poisonResistance: 7, blindResistance: 10 }, adventure: { perception: 11, knowledge: 5, strength: 5, agility: 10 } },
-  { id: "mage", name: "Mago", role: "Cajado e foco arcano", portraitPath: classArt("mage"), description: "Erudito de Rupterya que domina dano arcano e controle de campo.", baseVitals: { hpMax: 225, mpMax: 132, morale: 100, gold: 780 }, baseStats: { physicalDamage: 13, magicalDamage: 70, physicalDefense: 16, magicalDefense: 37, criticalChance: 6, dodgeChance: 4, blockChance: 0, bleedChance: 0, burnChance: 10, poisonChance: 0, blindChance: 4, bleedResistance: 3, burnResistance: 10, poisonResistance: 4, blindResistance: 5 }, adventure: { perception: 7, knowledge: 12, strength: 3, agility: 6 } },
-  { id: "samurai", name: "Samurai", role: "Katana e bainha", portraitPath: classArt("samurai"), description: "DPS físico de precisão. Aguenta menos que um Guardião, mas transforma parte dos golpes recebidos em contra-ataques Iai.", baseVitals: { hpMax: 278, mpMax: 68, morale: 100, gold: 780 }, baseStats: { physicalDamage: 65, magicalDamage: 10, physicalDefense: 26, magicalDefense: 21, criticalChance: 11, dodgeChance: 7, blockChance: 0, bleedChance: 9, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 6, burnResistance: 4, poisonResistance: 5, blindResistance: 8 }, adventure: { perception: 7, knowledge: 4, strength: 9, agility: 9 } },
+  { id: "guardian", name: "Guardião", role: "Espada e escudo", portraitPath: classArt("guardian"), description: "Linha de frente de FiorDeValle. Protege a rota e suporta ataques pesados.", baseVitals: { hpMax: 360, mpMax: 54, morale: 100, gold: 780 }, baseStats: { speed: 8, physicalDamage: 49, magicalDamage: 10, physicalDefense: 46, magicalDefense: 20, criticalChance: 5, dodgeChance: 3, blockChance: 10, bleedChance: 4, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 10, burnResistance: 4, poisonResistance: 8, blindResistance: 6 }, adventure: { perception: 6, knowledge: 4, strength: 10, agility: 4 } },
+  { id: "duelist", name: "Duelista", role: "Duas lâminas", portraitPath: classArt("duelist"), description: "DPS marcial veloz que abre brechas com crítico, esquiva e pressão constante.", baseVitals: { hpMax: 292, mpMax: 62, morale: 100, gold: 780 }, baseStats: { speed: 14, physicalDamage: 61, magicalDamage: 12, physicalDefense: 27, magicalDefense: 19, criticalChance: 12, dodgeChance: 8, blockChance: 0, bleedChance: 10, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 4, burnResistance: 3, poisonResistance: 5, blindResistance: 7 }, adventure: { perception: 7, knowledge: 3, strength: 8, agility: 10 } },
+  { id: "archer", name: "Arqueiro", role: "Arco e aljava", portraitPath: classArt("archer"), description: "Batedor de fronteira que converte distância, munição e percepção em dano preciso.", baseVitals: { hpMax: 258, mpMax: 72, morale: 100, gold: 780 }, baseStats: { speed: 12, physicalDamage: 56, magicalDamage: 15, physicalDefense: 23, magicalDefense: 23, criticalChance: 11, dodgeChance: 9, blockChance: 0, bleedChance: 7, burnChance: 0, poisonChance: 4, blindChance: 6, bleedResistance: 4, burnResistance: 4, poisonResistance: 7, blindResistance: 10 }, adventure: { perception: 11, knowledge: 5, strength: 5, agility: 10 } },
+  { id: "mage", name: "Mago", role: "Cajado e foco arcano", portraitPath: classArt("mage"), description: "Erudito de Rupterya que domina dano arcano e controle de campo.", baseVitals: { hpMax: 225, mpMax: 132, morale: 100, gold: 780 }, baseStats: { speed: 10, physicalDamage: 13, magicalDamage: 70, physicalDefense: 16, magicalDefense: 37, criticalChance: 6, dodgeChance: 4, blockChance: 0, bleedChance: 0, burnChance: 10, poisonChance: 0, blindChance: 4, bleedResistance: 3, burnResistance: 10, poisonResistance: 4, blindResistance: 5 }, adventure: { perception: 7, knowledge: 12, strength: 3, agility: 6 } },
+  { id: "samurai", name: "Samurai", role: "Katana e bainha", portraitPath: classArt("samurai"), description: "DPS físico de precisão. Aguenta menos que um Guardião, mas transforma parte dos golpes recebidos em contra-ataques Iai.", baseVitals: { hpMax: 278, mpMax: 68, morale: 100, gold: 780 }, baseStats: { speed: 11, physicalDamage: 65, magicalDamage: 10, physicalDefense: 26, magicalDefense: 21, criticalChance: 11, dodgeChance: 7, blockChance: 0, bleedChance: 9, burnChance: 0, poisonChance: 0, blindChance: 0, bleedResistance: 6, burnResistance: 4, poisonResistance: 5, blindResistance: 8 }, adventure: { perception: 7, knowledge: 4, strength: 9, agility: 9 } },
 ];
 
 const byClass = (classId: string, suffix: string) => `${classId}-${suffix}`;
@@ -25,6 +25,27 @@ const statusEffectsFor = (classId: string, index: number): StatusEffectApplicati
 };
 /** Alcance em hexágonos no tabuleiro de batalha: corpo a corpo fica preso a distância 1, à distância cobre o tabuleiro inteiro. */
 const rangeByClass: Record<string, number> = { guardian: 1, duelist: 1, samurai: 1, archer: 3, mage: 3 };
+const specialEffectsForClassSkill = (classId: string, index: number) => {
+  if (classId === "guardian" && index === 1) return [{ kind: "push", distance: 1 }];
+  return undefined;
+};
+const areaByClassSkill = (classId: string, index: number): AbilityAreaDefinition | undefined => {
+  if (classId === "guardian" && index === 2) return { shape: "line" };
+  if (classId === "duelist" && index === 2) return { shape: "radius", radius: 1 };
+  if (classId === "archer" && index === 2) return { shape: "line" };
+  if (classId === "mage" && index === 1) return { shape: "line" };
+  if (classId === "mage" && (index === 2 || index === 3)) return { shape: "radius", radius: 1 };
+  if (classId === "samurai" && index === 2) return { shape: "line" };
+  if (classId === "samurai" && index === 3) return { shape: "cone" };
+  return undefined;
+};
+const ultimateAreaByClass: Record<string, AbilityAreaDefinition | undefined> = {
+  guardian: { shape: "cone" },
+  duelist: { shape: "radius", radius: 1 },
+  archer: { shape: "radius", radius: 2 },
+  mage: { shape: "radius", radius: 2 },
+  samurai: { shape: "cone" },
+};
 const classAbilityNames: Record<string, { skills: string[]; stance: string; ultimate: string; passive: string }> = {
   guardian: { skills: ["Corte da Muralha", "Golpe de Escudo", "Lança do Bastião", "Retaliação de Fiordevalle"], stance: "Postura de Bastião", ultimate: "Juramento de Ardenor", passive: "Vontade de Aço" },
   duelist: { skills: ["Corte Geminado", "Passo de Cinza", "Dança das Lâminas", "Ruptura Carmesim"], stance: "Guarda da Serpente", ultimate: "Mil Cortes de Rupterya", passive: "Fome de Duelo" },
@@ -42,10 +63,10 @@ export const abilities: AbilityDefinition[] = classes.flatMap((entry) => {
   return [
     ...names.skills.map((name, index): AbilityDefinition => {
       const statusEffects = statusEffectsFor(entry.id, index);
-      return { id: byClass(entry.id, `skill-${index + 1}`), name, description: `Técnica de ${entry.role.toLowerCase()} usada nas fronteiras de Rupterya.`, slotKind: "skill", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: physicalScale[index], magicalScaling: magicalScale[index], manaCost: [0, 8, 14, 20][index], cooldownTurns: [0, 1, 2, 2][index], statusEffects, keywords: statusEffects.map((effect) => `${effect.chance}% ${effect.kind}`), range: rangeByClass[entry.id] };
+      return { id: byClass(entry.id, `skill-${index + 1}`), name, description: `Técnica de ${entry.role.toLowerCase()} usada nas fronteiras de Rupterya.`, slotKind: "skill", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: physicalScale[index], magicalScaling: magicalScale[index], manaCost: [0, 8, 14, 20][index], cooldownTurns: [0, 1, 2, 2][index], statusEffects, keywords: statusEffects.map((effect) => `${effect.chance}% ${effect.kind}`), range: rangeByClass[entry.id], area: areaByClassSkill(entry.id, index), specialEffects: specialEffectsForClassSkill(entry.id, index) };
     }),
     { id: byClass(entry.id, "stance"), name: names.stance, description: entry.id === "samurai" ? "Postura de foco para preparar cortes e contra-ataques." : "Postura preparada antes do combate.", slotKind: "stance", source: "class", manaCost: 10, cooldownTurns: 3 },
-    { id: byClass(entry.id, "ultimate"), name: names.ultimate, description: "Golpe máximo da classe, reservado para a caça mais perigosa.", slotKind: "ultimate", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: magical ? 0 : samurai ? 1.95 : 1.85, magicalScaling: magical ? 1.85 : 0, manaCost: 32, cooldownTurns: 4, range: rangeByClass[entry.id] },
+    { id: byClass(entry.id, "ultimate"), name: names.ultimate, description: "Golpe máximo da classe, reservado para a caça mais perigosa.", slotKind: "ultimate", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: magical ? 0 : samurai ? 1.95 : 1.85, magicalScaling: magical ? 1.85 : 0, manaCost: 32, cooldownTurns: 4, range: rangeByClass[entry.id], area: ultimateAreaByClass[entry.id] },
     { id: byClass(entry.id, "passive"), name: names.passive, description: entry.id === "samurai" ? "Enquanto esta Passiva estiver equipada, ataques diretos que acertarem têm 30% de chance de provocar um contra-ataque de 65% do Dano Físico. Reação não consome ação e não dispara outra reação." : "Passiva da classe; ocupa o único slot de Passiva.", slotKind: "passive", source: "class" },
   ];
 });

@@ -1,7 +1,21 @@
+# LEIA PRIMEIRO — Roadmap vigente
+
+Antes de alterar sistemas de combate, progressão, moral ou organizações, leia:
+
+- `docs/ROADMAP_RUPTERYA.md` — ordem oficial de implementação, contratos e critérios de aceite.
+- `docs/WP_04_SPATIAL_TELEGRAPH.md` — geometria de áreas, telegraph de carregamentos e deslocamento forçado.
+- `docs/WP_05_TERRAIN_VISION.md` — terreno, obstáculos, cobertura, linha de visão, neblina e percepção.
+- `docs/WP_06_TACTICAL_AI.md` — perfis, memória, scoring espacial e intenção da IA.
+- `docs/WORKLOG_2026-08-17.md` — alterações já iniciadas nesta linha de trabalho.
+
+Não pule fases dependentes sem registrar a decisão no roadmap.
+
+---
+
 # CODEX — LEIA PRIMEIRO
 
 ## Projeto
-RUPTERYA Browser é um RPG online browser-first, mobile-first, com interface de cards/personagens, exploração por Caça/Jornada, progressão de conta, economia de sobrevivência e combate tático 3x3 espelhado.
+RUPTERYA Browser é um RPG online browser-first, mobile-first, com interface de cards/personagens, exploração por Caça/Jornada, progressão de conta, economia de sobrevivência e combate tático hexagonal vertical/mobile com unidades representadas por cards.
 
 Este repositório é o novo ponto de partida. O projeto Godot anterior NÃO é a base técnica do produto atual. O lore, as regras de Jornada, Caça, Bestiário, eventos, classes e progressão continuam úteis, mas a apresentação e a implementação agora são web.
 

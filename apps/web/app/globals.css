@@ -773,23 +773,35 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .hexlab-note { margin:0; color:#a9956e; font-size:10px; font-style:italic; }
 .hexlab-message { margin:0; padding:8px 10px; border:1px solid #4d4935; border-radius:8px; background:#101812; color:#d8ceb4; font-size:11px; min-height:32px; }
 .hexlab-board { position:relative; width:100%; max-width:460px; margin:0 auto; }
-.hexlab-svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+.hexlab-svg { position:absolute; z-index:0; inset:0; width:100%; height:100%; overflow:visible; }
 .hexlab-cell { fill:#151f16; stroke:#4d4935; stroke-width:1.5; cursor:default; transition:fill .12s ease; }
 .hexlab-cell.move { fill:#3a3115; stroke:#d4a44c; cursor:pointer; }
 .hexlab-cell.attack { fill:#3a1616; stroke:#c0524f; cursor:pointer; }
 .hexlab-cell.move:hover,.hexlab-cell.attack:hover { fill:#57451c; }
-.hexlab-unit { position:absolute; display:grid; place-items:center; gap:2px; width:48px; height:56px; padding:4px 2px; border:2px solid #6f5936; border-radius:10px; background:linear-gradient(160deg,#171c14,#0b0f0d); color:#eee5d2; transform:translate(-50%,-50%); box-shadow:0 4px 10px #000a; }
+/* z-index explícito: sem isso, o navegador ocasionalmente pinta algum hexágono do SVG por cima de uma unidade específica, mesmo com a unidade depois no DOM. */
+.hexlab-unit { position:absolute; z-index:1; display:grid; place-items:center; gap:2px; width:48px; height:56px; padding:4px 2px; border:2px solid #6f5936; border-radius:10px; background:linear-gradient(160deg,#171c14,#0b0f0d); color:#eee5d2; transform:translate(-50%,-50%); box-shadow:0 4px 10px #000a; }
 .hexlab-unit.player { border-color:#4c86c9; }
 .hexlab-unit.enemy { border-color:#b13a4e; }
-.hexlab-unit.selected { border-color:#f2c86e; box-shadow:0 0 0 2px #8b612680,0 4px 14px #000c; }
-.hexlab-unit.invisible { opacity:.45; border-style:dashed; }
+.hexlab-unit.selected { border-color:#f2c86e; box-shadow:0 0 0 2px #8b612680,0 4px 14px #000c; z-index:3; }
+/* Nome de classe própria (não ".invisible") de propósito — essa colide com o utilitário
+   `.invisible` do Tailwind (visibility:hidden) e faz a unidade sumir de vez, não só ficar
+   translúcida. Opacidade alta também é de propósito: é a própria unidade do jogador, ela
+   nunca deve "sumir" da tela pra quem a controla — só o inimigo (fora deste protótipo) não a veria. */
+.hexlab-unit.hexlab-stealth { opacity:.85; border-style:dashed; border-color:#7fd6c2; box-shadow:0 0 10px #7fd6c255; }
+.hexlab-unit.acted { opacity:.5; filter:grayscale(.4); }
+.hexlab-invisible-badge { position:absolute; top:-9px; right:-6px; display:grid; place-items:center; width:18px; height:18px; border-radius:50%; background:#0d1511; border:1px solid #7fd6c2; color:#7fd6c2; font-size:10px; }
 .hexlab-facing { position:absolute; top:50%; left:50%; width:26px; height:2px; background:#f2c86e; transform-origin:0 50%; opacity:.8; }
 .hexlab-glyph { font-size:18px; line-height:1; }
 .hexlab-hp { display:block; width:80%; height:5px; overflow:hidden; border-radius:3px; background:#200f10; }
 .hexlab-hp em { display:block; height:100%; background:linear-gradient(90deg,#9f393d,#e66b62); }
 .hexlab-unit small { font-size:7px; color:#c9bd9e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:44px; }
+.hexlab-turnbar { display:flex; align-items:center; justify-content:space-between; padding:7px 10px; border:1px solid #6f5936; border-radius:8px; background:#121a14; }
+.hexlab-turnbar span { color:#d9b56c; font-family:Georgia,"Times New Roman",serif; font-size:12px; font-weight:700; }
+.hexlab-turnbar button { padding:6px 12px; border:1px solid #6f5936; border-radius:8px; background:#1a2116; color:#ddca9e; font-size:11px; font-weight:700; }
 .hexlab-actions { display:grid; gap:4px; padding:9px 11px; border:1px solid #6f5936; border-radius:10px; background:#121a14; font-size:11px; }
 .hexlab-actions strong { font-family:Georgia,"Times New Roman",serif; font-size:14px; color:#f0d29a; }
+.hexlab-enemy-tag { margin-left:6px; padding:2px 6px; border:1px solid #b13a4e; border-radius:999px; color:#e8a09a; font-size:8px; font-style:normal; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
 .hexlab-actions span { color:#a9956e; }
+.hexlab-acted-note { color:#8a7f66; font-style:italic; }
 .hexlab-actions button { justify-self:start; padding:7px 12px; border:1px solid #6f5936; border-radius:8px; background:#1a2116; color:#ddca9e; font-size:11px; font-weight:700; }
 .hexlab-actions button.active { border-color:#d4a44c; background:#20240f; color:#f2c86e; }

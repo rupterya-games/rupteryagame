@@ -3,10 +3,13 @@
 import { useMemo, useState } from "react";
 
 /**
- * Protótipo experimental isolado: tabuleiro hexagonal com movimento, alcance
- * e flanco (ataque furtivo "pelas costas" + invisibilidade). Não toca em
- * HuntBattleState, conta ou personagem — é uma caixa de areia pra sentir a
+ * Protótipo experimental isolado: tabuleiro hexagonal com movimento, alcance,
+ * turnos e flanco (ataque furtivo "pelas costas" + invisibilidade). Não toca
+ * em HuntBattleState, conta ou personagem — é uma caixa de areia pra sentir a
  * mecânica antes de decidir se ela entra de verdade no jogo.
+ *
+ * Os inimigos nunca são controláveis pelo jogador: agem sozinhos (IA simples
+ * de perseguir-e-atacar) quando o jogador encerra o turno.
  */
 
 type Axial = { q: number; r: number };
@@ -29,6 +32,7 @@ interface HexUnit {
 
 const BOARD_RADIUS = 2;
 const HEX_SIZE = 34;
+const BACKSTAB_MULTIPLIER = 2;
 
 const AXIAL_DIRECTIONS: Axial[] = [
   { q: 1, r: 0 },
@@ -118,6 +122,11 @@ function isBackstab(attacker: Axial, defender: Axial, defenderFacing: number): b
   return angleDiff(attackAngle, behindAngle) < 90;
 }
 
+function rollDamage(backstab: boolean): number {
+  const base = 6 + Math.floor(Math.random() * 5);
+  return backstab ? base * BACKSTAB_MULTIPLIER : base;
+}
+
 function seedUnits(): HexUnit[] {
   return [
     { id: "p-guardiao", name: "Guardião", side: "player", glyph: "🛡", hp: 42, hpMax: 42, position: { q: -2, r: 1 }, facing: 0, moveRange: 1, attackRange: 1, invisible: false },
@@ -129,26 +138,72 @@ function seedUnits(): HexUnit[] {
   ];
 }
 
-const BACKSTAB_MULTIPLIER = 2;
+/**
+ * IA inimiga: perseguir e atacar. Cada inimigo vivo mira o jogador vivo mais
+ * próximo — ataca se estiver no alcance (e visível), senão anda pra mais
+ * perto (respeitando o próprio moveRange e o tabuleiro). Roda inteira de uma
+ * vez (sem estado assíncrono) porque cada passo já é determinístico.
+ */
+function resolveEnemyTurn(startUnits: HexUnit[], board: Set<string>): { units: HexUnit[]; messages: string[] } {
+  let working = startUnits.map((unit) => ({ ...unit }));
+  const messages: string[] = [];
+  const enemyIds = working.filter((unit) => unit.side === "enemy" && unit.hp > 0).map((unit) => unit.id);
+
+  for (const id of enemyIds) {
+    const unit = working.find((entry) => entry.id === id);
+    if (!unit || unit.hp <= 0) continue;
+    const alivePlayers = working.filter((entry) => entry.side === "player" && entry.hp > 0);
+    if (!alivePlayers.length) break;
+    let nearest = alivePlayers[0];
+    for (const candidate of alivePlayers) {
+      if (hexDistance(unit.position, candidate.position) < hexDistance(unit.position, nearest.position)) nearest = candidate;
+    }
+    const distance = hexDistance(unit.position, nearest.position);
+    const canSee = !(nearest.invisible && distance > 1);
+
+    if (distance <= unit.attackRange && canSee) {
+      const backstab = isBackstab(unit.position, nearest.position, nearest.facing);
+      const dealt = rollDamage(backstab);
+      working = working.map((entry) => (entry.id === nearest.id ? { ...entry, hp: Math.max(0, entry.hp - dealt) } : entry));
+      messages.push(backstab ? `⚔ ${unit.name} pega ${nearest.name} pelas costas e causa ${dealt} de dano!` : `${unit.name} ataca ${nearest.name} e causa ${dealt} de dano.`);
+    } else {
+      const occupied = new Set(working.filter((entry) => entry.hp > 0 && entry.id !== unit.id).map((entry) => key(entry.position)));
+      const options = reachableCells(unit.position, unit.moveRange, board, occupied);
+      if (options.length) {
+        options.sort((a, b) => hexDistance(a, nearest.position) - hexDistance(b, nearest.position));
+        const destination = options[0];
+        const direction = directionIndexFromDelta({ q: Math.sign(destination.q - unit.position.q), r: Math.sign(destination.r - unit.position.r) });
+        working = working.map((entry) => (entry.id === unit.id ? { ...entry, position: destination, facing: direction >= 0 ? direction : entry.facing } : entry));
+        messages.push(`${unit.name} se aproxima.`);
+      } else {
+        messages.push(`${unit.name} não tem pra onde ir.`);
+      }
+    }
+  }
+  return { units: working, messages };
+}
 
 export function HexBattlePrototype() {
   const [units, setUnits] = useState<HexUnit[]>(seedUnits);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [message, setMessage] = useState("Selecione uma unidade pra ver movimento (dourado) e alcance de ataque (vermelho).");
+  const [actedIds, setActedIds] = useState<Set<string>>(new Set());
+  const [round, setRound] = useState(1);
+  const [message, setMessage] = useState("Sua rodada: cada unidade age uma vez (mover OU atacar). Depois, encerre o turno.");
 
   const cells = useMemo(boardCells, []);
   const boardKeys = useMemo(() => new Set(cells.map(key)), [cells]);
   const selected = units.find((unit) => unit.id === selectedId) ?? null;
+  const canAct = Boolean(selected && selected.side === "player" && selected.hp > 0 && !actedIds.has(selected.id));
 
   const occupied = useMemo(() => new Set(units.filter((unit) => unit.hp > 0).map((unit) => key(unit.position))), [units]);
   const moveTargets = useMemo(() => {
-    if (!selected) return new Set<string>();
+    if (!selected || !canAct) return new Set<string>();
     const withoutSelf = new Set(occupied);
     withoutSelf.delete(key(selected.position));
     return new Set(reachableCells(selected.position, selected.moveRange, boardKeys, withoutSelf).map(key));
-  }, [selected, occupied, boardKeys]);
+  }, [selected, canAct, occupied, boardKeys]);
   const attackTargets = useMemo(() => {
-    if (!selected) return new Set<string>();
+    if (!selected || !canAct) return new Set<string>();
     const targets = new Set<string>();
     for (const unit of units) {
       if (unit.hp <= 0 || unit.side === selected.side) continue;
@@ -157,7 +212,7 @@ export function HexBattlePrototype() {
       targets.add(key(unit.position));
     }
     return targets;
-  }, [selected, units]);
+  }, [selected, canAct, units]);
 
   const { minX, minY, width, height } = useMemo(() => {
     const points = cells.map(axialToPixel);
@@ -174,21 +229,30 @@ export function HexBattlePrototype() {
     return { left: `${((x - minX) / width) * 100}%`, top: `${((y - minY) / height) * 100}%` };
   };
 
+  const alivePlayerUnits = units.filter((unit) => unit.side === "player" && unit.hp > 0);
+
+  const markActed = (unitId: string, nextActed: Set<string>) => {
+    if (alivePlayerUnits.every((unit) => unit.id === unitId || nextActed.has(unit.id))) {
+      // todo mundo já agiu — encerra o turno automaticamente
+      window.setTimeout(() => endTurn(), 350);
+    }
+    setActedIds(nextActed);
+  };
+
   const moveSelectedTo = (cell: Axial) => {
-    if (!selected || !moveTargets.has(key(cell))) return;
-    const delta = { q: cell.q - selected.position.q, r: cell.r - selected.position.r };
-    const stepQ = Math.sign(delta.q);
-    const stepR = Math.sign(delta.r);
-    const facingIndex = directionIndexFromDelta({ q: stepQ, r: stepR });
+    if (!selected || !canAct || !moveTargets.has(key(cell))) return;
+    const delta = { q: Math.sign(cell.q - selected.position.q), r: Math.sign(cell.r - selected.position.r) };
+    const facingIndex = directionIndexFromDelta(delta);
     setUnits((previous) => previous.map((unit) => (unit.id === selected.id ? { ...unit, position: cell, facing: facingIndex >= 0 ? facingIndex : unit.facing } : unit)));
     setMessage(`${selected.name} se move.`);
+    setSelectedId(null);
+    markActed(selected.id, new Set(actedIds).add(selected.id));
   };
 
   const attackTarget = (defender: HexUnit) => {
-    if (!selected || !attackTargets.has(key(defender.position))) return;
+    if (!selected || !canAct || !attackTargets.has(key(defender.position))) return;
     const backstab = isBackstab(selected.position, defender.position, defender.facing);
-    const base = 6 + Math.floor(Math.random() * 5);
-    const dealt = backstab ? base * BACKSTAB_MULTIPLIER : base;
+    const dealt = rollDamage(backstab);
     setUnits((previous) =>
       previous.map((unit) => {
         if (unit.id === defender.id) return { ...unit, hp: Math.max(0, unit.hp - dealt) };
@@ -201,17 +265,37 @@ export function HexBattlePrototype() {
         ? `⚔ Ataque Furtivo! ${selected.name} pega ${defender.name} pelas costas e causa ${dealt} de dano.`
         : `${selected.name} ataca ${defender.name} e causa ${dealt} de dano.`,
     );
+    setSelectedId(null);
+    markActed(selected.id, new Set(actedIds).add(selected.id));
   };
 
   const toggleInvisible = () => {
-    if (!selected) return;
-    setUnits((previous) => previous.map((unit) => (unit.id === selected.id ? { ...unit, invisible: !unit.invisible } : unit)));
-    setMessage(selected.invisible ? `${selected.name} sai da invisibilidade.` : `${selected.name} fica invisível — só pode ser atacada de perto.`);
+    if (!selected || !canAct) return;
+    const goingInvisible = !selected.invisible;
+    setUnits((previous) => previous.map((unit) => (unit.id === selected.id ? { ...unit, invisible: goingInvisible } : unit)));
+    setMessage(goingInvisible ? `${selected.name} fica invisível — só pode ser atacada de perto.` : `${selected.name} sai da invisibilidade.`);
+    setSelectedId(null);
+    markActed(selected.id, new Set(actedIds).add(selected.id));
+  };
+
+  const endTurn = () => {
+    setUnits((currentUnits) => {
+      const result = resolveEnemyTurn(currentUnits, boardKeys);
+      setMessage(`Turno dos inimigos: ${result.messages.join(" ")}`);
+      return result.units;
+    });
+    setActedIds(new Set());
+    setSelectedId(null);
+    setRound((value) => value + 1);
   };
 
   return (
     <section className="hexlab">
-      <p className="hexlab-note">Protótipo experimental — não afeta sua conta, seu personagem nem seu progresso.</p>
+      <p className="hexlab-note">Protótipo experimental — não afeta sua conta, seu personagem nem seu progresso. Inimigos agem sozinhos ao fim do seu turno.</p>
+      <div className="hexlab-turnbar">
+        <span>Rodada {round}</span>
+        <button type="button" onClick={() => endTurn()}>Encerrar Turno</button>
+      </div>
       <p className="hexlab-message">{message}</p>
       <div className="hexlab-board" style={{ aspectRatio: `${width} / ${height}` }}>
         <svg viewBox={`0 0 ${width} ${height}`} className="hexlab-svg">
@@ -240,19 +324,21 @@ export function HexBattlePrototype() {
         {units.filter((unit) => unit.hp > 0).map((unit) => {
           const { left, top } = toPercent(unit.position);
           const angle = DIRECTION_ANGLES[unit.facing];
+          const acted = unit.side === "player" && actedIds.has(unit.id);
           return (
             <button
               key={unit.id}
               type="button"
-              className={`hexlab-unit ${unit.side} ${unit.id === selectedId ? "selected" : ""} ${unit.invisible ? "invisible" : ""}`}
+              className={`hexlab-unit ${unit.side} ${unit.id === selectedId ? "selected" : ""} ${unit.invisible ? "hexlab-stealth" : ""} ${acted ? "acted" : ""}`}
               style={{ left, top }}
               onClick={() => {
-                if (selected && attackTargets.has(key(unit.position)) && unit.id !== selected.id) attackTarget(unit);
+                if (selected && canAct && attackTargets.has(key(unit.position)) && unit.id !== selected.id) attackTarget(unit);
                 else setSelectedId(unit.id === selectedId ? null : unit.id);
               }}
-              aria-label={`${unit.name} · HP ${unit.hp}/${unit.hpMax}`}
+              aria-label={`${unit.name} · HP ${unit.hp}/${unit.hpMax}${unit.invisible ? " · invisível" : ""}`}
             >
               <i className="hexlab-facing" style={{ transform: `translate(-50%,-50%) rotate(${angle}deg)` }} aria-hidden="true" />
+              {unit.invisible && <span className="hexlab-invisible-badge" aria-hidden="true">👁</span>}
               <span className="hexlab-glyph" aria-hidden="true">{unit.glyph}</span>
               <b className="hexlab-hp"><em style={{ width: `${Math.max(0, (unit.hp / unit.hpMax) * 100)}%` }} /></b>
               <small>{unit.name}</small>
@@ -262,11 +348,17 @@ export function HexBattlePrototype() {
       </div>
       {selected && (
         <div className="hexlab-actions">
-          <strong>{selected.name}</strong>
+          <strong>{selected.name} {selected.side === "enemy" && <em className="hexlab-enemy-tag">Inimigo · IA</em>}</strong>
           <span>HP {selected.hp}/{selected.hpMax} · Movimento {selected.moveRange} · Alcance {selected.attackRange}</span>
-          <button type="button" onClick={toggleInvisible} className={selected.invisible ? "active" : ""}>
-            {selected.invisible ? "Sair da invisibilidade" : "Ficar Invisível"}
-          </button>
+          {selected.side === "player" && (
+            canAct ? (
+              <button type="button" onClick={toggleInvisible} className={selected.invisible ? "active" : ""}>
+                {selected.invisible ? "Sair da invisibilidade" : "Ficar Invisível"}
+              </button>
+            ) : (
+              <span className="hexlab-acted-note">Já agiu nesta rodada.</span>
+            )
+          )}
         </div>
       )}
     </section>

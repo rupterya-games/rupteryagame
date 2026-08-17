@@ -35,8 +35,10 @@ export interface CombatKeywords {
   bleedDamagePerTurn?: number;
   /** Duração em turnos do sangramento. */
   bleedDuration?: number;
-  /** Tem Vampirismo (ex: cura % do dano causado). */
+  /** Tem Vampirismo (ex: cura % do dano causado em ataques normais). */
   vampirismPercent?: number;
+  /** Cura % do dano causado ESPECIFICAMENTE por Contra-golpe (ex: Katana Vampírica). Não afeta ataques normais. */
+  counterVampirismPercent?: number;
   /** É imune a interrupção. */
   unstoppable?: boolean;
   /** Provoca alvos ao acertar certas habilidades. */
@@ -77,6 +79,7 @@ export function aggregateKeywords(
     bleedDamagePerTurn: (base.bleedDamagePerTurn ?? 8) + (equipmentBonus.bleedDamagePerTurn ?? 0),
     bleedDuration: (base.bleedDuration ?? 3),
     vampirismPercent: (base.vampirismPercent ?? 0) + (equipmentBonus.vampirismPercent ?? 0) + (temporaryBuffs.vampirismPercent ?? 0),
+    counterVampirismPercent: (base.counterVampirismPercent ?? 0) + (equipmentBonus.counterVampirismPercent ?? 0) + (temporaryBuffs.counterVampirismPercent ?? 0),
     unstoppable: Boolean(base.unstoppable || temporaryBuffs.unstoppable),
     tauntDuration: base.tauntDuration ?? 1,
     backstabBonusPercent: (base.backstabBonusPercent ?? 20) + (equipmentBonus.backstabBonusPercent ?? 0),

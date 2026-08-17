@@ -1,4 +1,5 @@
 export const GAME_VERSION = "1.0.0";
+export * from "./rng";
 export * from "./domain";
 export * from "./damage-types";
 export * from "./keywords";
@@ -10,6 +11,7 @@ export * from "./companions";
 export * from "./exploration";
 export * from "./morality-kingdoms";
 export * from "./bestiary-v1";
+export * from "./battle-orchestrator";
 export * from "./ai-tactical";
 export * from "./rules";
 export * from "./bestiary";

@@ -69,6 +69,7 @@ import { CreatureFrameOverlay, creatureFrameClassName, creatureRarityLabels, res
 import { StatusEffectIcon } from "@/components/StatusEffectIcon";
 import { GateMap } from "@/components/GateMap";
 import { HexBattlePrototype } from "@/components/HexBattlePrototype";
+import { CompanionsLab } from "@/components/CompanionsLab";
 import { QuestBoard } from "@/components/QuestBoard";
 import { MarketPanels } from "@/components/MarketPanels";
 import { LoginScreen } from "@/components/LoginScreen";
@@ -85,7 +86,8 @@ type View =
   | "hunt"
   | "bestiary"
   | "dev"
-  | "hexlab";
+  | "hexlab"
+  | "companionslab";
 type BattleEffect = {
   kind: "physical" | "magical" | "dragonfire";
   targetId?: string;
@@ -1902,6 +1904,15 @@ export default function HomePage() {
           <HexBattlePrototype />
         </section>
       )}
+      {view === "companionslab" && (
+        <section className="panel">
+          <div className="section-title">
+            <span>Laboratório de Companions (experimental)</span>
+            <button onClick={() => setView("lobby")}>Lobby</button>
+          </div>
+          <CompanionsLab />
+        </section>
+      )}
       {view === "hunt" && (
         <section className="hunt-view">
           {!battle ? (
@@ -2469,6 +2480,12 @@ export default function HomePage() {
           onClick={() => setView("hexlab")}
         >
           Hex Lab
+        </button>
+        <button
+          className={view === "companionslab" ? "active" : ""}
+          onClick={() => setView("companionslab")}
+        >
+          Companions Lab
         </button>
       </nav>}
     </main>

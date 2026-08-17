@@ -804,6 +804,60 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .hexlab-actions button { justify-self:start; padding:7px 12px; border:1px solid #6f5936; border-radius:8px; background:#1a2116; color:#ddca9e; font-size:11px; font-weight:700; }
 .hexlab-actions button.active { border-color:#d4a44c; background:#20240f; color:#f2c86e; }
 
+/* ======================================================================
+   LABORATÓRIO DE COMPANIONS — sandbox do motor V1 (Keywords, tipos de
+   dano, carregamento/Ultimate por carga, invocação, Último Suspiro).
+   ====================================================================== */
+.companions-lab { display:grid; gap:10px; }
+.companions-lab-intro { margin:0; padding:8px 10px; border:1px solid #4d4935; border-radius:8px; background:#101812; color:#d8ceb4; font-size:11px; }
+.companions-lab-setup { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; }
+.companions-lab-setup-card { display:grid; gap:4px; padding:9px 10px; border:1px solid #6f5936; border-radius:10px; background:#121a14; }
+.companions-lab-setup-card strong { font-family:Georgia,"Times New Roman",serif; font-size:13px; color:#f0d29a; }
+.companions-lab-class { color:#a9956e; font-size:10px; }
+.companions-lab-setup-card label { display:grid; gap:2px; color:#ddca9e; font-size:10px; }
+.companions-lab-setup-card input[type="range"] { width:100%; }
+.companions-lab-presets { display:grid; gap:6px; }
+.companions-lab-presets button { display:grid; gap:2px; padding:8px 10px; border:1px solid #6f5936; border-radius:8px; background:#1a2116; color:#ddca9e; text-align:left; }
+.companions-lab-presets button strong { color:#f0d29a; font-size:12px; }
+.companions-lab-presets button span { color:#a9956e; font-size:10px; }
+.companions-lab-presets button.active { border-color:#d4a44c; background:#20240f; }
+.companions-lab-start { padding:10px 14px; font-weight:700; }
+.companions-lab-glyph { font-size:20px; line-height:1; }
+.companions-lab-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border:1px solid #6f5936; border-radius:8px; background:#121a14; font-size:11px; }
+.companions-lab-header span:first-child { color:#d9b56c; font-family:Georgia,"Times New Roman",serif; font-weight:700; }
+.companions-lab-order { color:#a9956e; font-size:10px; }
+.companions-lab-side { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; }
+.companions-lab-card { display:grid; gap:4px; justify-items:center; padding:8px; border:2px solid #6f5936; border-radius:10px; background:linear-gradient(160deg,#171c14,#0b0f0d); color:#eee5d2; font-size:10px; text-align:center; }
+.companions-lab-enemies .companions-lab-card { border-color:#b13a4e; cursor:pointer; }
+.companions-lab-party .companions-lab-card { border-color:#4c86c9; }
+.companions-lab-card.dead { opacity:.4; filter:grayscale(.6); cursor:default; }
+.companions-lab-card.active-turn { border-color:#f2c86e; box-shadow:0 0 0 2px #8b612680; }
+.companions-lab-card.selected { box-shadow:0 0 0 2px #f2c86e; }
+.companions-lab-card strong { font-size:11px; }
+.companions-lab-hpbar { position:relative; width:100%; height:14px; overflow:hidden; border-radius:4px; background:#200f10; }
+.companions-lab-hpbar div { height:100%; background:linear-gradient(90deg,#9f393d,#e66b62); }
+.companions-lab-hpbar span { position:absolute; inset:0; display:grid; place-items:center; font-size:8px; color:#f5ece0; text-shadow:0 1px 1px #000; }
+.companions-lab-charging { color:#f2c86e; font-size:9px; font-weight:700; }
+.companions-lab-effects { color:#7fd6c2; font-size:9px; }
+.companions-lab-actions { display:grid; gap:6px; padding:9px 11px; border:1px solid #6f5936; border-radius:10px; background:#121a14; font-size:11px; }
+.companions-lab-actions > p { margin:0; color:#a9956e; }
+.companions-lab-skill-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:6px; }
+.companions-lab-skill-grid button { padding:7px 10px; border:1px solid #6f5936; border-radius:8px; background:#1a2116; color:#ddca9e; font-size:10px; font-weight:700; }
+.companions-lab-skill-grid button.active { border-color:#d4a44c; background:#20240f; color:#f2c86e; }
+.companions-lab-skill-grid button.companions-lab-ultimate { border-color:#8b5fd9; color:#c9aeff; }
+.companions-lab-skill-grid button.companions-lab-ultimate.active { background:#241a33; border-color:#a67ef0; }
+.companions-lab-move-row { display:flex; flex-wrap:wrap; gap:6px; }
+.companions-lab-move-row button { padding:6px 10px; border:1px solid #6f5936; border-radius:8px; background:#1a2116; color:#ddca9e; font-size:10px; }
+.companions-lab-hint { margin:0; color:#8a7f66; font-style:italic; font-size:10px; }
+.companions-lab-outcome { display:flex; align-items:center; justify-content:space-between; padding:10px; border:1px solid #d4a44c; border-radius:10px; background:#20240f; color:#f2c86e; font-family:Georgia,"Times New Roman",serif; }
+.companions-lab-log { padding:8px 10px; border:1px solid #4d4935; border-radius:8px; background:#101812; font-size:10px; max-height:220px; overflow-y:auto; }
+.companions-lab-log summary { color:#d9b56c; cursor:pointer; font-weight:700; }
+.companions-lab-log p { margin:3px 0 0; color:#c9bd9e; }
+.companions-lab-log-player { color:#8fc4ef; }
+.companions-lab-log-enemy { color:#e8a09a; }
+.companions-lab-log-defeat { color:#e66b62; font-weight:700; }
+.companions-lab-log-victory { color:#7fd6c2; font-weight:700; }
+.companions-lab-reset { justify-self:start; padding:6px 10px; border:1px solid #6f5936; border-radius:8px; background:#1a2116; color:#a9956e; font-size:10px; }
 
 /* ======================================================================
    MOCKUP MOBILE TÁTICO — versão baseada no mockup aprovado, mas com as

@@ -86,3 +86,17 @@ export function tickCombatantTurnStart(
     dotDamage,
   };
 }
+
+/** Zera a carga da Ultimate após o uso (volta pra 0/N, nunca fica pronta de novo até acumular). */
+export function resetUltimateCharge(clock: CombatantTurnClock): CombatantTurnClock {
+  return { ...clock, ultimateCurrentCharge: 0, isUltimateReady: false };
+}
+
+/** Define a recarga de uma habilidade explicitamente (ex: recarga cheia ao interromper um carregamento). */
+export function setSkillCooldown(clock: CombatantTurnClock, skillId: string, turns: number): CombatantTurnClock {
+  if (turns <= 0) {
+    const { [skillId]: _removed, ...rest } = clock.cooldowns;
+    return { ...clock, cooldowns: rest };
+  }
+  return { ...clock, cooldowns: { ...clock.cooldowns, [skillId]: turns } };
+}

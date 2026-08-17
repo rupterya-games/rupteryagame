@@ -9,6 +9,7 @@
  * - HONRA: Requer >= 2 Samurais. Samurai sem aliado adjacente recebe +3 dano em ataques.
  * - REFLEXO DO TROVÃO: Requer >= 2 Elementais. 20% de chance de retaliação com raio (fogo amigo não ativa).
  * - SANGRIA: Requer >= 3 Goblins. Ataques Goblins recebem +20% Sangramento (respeitando cap de 30%).
+ * - LEGIÃO ÓSSEA: Requer >= 3 Mortos-vivos (invocações contam). Mortos-vivos recebem -15% de dano.
  */
 
 import type { Axial } from "./domain";
@@ -44,7 +45,16 @@ export const FORMATION_TRAITS: Record<string, FormationTraitDefinition> = {
     requiredTag: "goblin",
     requiredCount: 3,
   },
+  legion_of_bones: {
+    id: "legion_of_bones",
+    name: "Legião Óssea",
+    description: "Mortos-vivos recebem -15% de dano enquanto houver 3 ou mais no campo (invocações contam).",
+    requiredTag: "undead",
+    requiredCount: 3,
+  },
 };
+
+export const LEGION_OF_BONES_DAMAGE_REDUCTION = 0.15; // -15% de dano recebido por mortos-vivos
 
 export interface CombatantTraitTags {
   id: string;

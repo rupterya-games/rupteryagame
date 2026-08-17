@@ -1,4 +1,4 @@
-import type { AbilityDefinition, CharacterCombatStats, CharacterPreset, ClassDefinition, CombatLoadout, CombatPosition, CombatStatusEffect, CreatureAbilityDefinition, CreatureSpecialEffect, EquippedItems, EquipmentItem, GameCharacter, HuntBattleLog, HuntBattleState, HuntCombatant, HuntCompanion, HuntCreatureDefinition, LoadoutSlot, StatusEffectApplication, StatusEffectKind } from "./domain";
+import type { AbilityDefinition, Axial, CharacterCombatStats, CharacterPreset, ClassDefinition, CombatLoadout, CombatPosition, CombatStatusEffect, CreatureAbilityDefinition, CreatureSpecialEffect, EquippedItems, EquipmentItem, GameCharacter, HuntBattleLog, HuntBattleState, HuntCombatant, HuntCompanion, HuntCreatureDefinition, LoadoutSlot, StatusEffectApplication, StatusEffectKind } from "./domain";
 
 export const LOADOUT_SLOTS: ReadonlyArray<{ key: LoadoutSlot; label: string; kind: AbilityDefinition["slotKind"] }> = [
   { key: "skill1", label: "Habilidade 1", kind: "skill" }, { key: "skill2", label: "Habilidade 2", kind: "skill" }, { key: "skill3", label: "Habilidade 3", kind: "skill" }, { key: "skill4", label: "Habilidade 4", kind: "skill" }, { key: "ultimate", label: "Ultimate", kind: "ultimate" }, { key: "stance", label: "Postura", kind: "stance" }, { key: "passive", label: "Passiva", kind: "passive" },
@@ -11,8 +11,6 @@ export const statusEffectLabels: Record<StatusEffectKind, string> = {
   stun: "Atordoamento", silence: "Silêncio", marked: "Marcado", taunted: "Provocado",
   guard: "Guarda", evasion: "Evasão", position_lock: "Imobilizado", enraged: "Fúria",
 };
-export const positionLabels: Record<CombatPosition, string> = { front: "Frente", center: "Centro", back: "Trás" };
-
 export function abilityRawDamage(ability: AbilityDefinition, stats: CharacterCombatStats): number { return Math.max(0, Math.round(stats.physicalDamage * (ability.physicalScaling ?? 0) + stats.magicalDamage * (ability.magicalScaling ?? 0))); }
 export function mitigateDamage(rawDamage: number, kind: "physical" | "magical", defender: CharacterCombatStats): number { const defense = kind === "physical" ? defender.physicalDefense : defender.magicalDefense; return Math.max(1, Math.round(rawDamage * (100 / (100 + Math.max(0, defense))))); }
 
@@ -41,6 +39,79 @@ export function activeFrontLine(enemies: HuntCombatant[]): HuntCombatant[] {
 }
 /** Teto de criaturas por encontro, incluindo reservas fora da linha de frente e invocações em combate. */
 export const ENGINE_MAX_ENCOUNTER_SIZE = 8;
+
+// ---------------------------------------------------------------------------
+// Tabuleiro hexagonal do campo de batalha
+// ---------------------------------------------------------------------------
+
+/** Raio do tabuleiro (19 células) — mesmo tamanho já validado no protótipo Hex Lab. */
+export const BOARD_RADIUS = 2;
+/** Onde o jogador começa toda batalha (centro do tabuleiro). */
+export const PLAYER_START_CELL: Axial = { q: 0, r: 0 };
+/** Células fixas da linha de frente inimiga, por índice de slot (0, 1, 2). Quando o
+ * ocupante de um slot morre, o próximo da reserva assume o MESMO índice — e portanto a
+ * mesma célula — automaticamente, via activeFrontLine(). */
+export const ENEMY_SLOT_CELLS: Axial[] = [
+  { q: 2, r: -2 },
+  { q: 2, r: -1 },
+  { q: 2, r: 0 },
+];
+/** Alcance de movimento do jogador por rodada. Igual pra todas as classes por enquanto. */
+export const PLAYER_MOVE_RANGE = 2;
+
+const AXIAL_DIRECTIONS: Axial[] = [
+  { q: 1, r: 0 },
+  { q: 1, r: -1 },
+  { q: 0, r: -1 },
+  { q: -1, r: 0 },
+  { q: -1, r: 1 },
+  { q: 0, r: 1 },
+];
+
+const hexKey = (cell: Axial) => `${cell.q},${cell.r}`;
+
+export function hexDistance(a: Axial, b: Axial): number {
+  return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
+}
+
+export function boardCells(): Axial[] {
+  const cells: Axial[] = [];
+  for (let q = -BOARD_RADIUS; q <= BOARD_RADIUS; q += 1) {
+    const rMin = Math.max(-BOARD_RADIUS, -q - BOARD_RADIUS);
+    const rMax = Math.min(BOARD_RADIUS, -q + BOARD_RADIUS);
+    for (let r = rMin; r <= rMax; r += 1) cells.push({ q, r });
+  }
+  return cells;
+}
+
+/** Flood-fill respeitando o tabuleiro e células ocupadas — alcance de movimento real. */
+export function reachableCells(start: Axial, range: number, board: Axial[], occupied: Set<string>): Axial[] {
+  const boardKeys = new Set(board.map(hexKey));
+  const distances = new Map<string, number>([[hexKey(start), 0]]);
+  const queue: Axial[] = [start];
+  while (queue.length) {
+    const current = queue.shift()!;
+    const distance = distances.get(hexKey(current))!;
+    if (distance >= range) continue;
+    for (const direction of AXIAL_DIRECTIONS) {
+      const next = { q: current.q + direction.q, r: current.r + direction.r };
+      const nextKey = hexKey(next);
+      if (!boardKeys.has(nextKey) || occupied.has(nextKey) || distances.has(nextKey)) continue;
+      distances.set(nextKey, distance + 1);
+      queue.push(next);
+    }
+  }
+  distances.delete(hexKey(start));
+  return [...distances.keys()].map((entry) => {
+    const [q, r] = entry.split(",").map(Number);
+    return { q, r };
+  });
+}
+
+/** Classifica uma distância em rótulo, só pra avaliar gatilhos "target_position == front/center/back" do bestiário. */
+export function positionLabelForDistance(distance: number): CombatPosition {
+  return distance <= 1 ? "front" : distance === 2 ? "center" : "back";
+}
 
 function preparePlayerTurn(player: HuntCombatant, cooldowns: Record<string, number>) {
   const nextCooldowns = Object.fromEntries(
@@ -239,11 +310,11 @@ export function createHuntBattle(input: { regionId: string; player: HuntCombatan
     return {
       id: `${creature.id}-${index}`, creatureId: creature.id, archetype: creature.archetype, role: creature.role, name: creature.name, portraitPath: creature.portraitPath,
       hpCurrent: hpMax, hpMax, mpCurrent: 0, mpMax: 0, activeEffects: emptyEffects(), onHitEffects: [...(creature.statusEffects ?? []), ...itemEffects],
-      abilities: creature.abilities ?? [], abilityCooldowns: {}, charging: null, stunImmuneTurns: 0, usedOncePerBattle: [], position: "front", changedPositionThisTurn: false,
+      abilities: creature.abilities ?? [], abilityCooldowns: {}, charging: null, stunImmuneTurns: 0, usedOncePerBattle: [], changedPositionThisTurn: false,
       stats: { physicalDamage: creature.physicalDamage + (itemModifiers.physicalDamage ?? 0), magicalDamage: (creature.magicalDamage ?? 0) + (itemModifiers.magicalDamage ?? 0), physicalDefense: creature.physicalDefense + (itemModifiers.physicalDefense ?? 0), magicalDefense: creature.magicalDefense + (itemModifiers.magicalDefense ?? 0), criticalChance: (highRarity ? 12 : creature.rarity === "rare" ? 7 : 4) + (itemModifiers.criticalChance ?? 0), dodgeChance: (creature.rarity === "rare" ? 5 : 2) + (itemModifiers.dodgeChance ?? 0), blockChance: (creature.blockChance ?? 0) + (itemModifiers.blockChance ?? 0), bleedChance: itemModifiers.bleedChance ?? 0, burnChance: itemModifiers.burnChance ?? 0, poisonChance: itemModifiers.poisonChance ?? 0, blindChance: itemModifiers.blindChance ?? 0, bleedResistance: itemModifiers.bleedResistance ?? 0, burnResistance: itemModifiers.burnResistance ?? 0, poisonResistance: itemModifiers.poisonResistance ?? 0, blindResistance: itemModifiers.blindResistance ?? 0 },
     };
   });
-  const initialTurn = preparePlayerTurn({ ...input.player, activeEffects: input.player.activeEffects ?? emptyEffects(), onHitEffects: input.player.onHitEffects ?? [], position: input.player.position ?? "front" }, {});
+  const initialTurn = preparePlayerTurn({ ...input.player, activeEffects: input.player.activeEffects ?? emptyEffects(), onHitEffects: input.player.onHitEffects ?? [], position: input.player.position ?? PLAYER_START_CELL }, {});
   return { id: battleId(), regionId: input.regionId, creatures, player: initialTurn.player, companion: input.companion ?? null, enemies, masteredCreatureIds: input.masteredCreatureIds ?? [], lastPetTargetId: null, lastPetDamage: 0, cooldowns: initialTurn.cooldowns, turn: 1, status: "active", reward: null, log: [{ turn: 0, tone: "system", text: creatures.length > 1 ? `Emboscada: ${creatures.length} inimigos bloqueiam o caminho.` : `${creatures[0].name} bloqueia o caminho.` }] };
 }
 
@@ -261,10 +332,6 @@ interface TriggerContext {
 
 function hasBuff(combatant: HuntCombatant): boolean {
   return combatant.activeEffects.some((effect) => effect.kind === "guard" || effect.kind === "evasion" || effect.kind === "enraged" || (effect.damageBonusPercent ?? 0) > 0);
-}
-
-export function positionDistance(position?: CombatPosition): number {
-  return position === "back" ? 3 : position === "center" ? 2 : 1;
 }
 
 /**
@@ -307,7 +374,7 @@ export function evaluateTrigger(trigger: string, ctx: TriggerContext): boolean {
   if (t === "distance > 1") return ctx.distance > 1;
   if (t === "target_adjacent") return ctx.distance <= 1;
   const posMatch = t.match(/^target_position == (front|center|back)$/);
-  if (posMatch) return (ctx.target.position ?? "front") === posMatch[1];
+  if (posMatch) return positionLabelForDistance(ctx.distance) === posMatch[1];
   if (t === "target_changed_position" || t === "target_attempted_escape_or_position_change") return Boolean(ctx.target.changedPositionThisTurn);
   // "resource_full" depende de um medidor de recurso que este motor não tem — nunca dispara.
   if (t === "resource_full") return false;
@@ -459,7 +526,9 @@ function creatureAbilityRawDamage(ability: CreatureAbilityDefinition, self: Hunt
 function runEnemyPhase(turn: number, player0: HuntCombatant, enemies0: HuntCombatant[], logs: HuntBattleLog[], masteryMultiplier: (creatureId?: string) => number): { player: HuntCombatant; enemies: HuntCombatant[]; defeated: boolean } {
   let player = player0;
   let enemies = enemies0;
-  for (const enemyRef of activeFrontLine(enemies)) {
+  const slots = activeFrontLine(enemies);
+  for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
+    const enemyRef = slots[slotIndex];
     let workingEnemy = enemies.find((entry) => entry.id === enemyRef.id) ?? enemyRef;
     if (workingEnemy.hpCurrent <= 0) continue;
     if (workingEnemy.abilityCooldowns && Object.keys(workingEnemy.abilityCooldowns).length) {
@@ -474,7 +543,8 @@ function runEnemyPhase(turn: number, player0: HuntCombatant, enemies0: HuntComba
 
     const frontIds = activeFrontLine(enemies).map((entry) => entry.id);
     const alliesAlive = frontIds.filter((id) => id !== workingEnemy.id).length;
-    const ctx: TriggerContext = { turn, self: workingEnemy, target: player, alliesAlive, distance: positionDistance(player.position) };
+    const slotCell = ENEMY_SLOT_CELLS[slotIndex] ?? ENEMY_SLOT_CELLS[0];
+    const ctx: TriggerContext = { turn, self: workingEnemy, target: player, alliesAlive, distance: hexDistance(slotCell, player.position ?? PLAYER_START_CELL) };
 
     let chosenAbility: CreatureAbilityDefinition;
     let isChargeResolution = false;
@@ -588,6 +658,10 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
     const tauntEffect = player.activeEffects.find((effect) => effect.kind === "taunted");
     const taunter = tauntEffect?.sourceId ? frontLine.find((entry) => entry.id === tauntEffect.sourceId) : undefined;
     const primaryEnemy = taunter ?? frontLine.find((entry) => entry.id === targetId) ?? frontLine[0];
+    const primarySlot = frontLine.indexOf(primaryEnemy);
+    const targetCell = ENEMY_SLOT_CELLS[primarySlot] ?? ENEMY_SLOT_CELLS[0];
+    const distanceToTarget = hexDistance(player.position ?? PLAYER_START_CELL, targetCell);
+    if (ability.range && distanceToTarget > ability.range) return { ...state, player, enemies, log: [...logs, { turn: state.turn, tone: "system", text: `${ability.name} está fora de alcance — chegue mais perto de ${primaryEnemy.name}.` }] };
     const kind = ability.damageFamily === "magical" ? "magical" : "physical";
     const targetMastered = masteryMultiplier(primaryEnemy.creatureId) > 1;
     const hit = attack({ attacker: player, defender: primaryEnemy, rawDamage: Math.round(abilityRawDamage(ability, player.stats) * masteryMultiplier(primaryEnemy.creatureId)), kind, effects: [...(ability.statusEffects ?? []), ...player.onHitEffects], sourceName: `${player.name} usa ${ability.name}`, turn: state.turn, logs, sourceId: player.id });
@@ -612,11 +686,13 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
 }
 
 /**
- * Reposicionar é uma ação tática: não causa dano, mas muda a distância/posição
- * lida pelos gatilhos das criaturas e dá o único gatilho real que existe hoje
- * para habilidades de reação ("target_changed_position").
+ * Mover é uma ação tática: não causa dano, mas muda a distância/posição lida
+ * pelos gatilhos das criaturas e dá o único gatilho real que existe hoje para
+ * habilidades de reação ("target_changed_position"). `destination` precisa
+ * estar dentro do alcance real de movimento (ver reachableCells) — chamadas
+ * fora do alcance só mantêm a posição atual, sem gastar a rodada à toa.
  */
-export function resolveRepositionTurn(state: HuntBattleState, position: CombatPosition): HuntBattleState {
+export function resolveMoveTurn(state: HuntBattleState, destination: Axial): HuntBattleState {
   if (state.status !== "active") return state;
   const logs = [...state.log];
   let player = tickEffects(state.player, state.turn, logs);
@@ -628,12 +704,13 @@ export function resolveRepositionTurn(state: HuntBattleState, position: CombatPo
   const masteredCreatureIds = state.masteredCreatureIds ?? [];
   const masteryMultiplier = (creatureId?: string) => (creatureId && masteredCreatureIds.includes(creatureId) ? 1 + MASTERY_DAMAGE_BONUS : 1);
   const playerStunned = player.activeEffects.some((effect) => effect.kind === "stun");
-  const previousPosition = player.position ?? "front";
-  const changed = !playerStunned && position !== previousPosition;
-  player = playerStunned
-    ? player
-    : { ...player, position, changedPositionThisTurn: changed };
-  logs.push({ turn: state.turn, tone: "system", text: playerStunned ? `${player.name} está atordoado e não consegue se reposicionar.` : changed ? `${player.name} muda de posição para ${positionLabels[position]}.` : `${player.name} mantém a posição.` });
+  const previousPosition = player.position ?? PLAYER_START_CELL;
+  const occupiedByEnemies = new Set(ENEMY_SLOT_CELLS.slice(0, activeFrontLine(enemies).length).map(hexKey));
+  const reachable = new Set(reachableCells(previousPosition, PLAYER_MOVE_RANGE, boardCells(), occupiedByEnemies).map(hexKey));
+  const validMove = !playerStunned && reachable.has(hexKey(destination));
+  const changed = validMove && (destination.q !== previousPosition.q || destination.r !== previousPosition.r);
+  player = changed ? { ...player, position: destination, changedPositionThisTurn: true } : { ...player, changedPositionThisTurn: false };
+  logs.push({ turn: state.turn, tone: "system", text: playerStunned ? `${player.name} está atordoado e não consegue se mover.` : changed ? `${player.name} se move.` : `${player.name} mantém a posição.` });
 
   if (changed) {
     for (const enemyRef of activeFrontLine(enemies)) {

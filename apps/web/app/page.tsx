@@ -3,20 +3,25 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import {
+  ENEMY_SLOT_CELLS,
   FRONT_LINE_SIZE,
   LOADOUT_SLOTS,
+  PLAYER_MOVE_RANGE,
   PLAYER_MP_REGEN_PER_TURN,
+  PLAYER_START_CELL,
   activeFrontLine,
   activePreset,
+  boardCells,
   dropBreakChanceByRarity,
-  positionLabels,
+  hexDistance,
+  reachableCells,
   resolveHuntTurn,
-  resolveRepositionTurn,
+  resolveMoveTurn,
   statusEffectLabels,
 } from "@rupterya/game-core";
 import type {
   AbilityDefinition,
-  CombatPosition,
+  Axial,
   CombatStatusEffect,
   GameCharacter,
   HuntBattleState,
@@ -398,6 +403,21 @@ function bestiaryCreatureForHunt(creatureId: string): HuntCreatureDefinition {
 }
 
 const MAX_ENCOUNTER_SIZE = 8;
+
+/** Só desenho — a geometria/alcance de verdade vive no motor (@rupterya/game-core). */
+const HEX_SIZE = 34;
+function axialToPixel(cell: Axial): { x: number; y: number } {
+  return { x: HEX_SIZE * Math.sqrt(3) * (cell.q + cell.r / 2), y: HEX_SIZE * 1.5 * cell.r };
+}
+function hexCorners(cx: number, cy: number): string {
+  const points: string[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const angle = (Math.PI / 180) * (60 * i - 30);
+    points.push(`${cx + HEX_SIZE * Math.cos(angle)},${cy + HEX_SIZE * Math.sin(angle)}`);
+  }
+  return points.join(" ");
+}
+const hexKey = (cell: Axial) => `${cell.q},${cell.r}`;
 /** Vaga de enxame: evento raro, só para arquétipo "swarm" (goblins, lobos, morcegos etc). */
 const SWARM_SURGE_CHANCE = 0.12;
 
@@ -681,6 +701,27 @@ export default function HomePage() {
         .filter(({ enemy }) => enemy.hpCurrent > 0)
         .slice(0, FRONT_LINE_SIZE)
     : [];
+  const hexBoardBounds = useMemo(() => {
+    const points = boardCells().map(axialToPixel);
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    const pad = HEX_SIZE * 1.15;
+    const left = Math.min(...xs) - pad;
+    const top = Math.min(...ys) - pad;
+    return { minX: left, minY: top, width: Math.max(...xs) - left + pad, height: Math.max(...ys) - top + pad };
+  }, []);
+  const hexToPercent = (cell: Axial) => {
+    const { x, y } = axialToPixel(cell);
+    return { left: `${((x - hexBoardBounds.minX) / hexBoardBounds.width) * 100}%`, top: `${((y - hexBoardBounds.minY) / hexBoardBounds.height) * 100}%` };
+  };
+  const playerPosition: Axial = battle?.player.position ?? PLAYER_START_CELL;
+  const moveTargets = battle
+    ? new Set(
+        reachableCells(playerPosition, PLAYER_MOVE_RANGE, boardCells(), new Set(ENEMY_SLOT_CELLS.slice(0, frontLineEnemies.length).map(hexKey))).map(hexKey),
+      )
+    : new Set<string>();
+  const selectedSlot = frontLineEnemies.findIndex((entry) => entry.enemy.id === selectedEnemyId);
+  const distanceToSelected = selectedSlot >= 0 ? hexDistance(playerPosition, ENEMY_SLOT_CELLS[selectedSlot] ?? ENEMY_SLOT_CELLS[0]) : null;
 
   const persist = (character: GameCharacter) =>
     setAccount(repository.update(account, character));
@@ -1060,9 +1101,9 @@ export default function HomePage() {
       );
     }
   };
-  const reposition = (position: CombatPosition) => {
+  const moveTo = (cell: Axial) => {
     if (!battle || !selected) return;
-    const next = resolveRepositionTurn(battle, position);
+    const next = resolveMoveTurn(battle, cell);
     setBattle(next);
     if (next.status !== "active") {
       let settled = repository.settleHunt(account, selected, next);
@@ -1078,7 +1119,7 @@ export default function HomePage() {
           : "Derrota registrada: o spot não foi consumido e poderá ser tentado novamente após a cura.",
       );
     } else {
-      setMessage(`Posição alterada para ${positionLabels[position]}.`);
+      setMessage(`${summary!.name} se move.`);
     }
   };
   const applyDevLevel = () => {
@@ -1883,16 +1924,38 @@ export default function HomePage() {
 
               <div className="battle-v6-arena" style={battleBoardStyle}>
                 <div className="battle-v6-section-title">
-                  <span>INIMIGOS</span>
+                  <span>CAMPO DE BATALHA</span>
                 </div>
-                <div className={`battle-v6-enemy-grid enemy-count-${frontLineEnemies.length}`}>
-                  {frontLineEnemies.map(({ enemy, index }) => {
+                <div className="battle-v6-hex-board" style={{ aspectRatio: `${hexBoardBounds.width} / ${hexBoardBounds.height}` }}>
+                  <svg viewBox={`0 0 ${hexBoardBounds.width} ${hexBoardBounds.height}`} className="battle-v6-hex-svg">
+                    {boardCells().map((cell) => {
+                      const { x, y } = axialToPixel(cell);
+                      const cx = x - hexBoardBounds.minX;
+                      const cy = y - hexBoardBounds.minY;
+                      const cellKey = hexKey(cell);
+                      const isMove = moveTargets.has(cellKey);
+                      return (
+                        <polygon
+                          key={cellKey}
+                          points={hexCorners(cx, cy)}
+                          className={`battle-v6-hex-cell${isMove ? " move" : ""}`}
+                          onClick={() => {
+                            if (isMove) moveTo(cell);
+                          }}
+                        />
+                      );
+                    })}
+                  </svg>
+
+                  {frontLineEnemies.map(({ enemy, index }, slot) => {
                     const selectedTarget = enemy.id === selectedEnemyId;
                     const creature = battle.creatures[index];
+                    const cell = ENEMY_SLOT_CELLS[slot] ?? ENEMY_SLOT_CELLS[0];
                     return (
                       <article
-                        className={`battle-v6-unit-card battle-v6-enemy-card ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${battleEffect?.targetId === enemy.id ? `hit-${battleEffect.kind}` : ""}`}
+                        className={`battle-v6-unit-card battle-v6-hex-unit battle-v6-enemy-card ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${battleEffect?.targetId === enemy.id ? `hit-${battleEffect.kind}` : ""}`}
                         key={enemy.id}
+                        style={hexToPercent(cell)}
                         role="button"
                         tabIndex={0}
                         aria-pressed={selectedTarget}
@@ -1937,20 +2000,10 @@ export default function HomePage() {
                       </article>
                     );
                   })}
-                </div>
 
-                <div className="battle-v6-versus" aria-hidden="true">
-                  <span />
-                  <b>VS</b>
-                  <span />
-                </div>
-
-                <div className="battle-v6-section-title team-title">
-                  <span>EQUIPE</span>
-                </div>
-                <div className="battle-v6-team-grid solo">
                   <article
-                    className={`battle-v6-unit-card battle-v6-player-card ${battleEffect?.targetId === battle.player.id ? `hit-${battleEffect.kind}` : ""}`}
+                    className={`battle-v6-unit-card battle-v6-hex-unit battle-v6-player-card ${battleEffect?.targetId === battle.player.id ? `hit-${battleEffect.kind}` : ""}`}
+                    style={hexToPercent(playerPosition)}
                     role="button"
                     tabIndex={0}
                     aria-label={`${summary!.name}. Toque duas vezes para ver equipamentos.`}
@@ -1974,22 +2027,23 @@ export default function HomePage() {
                       </div>
                     </div>
                   </article>
-                  {battle.companion && (
-                    <article
-                      className="battle-v6-companion-card"
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`${battle.companion.name}. Toque duas vezes para ver detalhes.`}
-                      onDoubleClick={() => setShowCompanionDetail(true)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") setShowCompanionDetail(true);
-                      }}
-                    >
-                      <img src={battle.companion.portraitPath} alt={battle.companion.name} />
-                    </article>
-                  )}
                 </div>
-                <div className="battle-v6-mode-note">♟ Solo · estrutura preparada para Co-op 2–3 jogadores</div>
+
+                {battle.companion && (
+                  <article
+                    className="battle-v6-companion-card"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${battle.companion.name}. Toque duas vezes para ver detalhes.`}
+                    onDoubleClick={() => setShowCompanionDetail(true)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") setShowCompanionDetail(true);
+                    }}
+                  >
+                    <img src={battle.companion.portraitPath} alt={battle.companion.name} />
+                  </article>
+                )}
+                <div className="battle-v6-mode-note">♟ Toque num hexágono dourado pra se mover · Solo · estrutura preparada para Co-op 2–3 jogadores</div>
               </div>
 
               <section className="battle-v6-command-panel">
@@ -2027,7 +2081,8 @@ export default function HomePage() {
                         const noTarget = !selectedEnemyId;
                         const stunned = battle.player.activeEffects.some((effect) => effect.kind === "stun");
                         const silenced = ability.damageFamily === "magical" && battle.player.activeEffects.some((effect) => effect.kind === "silence");
-                        const disabled = cooldown > 0 || blockedByMana || noTarget || stunned || silenced;
+                        const outOfRange = !noTarget && Boolean(ability.range) && distanceToSelected !== null && distanceToSelected > ability.range!;
+                        const disabled = cooldown > 0 || blockedByMana || noTarget || stunned || silenced || outOfRange;
                         const icon = ability.damageFamily === "magical"
                           ? "✦"
                           : abilityIndex === 0
@@ -2054,22 +2109,10 @@ export default function HomePage() {
                             {cooldown === 0 && blockedByMana && <i className="battle-v6-cd">SEM MP</i>}
                             {cooldown === 0 && !blockedByMana && noTarget && <i className="battle-v6-cd">SEM ALVO</i>}
                             {cooldown === 0 && !blockedByMana && !noTarget && silenced && <i className="battle-v6-cd">SILENCIADO</i>}
+                            {cooldown === 0 && !blockedByMana && !noTarget && !silenced && outOfRange && <i className="battle-v6-cd">FORA DE ALCANCE</i>}
                           </button>
                         );
                       })}
-                    </div>
-                    <div className="battle-v6-position-row">
-                      <span>Posição</span>
-                      {(["front", "center", "back"] as CombatPosition[]).map((position) => (
-                        <button
-                          key={position}
-                          type="button"
-                          className={`battle-v6-position-button ${(battle.player.position ?? "front") === position ? "active" : ""}`}
-                          onClick={() => reposition(position)}
-                        >
-                          {positionLabels[position]}
-                        </button>
-                      ))}
                     </div>
                   </section>
                 ) : (

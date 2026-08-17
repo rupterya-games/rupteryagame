@@ -13,6 +13,11 @@ export type StatusEffectKind =
   | "position_lock"
   | "enraged";
 export type CombatPosition = "front" | "center" | "back";
+/** Coordenada axial de tabuleiro hexagonal. */
+export interface Axial {
+  q: number;
+  r: number;
+}
 export type AbilitySlotKind = "skill" | "ultimate" | "stance" | "passive";
 export type SecretArtPath = "martial" | "mystic" | "arcane";
 export type AbilitySource = "class" | "lineage" | "school" | "secret_art" | "creature";
@@ -142,6 +147,8 @@ export interface AbilityDefinition {
   statusEffects?: StatusEffectApplication[];
   keywords?: string[];
   source: AbilitySource;
+  /** Alcance em hexágonos no tabuleiro de batalha. Ausente = sem restrição de distância. */
+  range?: number;
 }
 
 export interface SecretArtDefinition extends AbilityDefinition {
@@ -325,8 +332,8 @@ export interface HuntCombatant {
   stunImmuneTurns?: number;
   /** Ids de habilidades oncePerBattle já usadas nesta luta. */
   usedOncePerBattle?: string[];
-  /** Posição tática (só o jogador troca de posição hoje; inimigos ficam "front"). */
-  position?: CombatPosition;
+  /** Posição real no tabuleiro hexagonal. Só o jogador se move hoje; inimigos ficam em células fixas por slot de linha de frente (ver ENEMY_SLOT_CELLS). */
+  position?: Axial;
   /** True só na rodada em que a posição mudou — consumido pelos gatilhos de reação. */
   changedPositionThisTurn?: boolean;
   /** Bônus percentual consumido pelo próximo dano causado por este combatente. */

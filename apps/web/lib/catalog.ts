@@ -23,6 +23,8 @@ const statusEffectsFor = (classId: string, index: number): StatusEffectApplicati
   if (classId === "samurai" && index === 3) return [{ kind: "bleed", chance: 22, turns: 3, percentMaxHp: 3 }];
   return [];
 };
+/** Alcance em hexágonos no tabuleiro de batalha: corpo a corpo fica preso a distância 1, à distância cobre o tabuleiro inteiro. */
+const rangeByClass: Record<string, number> = { guardian: 1, duelist: 1, samurai: 1, archer: 3, mage: 3 };
 const classAbilityNames: Record<string, { skills: string[]; stance: string; ultimate: string; passive: string }> = {
   guardian: { skills: ["Corte da Muralha", "Golpe de Escudo", "Lança do Bastião", "Retaliação de Fiordevalle"], stance: "Postura de Bastião", ultimate: "Juramento de Ardenor", passive: "Vontade de Aço" },
   duelist: { skills: ["Corte Geminado", "Passo de Cinza", "Dança das Lâminas", "Ruptura Carmesim"], stance: "Guarda da Serpente", ultimate: "Mil Cortes de Rupterya", passive: "Fome de Duelo" },
@@ -40,10 +42,10 @@ export const abilities: AbilityDefinition[] = classes.flatMap((entry) => {
   return [
     ...names.skills.map((name, index): AbilityDefinition => {
       const statusEffects = statusEffectsFor(entry.id, index);
-      return { id: byClass(entry.id, `skill-${index + 1}`), name, description: `Técnica de ${entry.role.toLowerCase()} usada nas fronteiras de Rupterya.`, slotKind: "skill", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: physicalScale[index], magicalScaling: magicalScale[index], manaCost: [0, 8, 14, 20][index], cooldownTurns: [0, 1, 2, 2][index], statusEffects, keywords: statusEffects.map((effect) => `${effect.chance}% ${effect.kind}`) };
+      return { id: byClass(entry.id, `skill-${index + 1}`), name, description: `Técnica de ${entry.role.toLowerCase()} usada nas fronteiras de Rupterya.`, slotKind: "skill", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: physicalScale[index], magicalScaling: magicalScale[index], manaCost: [0, 8, 14, 20][index], cooldownTurns: [0, 1, 2, 2][index], statusEffects, keywords: statusEffects.map((effect) => `${effect.chance}% ${effect.kind}`), range: rangeByClass[entry.id] };
     }),
     { id: byClass(entry.id, "stance"), name: names.stance, description: entry.id === "samurai" ? "Postura de foco para preparar cortes e contra-ataques." : "Postura preparada antes do combate.", slotKind: "stance", source: "class", manaCost: 10, cooldownTurns: 3 },
-    { id: byClass(entry.id, "ultimate"), name: names.ultimate, description: "Golpe máximo da classe, reservado para a caça mais perigosa.", slotKind: "ultimate", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: magical ? 0 : samurai ? 1.95 : 1.85, magicalScaling: magical ? 1.85 : 0, manaCost: 32, cooldownTurns: 4 },
+    { id: byClass(entry.id, "ultimate"), name: names.ultimate, description: "Golpe máximo da classe, reservado para a caça mais perigosa.", slotKind: "ultimate", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: magical ? 0 : samurai ? 1.95 : 1.85, magicalScaling: magical ? 1.85 : 0, manaCost: 32, cooldownTurns: 4, range: rangeByClass[entry.id] },
     { id: byClass(entry.id, "passive"), name: names.passive, description: entry.id === "samurai" ? "Enquanto esta Passiva estiver equipada, ataques diretos que acertarem têm 30% de chance de provocar um contra-ataque de 65% do Dano Físico. Reação não consome ação e não dispara outra reação." : "Passiva da classe; ocupa o único slot de Passiva.", slotKind: "passive", source: "class" },
   ];
 });
@@ -51,7 +53,7 @@ export const abilities: AbilityDefinition[] = classes.flatMap((entry) => {
 export const sharedAbilities: AbilityDefinition[] = [
   { id: "school-fire", name: "Escola de Fogo", description: "Passiva de escola para provar fontes externas.", slotKind: "passive", source: "school", damageFamily: "magical" },
   { id: "lineage-vampire", name: "Sangue Real", description: "Passiva de linhagem. Apenas uma linhagem pode ser escolhida.", slotKind: "passive", source: "lineage" },
-  { id: "secret-predatory-charge", name: "Investida Predatória", description: "Arte Secreta marcial descoberta no mundo.", slotKind: "skill", source: "secret_art", damageFamily: "physical", physicalScaling: 1.35, manaCost: 10, cooldownTurns: 2 },
+  { id: "secret-predatory-charge", name: "Investida Predatória", description: "Arte Secreta marcial descoberta no mundo.", slotKind: "skill", source: "secret_art", damageFamily: "physical", physicalScaling: 1.35, manaCost: 10, cooldownTurns: 2, range: 2 },
 ];
 
 export const equipment: EquipmentItem[] = [

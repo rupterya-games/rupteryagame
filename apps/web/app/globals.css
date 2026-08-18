@@ -595,7 +595,7 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   padding:11px 11px 13px;
   isolation:isolate;
   background:
-    linear-gradient(180deg,#07100cd6,#0b1712d9 48%,#07100ceb),
+    linear-gradient(180deg,#07100cad,#0b1712b3 48%,#07100ccc),
     var(--battle-board-art) center/cover no-repeat,
     radial-gradient(circle at 50% 30%,#284133,#08100c 72%);
 }
@@ -618,11 +618,47 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 /* As duas regras abaixo preservam a centralização do hexágono (translate -50%,-50%)
    por cima dos efeitos de hover/seleção/acerto, que só definiam translateY/shake antes
    de existir um tabuleiro — sem isso a carta pula pra fora da célula durante a animação. */
-.battle-v6-hex-unit.battle-v6-enemy-card:hover,.battle-v6-hex-unit.battle-v6-enemy-card:focus-visible { transform:translate(-50%,-50%) translateY(-3px); }
-.battle-v6-hex-unit.battle-v6-enemy-card.target-selected { transform:translate(-50%,-50%) translateY(-4px); z-index:2; }
+.battle-v6-hex-unit.battle-v6-hex-token-enemy:hover,.battle-v6-hex-unit.battle-v6-hex-token-enemy:focus-visible { transform:translate(-50%,-50%) translateY(-3px); }
+.battle-v6-hex-unit.battle-v6-hex-token-enemy.target-selected { transform:translate(-50%,-50%) translateY(-4px); z-index:2; }
 @keyframes hex-card-shake { 0%,100% { transform:translate(-50%,-50%) translateX(0); } 20% { transform:translate(-50%,-50%) translateX(-6px) rotate(-1deg); } 42% { transform:translate(-50%,-50%) translateX(6px) rotate(1deg); } 64% { transform:translate(-50%,-50%) translateX(-4px); } 82% { transform:translate(-50%,-50%) translateX(3px); } }
 .battle-v6-hex-unit.hit-physical { animation:hex-card-shake .34s linear both; }
 .battle-v6-hex-unit.hit-magical { animation:hex-card-shake .42s cubic-bezier(.36,.07,.19,.97) both; box-shadow:0 0 0 1px #6ccfff,0 0 30px #6f69ff99; }
+
+/* Token hexagonal (retrato recortado em hexágono + selo abaixo) — substitui o card
+   retangular antigo só para as unidades DENTRO do tabuleiro. Tamanho pequeno de
+   propósito (perto de 1 hex) + o tabuleiro ganhou padding extra: uma unidade perto
+   da borda do grid não pode mais vazar pra fora do container (o bug do card "preso
+   embaixo da tela" era exatamente isso: card de 104px numa borda sem folga). */
+.battle-v6-hex-token { width:56px; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; }
+.battle-v6-hex-token-player { cursor:zoom-in; }
+.battle-v6-hex-token-portrait { position:relative; width:48px; height:55px; }
+.battle-v6-hex-token-portrait img,.battle-v6-hex-token-portrait .monster-art {
+  position:relative; z-index:1; display:block; width:100%; height:100%;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  object-fit:cover; object-position:center 22%; background:#0b0e0d;
+}
+.battle-v6-hex-token-portrait .monster-art { display:grid; place-items:center; font-size:24px; color:#8a7f66; }
+.battle-v6-hex-token-ring {
+  position:absolute; z-index:0; inset:-3px;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  background:#8a3540; box-shadow:0 4px 10px #000a; transition:background .15s ease,box-shadow .15s ease;
+}
+.battle-v6-hex-token-player .battle-v6-hex-token-ring { background:#f0bb4c; }
+.battle-v6-hex-token.target-selected .battle-v6-hex-token-ring { background:#ffcc68; box-shadow:0 0 14px #ff433b99; }
+.battle-v6-hex-token.rarity-rare .battle-v6-hex-token-ring { background:#4c86c9; }
+.battle-v6-hex-token.rarity-elite .battle-v6-hex-token-ring { background:#a67ef0; }
+.battle-v6-hex-token.rarity-boss .battle-v6-hex-token-ring,.battle-v6-hex-token.rarity-worldboss .battle-v6-hex-token-ring { background:#d4a44c; box-shadow:0 0 14px #d4a44c88; }
+.battle-v6-hex-token-label {
+  max-width:100%; padding:2px 7px; border:1px solid #6f5936; border-radius:999px;
+  background:#0d1310e6; color:#eee5d2; font-size:9px; font-weight:700;
+  text-overflow:ellipsis; white-space:nowrap; overflow:hidden;
+}
+.battle-v6-hex-token-enemy .battle-v6-hex-token-label { border-color:#7a3540; }
+.battle-v6-hex-token-player .battle-v6-hex-token-label { border-color:#8b6126; color:#f7dfa8; }
+.battle-v6-hex-token .battle-v6-level-badge { top:-4px; left:-4px; padding:1px 5px; font-size:8px; }
+.battle-v6-hex-token .battle-v6-target-reticle { top:-16px; right:-10px; width:26px; height:26px; font-size:18px; }
+.battle-v6-hex-token .battle-v6-charge-badge { bottom:16px; font-size:6px; }
+.battle-v6-hex-token .battle-v6-ai-intent-badge { bottom:auto; top:-16px; left:-6px; right:-6px; }
 
 .battle-v6-unit-card {
   position:relative;
@@ -660,7 +696,6 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
    só aparece no duplo clique, para não poluir a tela em telas pequenas. */
 .battle-v6-level-badge { position:absolute; z-index:6; top:6px; left:6px; padding:2px 7px; border:1px solid #b98735; border-radius:999px; background:#17150ee0; color:#f2c86e; font-family:Georgia,"Times New Roman",serif; font-size:10px; font-weight:900; text-shadow:0 1px 2px #000; }
 
-.battle-v6-player-card { border-color:#f0bb4c; box-shadow:0 0 0 2px #8b6126,0 0 24px #df9c2a50,0 10px 24px #000c; cursor:zoom-in; }
 .battle-v6-companion-card { display:grid; place-items:center; width:fit-content; margin:0 auto; padding:8px; border:1px solid #70552f; border-radius:11px; background:#101712d9; box-shadow:0 7px 18px #0008; cursor:zoom-in; }
 .battle-v6-companion-card img { width:64px; height:64px; object-fit:cover; border:1px solid #b47d32; border-radius:50%; }
 .battle-v6-mode-note { color:#b59251; font-size:9px; text-align:center; }
@@ -744,6 +779,9 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   .battle-v6-party-pill { min-height:32px; padding:4px 6px; font-size:9px; }
   .battle-v6-arena { gap:6px; padding:10px 7px; }
   .battle-v6-hex-unit { width:88px; }
+  .battle-v6-hex-token { width:48px; }
+  .battle-v6-hex-token-portrait { width:42px; height:48px; }
+  .battle-v6-hex-token-label { font-size:8px; padding:1px 5px; }
   .battle-v6-card-copy { gap:3px; padding:5px 5px 6px; }
   .battle-v6-target-reticle { top:-9px; right:-7px; width:28px; height:28px; font-size:20px; }
   .battle-v6-command-panel { padding:8px 7px; }
@@ -929,7 +967,6 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 .battle-v6-compact-card .battle-v6-card-copy { gap:3px; padding:5px 6px 6px; }
 .battle-v6-compact-card .battle-v6-card-copy strong { display:block; overflow:hidden; color:#f3ead9; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
 .battle-v6-compact-card > img,.battle-v6-compact-card .battle-v6-portrait > img:not(.creature-frame-overlay),.battle-v6-compact-card .battle-v6-portrait > .monster-art { aspect-ratio:.96; max-height:none; }
-.battle-v6-player-card { box-shadow:0 0 0 2px #3f7bd0,0 0 24px #4d8ce450,0 10px 24px #000c; }
 .battle-v6-mode-note { grid-column:1 / -1; margin-top:-2px; font-size:10px; }
 .battle-v6-active-hero-card { border-color:#5a4d39; box-shadow:0 8px 20px #0008; }
 .battle-v6-skill-grid-cards { grid-template-columns:repeat(2,minmax(0,1fr)); }

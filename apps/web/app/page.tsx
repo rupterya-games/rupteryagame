@@ -732,7 +732,11 @@ export default function HomePage() {
     const points = boardCells().map(axialToPixel);
     const xs = points.map((p) => p.x);
     const ys = points.map((p) => p.y);
-    const pad = HEX_SIZE * 1.15;
+    // Precisa de folga suficiente pra caber MEIO token (70px) além da borda do hex mais
+    // externo, nos dois eixos — não só o hexágono em si. Um valor pequeno demais aqui é
+    // exatamente o bug de "carta presa embaixo/fora da tela": a unidade sentava perto da
+    // borda do grid e a metade do card (translate -50%,-50%) vazava pra fora do container.
+    const pad = HEX_SIZE * 2.1;
     const left = Math.min(...xs) - pad;
     const top = Math.min(...ys) - pad;
     return { minX: left, minY: top, width: Math.max(...xs) - left + pad, height: Math.max(...ys) - top + pad };
@@ -2188,7 +2192,7 @@ export default function HomePage() {
                       const cell = enemy.position ?? ENEMY_FRONT_SPAWN_CELLS[slot] ?? ENEMY_FRONT_SPAWN_CELLS[0];
                       return (
                         <article
-                          className={`battle-v6-unit-card battle-v6-hex-unit battle-v6-compact-card battle-v6-enemy-card ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${preparedAbility && targetableEnemyIds.has(enemy.id) ? "cast-ready" : ""} ${(battleEffect?.targetId === enemy.id || battleEffect?.targetIds?.includes(enemy.id)) ? `hit-${battleEffect.kind}` : ""}`}
+                          className={`battle-v6-hex-unit battle-v6-hex-token battle-v6-hex-token-enemy ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${preparedAbility && targetableEnemyIds.has(enemy.id) ? "cast-ready" : ""} ${(battleEffect?.targetId === enemy.id || battleEffect?.targetIds?.includes(enemy.id)) ? `hit-${battleEffect.kind}` : ""}`}
                           key={enemy.id}
                           style={hexToPercent(cell)}
                           role="button"
@@ -2213,23 +2217,17 @@ export default function HomePage() {
                           )}
                           {enemy.tacticalIntent && <span className={`battle-v6-ai-intent-badge intent-${enemy.tacticalIntent.kind}`}>{enemy.tacticalIntent.label}</span>}
                           <span className="battle-v6-level-badge">Nv. {creature.level}</span>
-                          <div className="battle-v6-portrait">
+                          <div className="battle-v6-hex-token-portrait">
+                            <span className="battle-v6-hex-token-ring" aria-hidden="true" />
                             {enemy.portraitPath ? <img src={enemy.portraitPath} alt={`Retrato de ${enemy.name}`} /> : <div className="monster-art">✦</div>}
-                            <CreatureFrameOverlay family={creature.family} rarity={creature.rarity} />
                           </div>
-                          <div className="battle-v6-card-copy">
-                            <strong>{enemy.name}</strong>
-                            <div className="battle-v6-bar hp" aria-label={`HP ${enemy.hpCurrent} de ${enemy.hpMax}`}>
-                              <b style={{ width: `${Math.max(0, (enemy.hpCurrent / enemy.hpMax) * 100)}%` }} />
-                              <em>{enemy.hpCurrent}/{enemy.hpMax}</em>
-                            </div>
-                          </div>
+                          <span className="battle-v6-hex-token-label">{enemy.name}</span>
                         </article>
                       );
                     })}
 
                     <article
-                      className={`battle-v6-unit-card battle-v6-hex-unit battle-v6-compact-card battle-v6-player-card ${battleEffect?.targetId === battle.player.id ? `hit-${battleEffect.kind}` : ""}`}
+                      className={`battle-v6-hex-unit battle-v6-hex-token battle-v6-hex-token-player ${battleEffect?.targetId === battle.player.id ? `hit-${battleEffect.kind}` : ""}`}
                       style={hexToPercent(playerPosition)}
                       role="button"
                       tabIndex={0}
@@ -2246,18 +2244,11 @@ export default function HomePage() {
                       )}
                       {castEffect && <span className={`class-cast class-cast-${castEffect.classId}`} aria-hidden="true" />}
                       <span className="battle-v6-level-badge">Nv. {summary!.level}</span>
-                      <img src={summary!.portraitPath} alt={`Retrato de ${summary!.name}`} />
-                      <div className="battle-v6-card-copy">
-                        <strong>{summary!.name}</strong>
-                        <div className="battle-v6-bar hp" aria-label={`HP ${battle.player.hpCurrent} de ${battle.player.hpMax}`}>
-                          <b style={{ width: `${Math.max(0, (battle.player.hpCurrent / battle.player.hpMax) * 100)}%` }} />
-                          <em>{battle.player.hpCurrent}/{battle.player.hpMax}</em>
-                        </div>
-                        <div className="battle-v6-bar mp" aria-label={`MP ${battle.player.mpCurrent} de ${battle.player.mpMax}`}>
-                          <b style={{ width: `${Math.max(0, (battle.player.mpCurrent / battle.player.mpMax) * 100)}%` }} />
-                          <em>{battle.player.mpCurrent}/{battle.player.mpMax}</em>
-                        </div>
+                      <div className="battle-v6-hex-token-portrait">
+                        <span className="battle-v6-hex-token-ring" aria-hidden="true" />
+                        <img src={summary!.portraitPath} alt={`Retrato de ${summary!.name}`} />
                       </div>
+                      <span className="battle-v6-hex-token-label">{summary!.name}</span>
                     </article>
                   </div>
                 </div>

@@ -256,9 +256,9 @@ export function companionToHuntCombatant(
     { q: -1, r: 2 }, // Posição 2 (Esquerda - Elyra)
   ];
   const portraitMap: Record<string, string> = {
-    paladin_aldren: "/art/classes/guardian.jpeg",
-    samurai_kael: "/art/classes/samurai.jpeg",
-    archer_elyra: "/art/classes/archer.jpeg",
+    paladin_aldren: "/art/classes/paladin.png",
+    samurai_kael: "/art/classes/samurai.png",
+    archer_elyra: "/art/classes/archer.png",
   };
   const abilities = [
     ...skills.map((s) => skillV1ToAbilityDefinition(s, companion.className)),
@@ -282,7 +282,7 @@ export function companionToHuntCombatant(
     id: companion.id,
     name: companion.name,
     className: companion.className,
-    portraitPath: portraitMap[companion.id] ?? "/art/classes/guardian.jpeg",
+    portraitPath: portraitMap[companion.id] ?? "/art/classes/paladin.png",
     hpCurrent: stats.hpMax,
     hpMax: stats.hpMax,
     mpCurrent: 0,

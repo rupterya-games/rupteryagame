@@ -1244,7 +1244,7 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
    ====================================================================== */
 :root {
   --battle-hex-radius: 54px;
-  --battle-unit-scale: 0.88;
+  --battle-unit-scale: 0.84;
 
   --battle-hex-width: calc(var(--battle-hex-radius) * 1.732);
   --battle-hex-height: calc(var(--battle-hex-radius) * 2);
@@ -1252,205 +1252,110 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 
 .hex-unit-card {
   --unit-frame-color: #c2a260;
+  --unit-core-accent: #121a20;
 
   position: absolute;
   width: calc(var(--battle-hex-width) * var(--battle-unit-scale));
   height: calc(var(--battle-hex-height) * var(--battle-unit-scale));
-
   padding: 0;
   border: 0;
   background: transparent;
-
+  display: block;
   transform: translate(-50%, -50%);
+  transform-origin: center center;
   cursor: pointer;
   overflow: visible;
   z-index: 10;
-
-  filter: drop-shadow(0 6px 7px rgba(0, 0, 0, 0.72));
+  filter: drop-shadow(0 5px 7px rgba(0, 0, 0, 0.66));
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.15s ease, filter 0.15s ease;
 }
 
 .hex-unit-card:hover {
-  transform: translate(-50%, -52%) scale(1.03);
+  transform: translate(-50%, -50%) scale(1.02);
   z-index: 18;
 }
 
-.hex-unit-portrait-mask {
-  position: absolute;
-  inset: 6%;
-  overflow: hidden;
-
-  clip-path: polygon(
-    50% 0%,
-    93% 25%,
-    93% 75%,
-    50% 100%,
-    7% 75%,
-    7% 25%
-  );
-
-  background: #101413;
-}
-
-.hex-unit-portrait {
+.hex-unit-svg {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-
-  /* PADRÃO OFICIAL: rosto/peito/cintura para cima. Não cortar cabeças. */
-  object-position: center 18%;
-  transform: scale(1.06);
-
-  user-select: none;
-  pointer-events: none;
+  overflow: visible;
 }
 
-.hex-unit-placeholder {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  font-size: 1.8rem;
-  color: #cab98f;
+.hex-unit-svg-shadow {
+  fill: rgba(0, 0, 0, 0.28);
+  transform: translateY(2px);
 }
 
-.hex-unit-bottom-shade {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    transparent 42%,
-    rgba(5, 7, 7, 0.22) 58%,
-    rgba(5, 7, 7, 0.95) 92%
-  );
-  pointer-events: none;
+.hex-unit-svg-frame {
+  stroke: rgba(255,255,255,0.18);
+  stroke-width: 1.2;
 }
 
-.hex-unit-frame {
-  position: absolute;
-  inset: 2.5%;
-  clip-path: polygon(
-    50% 0%,
-    93% 25%,
-    93% 75%,
-    50% 100%,
-    7% 75%,
-    7% 25%
-  );
-  pointer-events: none;
+.hex-unit-svg-inner {
+  stroke: rgba(255,255,255,0.12);
+  stroke-width: 1;
 }
 
-.hex-unit-frame::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--unit-frame-color);
-  clip-path: polygon(
-    50% 0%,
-    93% 25%,
-    93% 75%,
-    50% 100%,
-    7% 75%,
-    7% 25%
-  );
+.hex-unit-svg-core {
+  stroke: rgba(255,255,255,0.08);
+  stroke-width: 0.8;
 }
 
-.hex-unit-frame::after {
-  content: "";
-  position: absolute;
-  inset: 4px;
-  background: transparent;
-  clip-path: polygon(
-    50% 0%,
-    93% 25%,
-    93% 75%,
-    50% 100%,
-    7% 75%,
-    7% 25%
-  );
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.18);
+.hex-unit-svg-role {
+  fill: rgba(252, 247, 231, 0.86);
+  font-size: 6.3px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  font-family: Inter, system-ui, sans-serif;
 }
 
-.hex-unit-info {
-  position: absolute;
-  left: 14%;
-  right: 14%;
-  bottom: 15%;
-  z-index: 4;
-  display: grid;
-  gap: 2px;
-  text-align: center;
-  pointer-events: none;
+.hex-unit-svg-mono {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  font-family: Inter, system-ui, sans-serif;
 }
 
-.hex-unit-info strong {
-  overflow: hidden;
-  color: #f4ead8;
-  font-size: clamp(8px, 1.9vw, 11px);
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-shadow: 0 1px 2px #000, 0 2px 5px #000;
+.hex-unit-svg-band {
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.22));
 }
 
-.hex-unit-hp-track {
-  width: 100%;
-  height: 4px;
-  overflow: hidden;
-  border-radius: 99px;
-  background: rgba(20, 4, 5, 0.85);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+.hex-unit-svg-name {
+  fill: #f5ecdb;
+  font-size: 8px;
+  font-weight: 800;
+  font-family: Inter, system-ui, sans-serif;
 }
 
-.hex-unit-hp-value {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #bd4048;
-  transition: width 0.3s ease;
+.hex-unit-svg-hp {
+  fill: #df5458;
 }
 
-.hex-unit-player .hex-unit-hp-value,
-.hex-unit-companion .hex-unit-hp-value {
-  background: #4f9bcf;
-}
-
-.hex-unit-player {
-  --unit-frame-color: #4a86c6;
-}
-
-.hex-unit-companion {
-  --unit-frame-color: #55a298;
-}
-
-.hex-unit-enemy {
-  --unit-frame-color: #a44848;
+.hex-unit-player .hex-unit-svg-hp,
+.hex-unit-companion .hex-unit-svg-hp {
+  fill: #59bbe7;
 }
 
 .hex-unit-card.is-selected {
   z-index: 20;
-  --unit-frame-color: #ffd05b;
   filter:
-    drop-shadow(0 0 8px rgba(255, 205, 94, 0.95))
-    drop-shadow(0 7px 8px rgba(0, 0, 0, 0.8));
+    drop-shadow(0 0 7px rgba(255, 208, 94, 0.9))
+    drop-shadow(0 6px 8px rgba(0, 0, 0, 0.8));
 }
 
 .hex-unit-card.is-targetable {
-  --unit-frame-color: #ff5252;
   filter:
-    drop-shadow(0 0 8px rgba(220, 75, 70, 0.85))
-    drop-shadow(0 7px 8px rgba(0, 0, 0, 0.8));
+    drop-shadow(0 0 7px rgba(220, 75, 70, 0.72))
+    drop-shadow(0 6px 8px rgba(0, 0, 0, 0.8));
 }
 
 .hex-unit-card.is-active-turn {
-  z-index: 19;
   --unit-frame-color: #ffd56b;
   filter:
-    drop-shadow(0 0 10px rgba(245, 210, 110, 0.9))
-    drop-shadow(0 7px 8px rgba(0, 0, 0, 0.8));
+    drop-shadow(0 0 10px rgba(245, 210, 110, 0.82))
+    drop-shadow(0 6px 8px rgba(0, 0, 0, 0.8));
 }
-
 /* Retícula de Alvo no Hex */
 .battle-v6-token-reticle {
   position: absolute;
@@ -1581,15 +1486,15 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
 @media (max-width: 600px) {
   :root {
     --battle-hex-radius: 50px;
-    --battle-unit-scale: 0.86;
+    --battle-unit-scale: 0.82;
   }
 
-  .hex-unit-info strong {
-    font-size: 9px;
+  .hex-unit-svg-name {
+    font-size: 7.3px;
   }
 
-  .hex-unit-hp-track {
-    height: 3px;
+  .hex-unit-svg-role {
+    font-size: 5.7px;
   }
 
   .battle-v6-clean-arena {
@@ -1601,6 +1506,39 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   to { transform: scale(1.12); }
 }
 
+
+.battle-unit-badge {
+  display: grid;
+  place-items: center;
+  clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  border: 1px solid rgba(255,255,255,0.24);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.25);
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+.battle-unit-badge span { transform: translateY(1px); }
+.battle-unit-badge.sm {
+  width: 30px;
+  height: 34px;
+  font-size: 10px;
+}
+.battle-unit-badge.md {
+  width: 40px;
+  height: 46px;
+  font-size: 12px;
+}
+.battle-unit-badge.lg {
+  width: 54px;
+  height: 62px;
+  font-size: 15px;
+}
+.battle-v6-sheet-hero-avatar-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
 /* PAINEL CONTEXTUAL INFERIOR (BOTTOM SHEET) */
 .battle-v6-clean-sheet {
   position: relative;
@@ -1902,207 +1840,4 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-/* ======================================================================
-   BATTLE LAB INTEGRATION R1 — grid grande, cards responsivos e cenário
-   Mantém a geometria/37 hexes; altera apenas a apresentação visual.
-   ====================================================================== */
-.battle-v6-clean-shell {
-  padding: 6px 6px 12px;
-  background: #080b09;
-}
-
-.battle-v6-clean-arena {
-  position: relative;
-  min-height: clamp(520px, 145vw, 760px);
-  padding: clamp(42px, 10vw, 88px) 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  align-items: center;
-  justify-content: center;
-  background:
-    linear-gradient(180deg, rgba(4,7,6,.56), rgba(5,8,7,.18) 22%, rgba(5,8,7,.10) 68%, rgba(3,5,4,.72)),
-    radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 35%, rgba(0,0,0,.58) 100%),
-    var(--battle-board-art) center / cover no-repeat,
-    #0b100d;
-  border: 1px solid #5f4c2d;
-  border-radius: 16px;
-  box-shadow: inset 0 0 42px rgba(0,0,0,.7), 0 10px 28px rgba(0,0,0,.45);
-  scrollbar-width: thin;
-  scrollbar-color: #685435 #0a0d0b;
-}
-
-.battle-v6-clean-arena::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    linear-gradient(90deg, rgba(0,0,0,.32), transparent 13% 87%, rgba(0,0,0,.32)),
-    linear-gradient(180deg, rgba(0,0,0,.28), transparent 16% 84%, rgba(0,0,0,.42));
-}
-
-.battle-v6-clean-board-frame {
-  position: relative;
-  isolation: isolate;
-  z-index: 1;
-  width: min(108%, 640px);
-  max-width: 640px;
-  aspect-ratio: 1.1160254;
-  flex: 0 0 auto;
-  margin: 0 auto;
-}
-
-.battle-v6-hex-svg {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-/* O cenário deve continuar visível por baixo do grid. */
-.battle-v6-hex-cell {
-  fill: rgba(9, 14, 12, .34);
-  stroke: rgba(201, 183, 142, .44);
-  stroke-width: 1.55;
-}
-.battle-v6-hex-cell:hover {
-  fill: rgba(18, 28, 23, .48);
-  stroke: rgba(223, 204, 158, .65);
-}
-.battle-v6-hex-cell.terrain-forest { fill: rgba(17, 34, 24, .42); }
-.battle-v6-hex-cell.terrain-ruins { fill: rgba(31, 29, 24, .42); }
-.battle-v6-hex-cell.terrain-swamp { fill: rgba(20, 34, 27, .43); }
-.battle-v6-hex-cell.terrain-sand { fill: rgba(58, 43, 24, .34); }
-.battle-v6-hex-cell.terrain-glass { fill: rgba(19, 38, 44, .38); }
-.battle-v6-hex-cell.terrain-rift { fill: rgba(38, 22, 49, .40); }
-
-/*
- * O tamanho do card vem do próprio board-frame em %, não de pixels fixos.
- * Assim, quando o SVG diminui no celular, a unidade diminui junto e nunca
- * passa a ocupar 2 ou 3 hexes como acontecia no layout anterior.
- */
-.hex-unit-card {
-  width: var(--battle-unit-width, 11.38%);
-  height: var(--battle-unit-height, 14.67%);
-  min-width: 0;
-  min-height: 0;
-  max-width: none;
-  max-height: none;
-  transform: translate(-50%, -50%);
-  overflow: visible;
-  z-index: 10;
-  filter: drop-shadow(0 5px 5px rgba(0,0,0,.82));
-}
-.hex-unit-card:hover {
-  transform: translate(-50%, -50%) scale(1.025);
-}
-
-.hex-unit-portrait-mask {
-  inset: 5.5%;
-  clip-path: polygon(50% 0%, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
-  background: #0c100f;
-}
-
-.hex-unit-portrait {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  user-select: none;
-  pointer-events: none;
-  transform-origin: center 24%;
-}
-
-.hex-unit-bottom-shade {
-  background: linear-gradient(
-    to bottom,
-    rgba(0,0,0,0) 38%,
-    rgba(4,5,5,.06) 49%,
-    rgba(4,5,5,.48) 68%,
-    rgba(4,5,5,.94) 94%
-  );
-}
-
-/* Moldura SVG real: fica dentro do hex, sem cobrir o retrato. */
-.hex-unit-frame {
-  position: absolute;
-  inset: 1.5%;
-  width: 97%;
-  height: 97%;
-  z-index: 5;
-  overflow: visible;
-  pointer-events: none;
-}
-.hex-unit-frame::before,
-.hex-unit-frame::after {
-  content: none !important;
-  display: none !important;
-}
-.hex-unit-frame-outer {
-  fill: none;
-  stroke: var(--unit-frame-color);
-  stroke-width: 4;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-.hex-unit-frame-inner {
-  fill: none;
-  stroke: rgba(255,255,255,.38);
-  stroke-width: 1.15;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-.hex-unit-frame-gem {
-  fill: var(--unit-frame-color);
-  stroke: rgba(255,245,218,.78);
-  stroke-width: .75;
-  vector-effect: non-scaling-stroke;
-}
-
-.hex-unit-info {
-  left: 17%;
-  right: 17%;
-  bottom: 16%;
-  gap: 2px;
-  z-index: 8;
-}
-.hex-unit-info strong {
-  font-size: clamp(7px, 2.2vw, 10px);
-  line-height: 1;
-  letter-spacing: .01em;
-}
-.hex-unit-hp-track {
-  height: 3px;
-}
-
-/* Retícula e dano ficam sobre a moldura, mas continuam presos à peça. */
-.battle-v6-token-reticle { z-index: 12; transform: scale(.82); transform-origin: top right; }
-.battle-impact { z-index: 30; }
-
-@media (max-width: 600px) {
-  .battle-v6-clean-shell { padding-inline: 3px; }
-  .battle-v6-clean-topbar { padding-inline: 3px; }
-  .battle-v6-clean-arena {
-    min-height: 560px;
-    padding-block: 72px;
-    border-radius: 12px;
-  }
-  .battle-v6-clean-board-frame {
-    width: 106%;
-    max-width: none;
-  }
-  .hex-unit-info strong { font-size: 8px; }
-  .hex-unit-hp-track { height: 2.5px; }
-}
-
-@media (max-width: 390px) {
-  .battle-v6-clean-arena {
-    min-height: 540px;
-    padding-block: 66px;
-  }
-  .battle-v6-clean-board-frame { width: 104%; }
 }

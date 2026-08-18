@@ -629,9 +629,9 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
    propósito (perto de 1 hex) + o tabuleiro ganhou padding extra: uma unidade perto
    da borda do grid não pode mais vazar pra fora do container (o bug do card "preso
    embaixo da tela" era exatamente isso: card de 104px numa borda sem folga). */
-.battle-v6-hex-token { width:56px; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; }
+.battle-v6-hex-token { width:48px; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; padding:6px; margin:-6px; }
 .battle-v6-hex-token-player { cursor:zoom-in; }
-.battle-v6-hex-token-portrait { position:relative; width:48px; height:55px; }
+.battle-v6-hex-token-portrait { position:relative; width:40px; height:46px; }
 .battle-v6-hex-token-portrait img,.battle-v6-hex-token-portrait .monster-art {
   position:relative; z-index:1; display:block; width:100%; height:100%;
   clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
@@ -779,8 +779,8 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   .battle-v6-party-pill { min-height:32px; padding:4px 6px; font-size:9px; }
   .battle-v6-arena { gap:6px; padding:10px 7px; }
   .battle-v6-hex-unit { width:88px; }
-  .battle-v6-hex-token { width:48px; }
-  .battle-v6-hex-token-portrait { width:42px; height:48px; }
+  .battle-v6-hex-token { width:40px; }
+  .battle-v6-hex-token-portrait { width:34px; height:39px; }
   .battle-v6-hex-token-label { font-size:8px; padding:1px 5px; }
   .battle-v6-card-copy { gap:3px; padding:5px 5px 6px; }
   .battle-v6-target-reticle { top:-9px; right:-7px; width:28px; height:28px; font-size:20px; }

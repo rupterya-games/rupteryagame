@@ -732,11 +732,16 @@ export default function HomePage() {
     const points = boardCells().map(axialToPixel);
     const xs = points.map((p) => p.x);
     const ys = points.map((p) => p.y);
-    // Precisa de folga suficiente pra caber MEIO token (70px) além da borda do hex mais
-    // externo, nos dois eixos — não só o hexágono em si. Um valor pequeno demais aqui é
-    // exatamente o bug de "carta presa embaixo/fora da tela": a unidade sentava perto da
-    // borda do grid e a metade do card (translate -50%,-50%) vazava pra fora do container.
-    const pad = HEX_SIZE * 2.1;
+    // Precisa de folga suficiente pra caber MEIO token além da borda do hex mais externo,
+    // nos dois eixos — não só o hexágono em si. Um valor pequeno demais aqui é exatamente
+    // o bug de "carta presa embaixo/fora da tela" (a unidade sentava perto da borda do
+    // grid e a metade do card vazava pra fora do container). Mas um valor grande demais
+    // tem um efeito colateral direto: ele reduz a escala visual do tabuleiro inteiro
+    // dentro da mesma largura de CSS, encolhendo a distância real entre hexágonos vizinhos
+    // até menos que o próprio token — dois inimigos em hexágonos adjacentes (não a mesma
+    // célula) passam a se sobrepor na tela mesmo estando em posições diferentes de verdade.
+    // Este valor é calibrado pro tamanho atual do token (48px, ver .battle-v6-hex-token).
+    const pad = HEX_SIZE * 1.5;
     const left = Math.min(...xs) - pad;
     const top = Math.min(...ys) - pad;
     return { minX: left, minY: top, width: Math.max(...xs) - left + pad, height: Math.max(...ys) - top + pad };
@@ -744,6 +749,17 @@ export default function HomePage() {
   const hexToPercent = (cell: Axial) => {
     const { x, y } = axialToPixel(cell);
     return { left: `${((x - hexBoardBounds.minX) / hexBoardBounds.width) * 100}%`, top: `${((y - hexBoardBounds.minY) / hexBoardBounds.height) * 100}%` };
+  };
+  // A IA pode legitimamente posicionar várias unidades em hexágonos vizinhos bem próximos
+  // (ex: tática "Cercar"), e nesse caso o token de cada uma pode se tocar/sobrepor na tela
+  // mesmo estando em células realmente diferentes. Um leve deslocamento fixo por slot da
+  // linha de frente faz esses casos ficarem em leque, deixando claro que são unidades
+  // distintas, sem mexer em nenhuma posição/regra real do combate — é só renderização.
+  const FRONT_SLOT_NUDGE_PX = [{ x: 0, y: 0 }, { x: 7, y: -5 }, { x: -7, y: 5 }];
+  const hexToPercentForSlot = (cell: Axial, slot: number) => {
+    const base = hexToPercent(cell);
+    const nudge = FRONT_SLOT_NUDGE_PX[slot % FRONT_SLOT_NUDGE_PX.length];
+    return { left: `calc(${base.left} + ${nudge.x}px)`, top: `calc(${base.top} + ${nudge.y}px)` };
   };
   const playerPosition: Axial = battle?.player.position ?? PLAYER_START_CELL;
   const battleFogEnabled = battle?.battlefield.fog.enabled ?? false;
@@ -2194,7 +2210,7 @@ export default function HomePage() {
                         <article
                           className={`battle-v6-hex-unit battle-v6-hex-token battle-v6-hex-token-enemy ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${preparedAbility && targetableEnemyIds.has(enemy.id) ? "cast-ready" : ""} ${(battleEffect?.targetId === enemy.id || battleEffect?.targetIds?.includes(enemy.id)) ? `hit-${battleEffect.kind}` : ""}`}
                           key={enemy.id}
-                          style={hexToPercent(cell)}
+                          style={hexToPercentForSlot(cell, slot)}
                           role="button"
                           tabIndex={0}
                           aria-pressed={selectedTarget}

@@ -51,6 +51,8 @@ import {
   rollFiordevalleEncounter,
   sharedAbilities,
 } from "@/lib/catalog";
+import { HexUnitCard } from "@/components/battle/HexUnitCard";
+import { BATTLE_HEX_RADIUS, axialToPixel, hexCorners, getUnitPortraitCrop } from "@/lib/battle-layout";
 import { emptyWorldProgress, repository, xpToNextLevel } from "@/lib/dev-character-repository";
 import { bestiaryById } from "@/lib/bestiary";
 import { blackMarketStock, innCost, marketStock } from "@/lib/economy";
@@ -423,19 +425,6 @@ function bestiaryCreatureForHunt(creatureId: string): HuntCreatureDefinition {
 
 const MAX_ENCOUNTER_SIZE = 8;
 
-/** Só desenho — a geometria/alcance de verdade vive no motor (@rupterya/game-core). */
-const HEX_SIZE = 34;
-function axialToPixel(cell: Axial): { x: number; y: number } {
-  return { x: HEX_SIZE * Math.sqrt(3) * (cell.q + cell.r / 2), y: HEX_SIZE * 1.5 * cell.r };
-}
-function hexCorners(cx: number, cy: number): string {
-  const points: string[] = [];
-  for (let i = 0; i < 6; i += 1) {
-    const angle = (Math.PI / 180) * (60 * i - 30);
-    points.push(`${cx + HEX_SIZE * Math.cos(angle)},${cy + HEX_SIZE * Math.sin(angle)}`);
-  }
-  return points.join(" ");
-}
 const hexKey = (cell: Axial) => `${cell.q},${cell.r}`;
 /** Vaga de enxame: evento raro, só para arquétipo "swarm" (goblins, lobos, morcegos etc). */
 const SWARM_SURGE_CHANCE = 0.12;
@@ -755,7 +744,7 @@ export default function HomePage() {
     const points = boardCells().map(axialToPixel);
     const xs = points.map((p) => p.x);
     const ys = points.map((p) => p.y);
-    const pad = HEX_SIZE * 1.5;
+    const pad = BATTLE_HEX_RADIUS * 1.5;
     const left = Math.min(...xs) - pad;
     const top = Math.min(...ys) - pad;
     return { minX: left, minY: top, width: Math.max(...xs) - left + pad, height: Math.max(...ys) - top + pad };
@@ -767,12 +756,7 @@ export default function HomePage() {
       top: `${((y - hexBoardBounds.minY) / hexBoardBounds.height) * 100}%`,
     };
   };
-  const FRONT_SLOT_NUDGE_PX = [{ x: 0, y: 0 }, { x: 7, y: -5 }, { x: -7, y: 5 }, { x: 5, y: -8 }, { x: -5, y: 8 }];
-  const hexToPercentForSlot = (cell: Axial, slot: number) => {
-    const base = hexToPercent(cell);
-    const nudge = FRONT_SLOT_NUDGE_PX[slot % FRONT_SLOT_NUDGE_PX.length];
-    return { left: `calc(${base.left} + ${nudge.x}px)`, top: `calc(${base.top} + ${nudge.y}px)` };
-  };
+  const hexToPercentForSlot = (cell: Axial, _slot: number) => hexToPercent(cell);
   const playerPosition: Axial = battle?.player.position ?? PLAYER_START_CELL;
   const battleFogEnabled = battle?.battlefield.fog.enabled ?? false;
   const visibleCellKeys = battle ? new Set(visibleCellsForUnit(battle.player, battle.battlefield).map(hexKey)) : new Set<string>();
@@ -2187,49 +2171,56 @@ export default function HomePage() {
                   {/* PEÇAS DOS INIMIGOS NO TABULEIRO */}
                   {frontLineEnemies.filter(({ enemy }) => visibleEnemyIds.has(enemy.id)).map(({ enemy, index }, slot) => {
                     const selectedTarget = enemy.id === selectedEnemyId;
-                    const creature = battle.creatures[index];
+                    const isTargetable = Boolean(preparedAbility && targetableEnemyIds.has(enemy.id));
                     const cell = enemy.position ?? ENEMY_FRONT_SPAWN_CELLS[slot] ?? ENEMY_FRONT_SPAWN_CELLS[0];
+                    const crop = getUnitPortraitCrop(enemy.name ?? enemy.creatureId);
+
                     return (
-                      <article
+                      <HexUnitCard
                         key={enemy.id}
-                        className={`battle-v6-token-unit enemy ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${preparedAbility && targetableEnemyIds.has(enemy.id) ? "cast-ready" : ""}`}
+                        id={enemy.id}
+                        name={enemy.name}
+                        portraitPath={enemy.portraitPath}
+                        hpCurrent={enemy.hpCurrent}
+                        hpMax={enemy.hpMax}
+                        side="enemy"
+                        selected={selectedTarget}
+                        targetable={isTargetable}
+                        portraitPosition={crop.portraitPosition}
+                        portraitScale={crop.portraitScale}
                         style={hexToPercentForSlot(cell, slot)}
-                        role="button"
-                        tabIndex={0}
                         onClick={() => handleEnemyInteraction(enemy.id, enemy.name, false)}
                         onDoubleClick={() => setInspectedCreatureIndex(index)}
                       >
                         {selectedTarget && <span className="battle-v6-token-reticle" aria-hidden="true">⌖</span>}
                         {(battleEffect?.targetId === enemy.id || battleEffect?.targetIds?.includes(enemy.id)) && (
-                          <span className={`battle-impact ${battleEffect.kind}`} aria-hidden="true">{battleEffect.damage ? `-${battleEffect.damage}` : ""}</span>
+                          <span className={`battle-impact ${battleEffect.kind}`} aria-hidden="true">
+                            {battleEffect.damage ? `-${battleEffect.damage}` : ""}
+                          </span>
                         )}
-                        <div className="battle-v6-token-frame">
-                          {enemy.portraitPath ? (
-                            <img className="battle-v6-token-img" src={enemy.portraitPath} alt={`Retrato de ${enemy.name}`} />
-                          ) : (
-                            <div className="battle-v6-token-placeholder">✦</div>
-                          )}
-                        </div>
-                        <div className="battle-v6-token-footer">
-                          <span className="battle-v6-token-name">{enemy.name}</span>
-                          <div className="battle-v6-token-hpbar">
-                            <div className="battle-v6-token-hpfill" style={{ width: `${Math.max(0, (enemy.hpCurrent / enemy.hpMax) * 100)}%` }} />
-                          </div>
-                        </div>
-                      </article>
+                      </HexUnitCard>
                     );
                   })}
 
                   {/* PEÇAS DOS HERÓIS NO TABULEIRO */}
                   {(battle.party ?? [battle.player]).filter((hero) => hero.hpCurrent > 0).map((hero) => {
                     const isCurrentTurnHero = hero.id === (battle.activeHeroId ?? battle.currentActorId ?? battle.player.id);
+                    const isMainPlayer = hero.id === battle.player.id;
+                    const crop = getUnitPortraitCrop(hero.className ?? hero.name);
+
                     return (
-                      <article
+                      <HexUnitCard
                         key={hero.id}
-                        className={`battle-v6-token-unit player ${isCurrentTurnHero ? "active-turn-hero" : ""}`}
+                        id={hero.id}
+                        name={hero.name}
+                        portraitPath={hero.portraitPath ?? summary!.portraitPath}
+                        hpCurrent={hero.hpCurrent}
+                        hpMax={hero.hpMax}
+                        side={isMainPlayer ? "player" : "companion"}
+                        activeTurn={isCurrentTurnHero}
+                        portraitPosition={crop.portraitPosition}
+                        portraitScale={crop.portraitScale}
                         style={hexToPercent(hero.position ?? PLAYER_START_CELL)}
-                        role="button"
-                        tabIndex={0}
                         onClick={() => setContextualSheet("actions")}
                         onDoubleClick={() => setShowBattleLoadout(true)}
                       >
@@ -2239,16 +2230,7 @@ export default function HomePage() {
                           </span>
                         )}
                         {castEffect && <span className={`class-cast class-cast-${castEffect.classId}`} aria-hidden="true" />}
-                        <div className="battle-v6-token-frame">
-                          <img className="battle-v6-token-img" src={hero.portraitPath ?? summary!.portraitPath} alt={`Retrato de ${hero.name}`} />
-                        </div>
-                        <div className="battle-v6-token-footer">
-                          <span className="battle-v6-token-name">{hero.name}</span>
-                          <div className="battle-v6-token-hpbar">
-                            <div className="battle-v6-token-hpfill" style={{ width: `${Math.max(0, (hero.hpCurrent / hero.hpMax) * 100)}%` }} />
-                          </div>
-                        </div>
-                      </article>
+                      </HexUnitCard>
                     );
                   })}
                 </div>

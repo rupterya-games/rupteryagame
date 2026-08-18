@@ -1238,142 +1238,363 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   margin: 0 auto;
 }
 
-/* TOKENS DAS PEÇAS NO TABULEIRO */
-.battle-v6-token-unit {
+/* ======================================================================
+   HEX UNIT CARD & BOARD LAYERS
+   As unidades cabem 100% dentro do hexágono com moldura e máscara hexagonal.
+   ====================================================================== */
+:root {
+  --battle-hex-radius: 54px;
+  --battle-unit-scale: 0.88;
+
+  --battle-hex-width: calc(var(--battle-hex-radius) * 1.732);
+  --battle-hex-height: calc(var(--battle-hex-radius) * 2);
+}
+
+.hex-unit-card {
+  --unit-frame-color: #c2a260;
+
   position: absolute;
+  width: calc(var(--battle-hex-width) * var(--battle-unit-scale));
+  height: calc(var(--battle-hex-height) * var(--battle-unit-scale));
+
+  padding: 0;
+  border: 0;
+  background: transparent;
+
   transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   cursor: pointer;
+  overflow: visible;
   z-index: 10;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease;
-  user-select: none;
-}
-.battle-v6-token-unit:hover {
-  transform: translate(-50%, -54%) scale(1.06);
-  z-index: 20;
-}
-.battle-v6-token-unit.active-turn-hero {
-  z-index: 15;
+
+  filter: drop-shadow(0 6px 7px rgba(0, 0, 0, 0.72));
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, filter 0.15s ease;
 }
 
-.battle-v6-token-frame {
-  position: relative;
-  width: clamp(66px, 14vw, 84px);
-  height: clamp(66px, 14vw, 84px);
-  border-radius: 20px;
-  padding: 3px;
-  background: linear-gradient(145deg, #3d372a, #131715);
-  border: 2px solid #695738;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.15);
+.hex-unit-card:hover {
+  transform: translate(-50%, -52%) scale(1.03);
+  z-index: 18;
+}
+
+.hex-unit-portrait-mask {
+  position: absolute;
+  inset: 6%;
   overflow: hidden;
-  transition: all 0.2s ease;
+
+  clip-path: polygon(
+    50% 0%,
+    93% 25%,
+    93% 75%,
+    50% 100%,
+    7% 75%,
+    7% 25%
+  );
+
+  background: #101413;
 }
 
-.battle-v6-token-unit.player .battle-v6-token-frame {
-  border-color: #4c85cc;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.7), 0 0 12px rgba(60,130,220,0.3);
-}
-.battle-v6-token-unit.active-turn-hero .battle-v6-token-frame {
-  border-color: #f2cb72;
-  box-shadow: 0 0 0 2px #d4a44c, 0 0 20px #e6b85288, 0 8px 24px #000;
-  animation: hero-turn-pulse 1.8s infinite ease-in-out;
-}
-@keyframes hero-turn-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px #d4a44c, 0 0 14px #e6b85266, 0 8px 24px #000; }
-  50% { box-shadow: 0 0 0 3px #ffe194, 0 0 24px #ffcc59aa, 0 8px 24px #000; }
-}
-
-.battle-v6-token-unit.enemy .battle-v6-token-frame {
-  border-color: #a44848;
-}
-.battle-v6-token-unit.enemy.target-selected .battle-v6-token-frame {
-  border-color: #ff4747;
-  box-shadow: 0 0 0 2px #ff2a2a, 0 0 22px #ff383888, 0 8px 24px #000;
-}
-.battle-v6-token-unit.enemy.cast-ready .battle-v6-token-frame {
-  border-color: #bf66ff;
-  box-shadow: 0 0 0 2px #a842ff, 0 0 20px #bf66ff88;
-}
-
-.battle-v6-token-img {
+.hex-unit-portrait {
   width: 100%;
   height: 100%;
-  border-radius: 16px;
   object-fit: cover;
-  object-position: center top;
-  display: block;
+
+  /* PADRÃO OFICIAL: rosto/peito/cintura para cima. Não cortar cabeças. */
+  object-position: center 18%;
+  transform: scale(1.06);
+
+  user-select: none;
+  pointer-events: none;
 }
 
-.battle-v6-token-placeholder {
+.hex-unit-placeholder {
   width: 100%;
   height: 100%;
-  border-radius: 16px;
   display: grid;
   place-items: center;
-  background: #191c19;
-  font-size: 26px;
-  color: #cfb88f;
+  font-size: 1.8rem;
+  color: #cab98f;
 }
 
-/* MINI HP BAR & NOME DO TOKEN */
-.battle-v6-token-footer {
-  margin-top: 4px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: clamp(68px, 15vw, 88px);
+.hex-unit-bottom-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 42%,
+    rgba(5, 7, 7, 0.22) 58%,
+    rgba(5, 7, 7, 0.95) 92%
+  );
+  pointer-events: none;
 }
 
-.battle-v6-token-name {
-  font-size: clamp(9px, 2vw, 11px);
-  font-weight: 800;
-  color: #ebdcb9;
-  text-shadow: 0 2px 4px #000, 0 0 6px #000;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+.hex-unit-frame {
+  position: absolute;
+  inset: 2.5%;
+  clip-path: polygon(
+    50% 0%,
+    93% 25%,
+    93% 75%,
+    50% 100%,
+    7% 75%,
+    7% 25%
+  );
+  pointer-events: none;
+}
+
+.hex-unit-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--unit-frame-color);
+  clip-path: polygon(
+    50% 0%,
+    93% 25%,
+    93% 75%,
+    50% 100%,
+    7% 75%,
+    7% 25%
+  );
+}
+
+.hex-unit-frame::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  background: transparent;
+  clip-path: polygon(
+    50% 0%,
+    93% 25%,
+    93% 75%,
+    50% 100%,
+    7% 75%,
+    7% 25%
+  );
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.18);
+}
+
+.hex-unit-info {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: 15%;
+  z-index: 4;
+  display: grid;
+  gap: 2px;
   text-align: center;
+  pointer-events: none;
 }
 
-.battle-v6-token-hpbar {
-  width: 100%;
-  height: 5px;
-  border-radius: 999px;
-  background: #1e1112;
-  border: 1px solid #4a292b;
+.hex-unit-info strong {
   overflow: hidden;
-  margin-top: 2px;
+  color: #f4ead8;
+  font-size: clamp(8px, 1.9vw, 11px);
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px #000, 0 2px 5px #000;
 }
-.battle-v6-token-hpfill {
+
+.hex-unit-hp-track {
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(20, 4, 5, 0.85);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.hex-unit-hp-value {
+  display: block;
   height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #992828, #e65757);
+  border-radius: inherit;
+  background: #bd4048;
   transition: width 0.3s ease;
 }
-.battle-v6-token-unit.player .battle-v6-token-hpfill {
-  background: linear-gradient(90deg, #2b70b5, #5ea5f0);
+
+.hex-unit-player .hex-unit-hp-value,
+.hex-unit-companion .hex-unit-hp-value {
+  background: #4f9bcf;
 }
 
-/* RETÍCULA DE ALVO NO TOKEN */
+.hex-unit-player {
+  --unit-frame-color: #4a86c6;
+}
+
+.hex-unit-companion {
+  --unit-frame-color: #55a298;
+}
+
+.hex-unit-enemy {
+  --unit-frame-color: #a44848;
+}
+
+.hex-unit-card.is-selected {
+  z-index: 20;
+  --unit-frame-color: #ffd05b;
+  filter:
+    drop-shadow(0 0 8px rgba(255, 205, 94, 0.95))
+    drop-shadow(0 7px 8px rgba(0, 0, 0, 0.8));
+}
+
+.hex-unit-card.is-targetable {
+  --unit-frame-color: #ff5252;
+  filter:
+    drop-shadow(0 0 8px rgba(220, 75, 70, 0.85))
+    drop-shadow(0 7px 8px rgba(0, 0, 0, 0.8));
+}
+
+.hex-unit-card.is-active-turn {
+  z-index: 19;
+  --unit-frame-color: #ffd56b;
+  filter:
+    drop-shadow(0 0 10px rgba(245, 210, 110, 0.9))
+    drop-shadow(0 7px 8px rgba(0, 0, 0, 0.8));
+}
+
+/* Retícula de Alvo no Hex */
 .battle-v6-token-reticle {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 22px;
-  height: 22px;
+  top: 2%;
+  right: 6%;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #e63939;
   border: 1.5px solid #fff;
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
   display: grid;
   place-items: center;
   font-weight: 900;
+  z-index: 12;
   box-shadow: 0 0 10px #ff2b2b;
   animation: reticle-pulse 1s infinite alternate;
+  pointer-events: none;
+}
+@keyframes reticle-pulse {
+  from { transform: scale(0.92); }
+  to { transform: scale(1.12); }
+}
+
+/* Impacto e dano flutuante */
+.battle-impact {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 900;
+  font-size: 15px;
+  color: #ff5252;
+  text-shadow: 0 0 8px #000, 0 0 12px #ff2a2a;
+  z-index: 30;
+  pointer-events: none;
+  animation: float-damage 1.2s ease-out forwards;
+}
+@keyframes float-damage {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.8); }
+  20% { opacity: 1; transform: translate(-50%, -10px) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -24px) scale(1); }
+}
+
+/* CAMADAS DO TABULEIRO (Z-INDEX HIERARCHY) */
+.battle-v6-clean-arena {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 6px;
+}
+
+.battle-v6-clean-board-frame {
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+}
+
+.battle-v6-hex-svg {
+  position: relative;
+  z-index: 2;
+}
+
+.battle-v6-hex-cell {
+  fill: #121815;
+  stroke: #2e3b33;
+  stroke-width: 1.5;
+  transition: all 0.15s ease;
+  cursor: default;
+}
+.battle-v6-hex-cell:hover {
+  fill: #1a241f;
+  stroke: #45574c;
+}
+.battle-v6-hex-cell.move {
+  fill: #16324a;
+  stroke: #4a9be6;
+  cursor: pointer;
+  animation: cell-pulse-move 1.5s infinite alternate;
+}
+@keyframes cell-pulse-move {
+  from { fill: #16324a; stroke: #3e88cc; }
+  to { fill: #1e4566; stroke: #68b4fc; }
+}
+.battle-v6-hex-cell.target {
+  fill: #3b181a;
+  stroke: #d94148;
+}
+.battle-v6-hex-cell.ability-reach {
+  fill: #222920;
+  stroke: #66825c;
+}
+.battle-v6-hex-cell.physical-area {
+  fill: #3b2216;
+  stroke: #e67e22;
+}
+.battle-v6-hex-cell.magic-area {
+  fill: #28183b;
+  stroke: #9b59b6;
+}
+.battle-v6-hex-cell.enemy-threat {
+  fill: #381518;
+  stroke: #ff3344;
+  animation: threat-pulse 1.2s infinite alternate;
+}
+@keyframes threat-pulse {
+  from { stroke: #cc2233; fill: #331215; }
+  to { stroke: #ff5566; fill: #4a191d; }
+}
+.battle-v6-hex-cell.fog-hidden-cell {
+  fill: #080b0a;
+  stroke: #161c19;
+  opacity: 0.55;
+}
+.battle-v6-hex-cell.blocked-cell {
+  fill: #1a1613;
+  stroke: #3d332a;
+}
+.battle-v6-hex-cell.cover-cell {
+  stroke-dasharray: 4, 3;
+}
+
+@media (max-width: 600px) {
+  :root {
+    --battle-hex-radius: 50px;
+    --battle-unit-scale: 0.86;
+  }
+
+  .hex-unit-info strong {
+    font-size: 9px;
+  }
+
+  .hex-unit-hp-track {
+    height: 3px;
+  }
+
+  .battle-v6-clean-arena {
+    padding: 8px 0;
+  }
 }
 @keyframes reticle-pulse {
   from { transform: scale(0.92); }

@@ -54,6 +54,43 @@ const classAbilityNames: Record<string, { skills: string[]; stance: string; ulti
   samurai: { skills: ["Corte Iai", "Passo da Lua", "Corte Ascendente", "Lua Partida"], stance: "Postura Mushin", ultimate: "Lua Sem Retorno", passive: "Retaliação Iai" },
 };
 
+const specificSkillRange: Record<string, number> = {
+  "samurai-skill-1": 2, // Corte Iai: alcance 2 com avanço rápido
+  "samurai-skill-2": 0, // Passo da Lua: auto / buff
+  "samurai-skill-3": 1, // Corte Ascendente: corpo a corpo
+  "samurai-skill-4": 2, // Lua Partida: alcance 2 em cone
+  "samurai-ultimate": 2, // Lua Sem Retorno: alcance 2
+  "samurai-stance": 0,  // Postura Mushin: auto-cast
+
+  "guardian-skill-1": 1, // Corte da Muralha
+  "guardian-skill-2": 1, // Golpe de Escudo
+  "guardian-skill-3": 2, // Lança do Bastião: alcance 2
+  "guardian-skill-4": 1, // Retaliação de Fiordevalle
+  "guardian-ultimate": 2,
+  "guardian-stance": 0,
+
+  "duelist-skill-1": 1,
+  "duelist-skill-2": 2, // Passo de Cinza: avanço rápido
+  "duelist-skill-3": 1,
+  "duelist-skill-4": 1,
+  "duelist-ultimate": 1,
+  "duelist-stance": 0,
+
+  "archer-skill-1": 3,
+  "archer-skill-2": 3,
+  "archer-skill-3": 4, // Tiro Perfurante de longo alcance
+  "archer-skill-4": 3,
+  "archer-ultimate": 3,
+  "archer-stance": 0,
+
+  "mage-skill-1": 3,
+  "mage-skill-2": 3,
+  "mage-skill-3": 3,
+  "mage-skill-4": 3,
+  "mage-ultimate": 3,
+  "mage-stance": 0,
+};
+
 export const abilities: AbilityDefinition[] = classes.flatMap((entry) => {
   const names = classAbilityNames[entry.id];
   const magical = entry.id === "mage";
@@ -62,11 +99,13 @@ export const abilities: AbilityDefinition[] = classes.flatMap((entry) => {
   const magicalScale: number[] = magical ? [1.05, 1.18, 1.3, 1.42] : [0, 0, 0, 0];
   return [
     ...names.skills.map((name, index): AbilityDefinition => {
+      const skillId = byClass(entry.id, `skill-${index + 1}`);
       const statusEffects = statusEffectsFor(entry.id, index);
-      return { id: byClass(entry.id, `skill-${index + 1}`), name, description: `Técnica de ${entry.role.toLowerCase()} usada nas fronteiras de Rupterya.`, slotKind: "skill", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: physicalScale[index], magicalScaling: magicalScale[index], manaCost: [0, 8, 14, 20][index], cooldownTurns: [0, 1, 2, 2][index], statusEffects, keywords: statusEffects.map((effect) => `${effect.chance}% ${effect.kind}`), range: rangeByClass[entry.id], area: areaByClassSkill(entry.id, index), specialEffects: specialEffectsForClassSkill(entry.id, index) };
+      const skillRange = specificSkillRange[skillId] ?? rangeByClass[entry.id] ?? 1;
+      return { id: skillId, name, description: `Técnica de ${entry.role.toLowerCase()} usada nas fronteiras de Rupterya.`, slotKind: "skill", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: physicalScale[index], magicalScaling: magicalScale[index], manaCost: [0, 8, 14, 20][index], cooldownTurns: [0, 1, 2, 2][index], statusEffects, keywords: statusEffects.map((effect) => `${effect.chance}% ${effect.kind}`), range: skillRange, area: areaByClassSkill(entry.id, index), specialEffects: specialEffectsForClassSkill(entry.id, index) };
     }),
-    { id: byClass(entry.id, "stance"), name: names.stance, description: entry.id === "samurai" ? "Postura de foco para preparar cortes e contra-ataques." : "Postura preparada antes do combate.", slotKind: "stance", source: "class", manaCost: 10, cooldownTurns: 3 },
-    { id: byClass(entry.id, "ultimate"), name: names.ultimate, description: "Golpe máximo da classe, reservado para a caça mais perigosa.", slotKind: "ultimate", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: magical ? 0 : samurai ? 1.95 : 1.85, magicalScaling: magical ? 1.85 : 0, manaCost: 32, cooldownTurns: 4, range: rangeByClass[entry.id], area: ultimateAreaByClass[entry.id] },
+    { id: byClass(entry.id, "stance"), name: names.stance, description: entry.id === "samurai" ? "Postura de foco para preparar cortes e contra-ataques." : "Postura preparada antes do combate.", slotKind: "stance", source: "class", manaCost: 10, cooldownTurns: 3, range: 0 },
+    { id: byClass(entry.id, "ultimate"), name: names.ultimate, description: "Golpe máximo da classe, reservado para a caça mais perigosa.", slotKind: "ultimate", source: "class", damageFamily: magical ? "magical" : "physical", physicalScaling: magical ? 0 : samurai ? 1.95 : 1.85, magicalScaling: magical ? 1.85 : 0, manaCost: 32, cooldownTurns: 4, range: specificSkillRange[byClass(entry.id, "ultimate")] ?? rangeByClass[entry.id] ?? 2, area: ultimateAreaByClass[entry.id] },
     { id: byClass(entry.id, "passive"), name: names.passive, description: entry.id === "samurai" ? "Enquanto esta Passiva estiver equipada, ataques diretos que acertarem têm 30% de chance de provocar um contra-ataque de 65% do Dano Físico. Reação não consome ação e não dispara outra reação." : "Passiva da classe; ocupa o único slot de Passiva.", slotKind: "passive", source: "class" },
   ];
 });

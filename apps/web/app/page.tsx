@@ -523,6 +523,9 @@ export default function HomePage() {
   const [showBattleLoadout, setShowBattleLoadout] = useState(false);
   const [inspectedCreatureIndex, setInspectedCreatureIndex] = useState<number | null>(null);
   const [showCompanionDetail, setShowCompanionDetail] = useState(false);
+  const [showLogDrawer, setShowLogDrawer] = useState(false);
+  const [showTacticalHelp, setShowTacticalHelp] = useState(false);
+  const [contextualSheet, setContextualSheet] = useState<"actions" | "skills" | "skill_confirm" | "enemy_inspect" | "none">("actions");
   const [battleActionMode, setBattleActionMode] = useState<"idle" | "move" | "skill">("idle");
   const [preparedAbilityId, setPreparedAbilityId] = useState<string | null>(null);
   const [inspectedBestiaryCreatureId, setInspectedBestiaryCreatureId] = useState<string | null>(null);
@@ -793,10 +796,13 @@ export default function HomePage() {
   const enemyTelegraphCells = new Set(
     frontLineEnemies.flatMap(({ enemy }) => enemy.charging?.affectedCells ?? []).filter((cell) => !battle || visibleCellKeys.has(hexKey(cell))).map(hexKey),
   );
+  const isSelfSkill = Boolean(preparedAbility && (preparedAbility.range === 0 || preparedAbility.slotKind === "stance"));
   const targetableEnemyIds = preparedAbility
-    ? new Set(frontLineEnemies.filter(({ enemy }, slot) => visibleEnemyIds.has(enemy.id) && hexDistance(playerPosition, enemy.position ?? ENEMY_FRONT_SPAWN_CELLS[slot] ?? ENEMY_FRONT_SPAWN_CELLS[0]) <= preparedAbilityRange).map((entry) => entry.enemy.id))
+    ? isSelfSkill
+      ? new Set<string>()
+      : new Set(frontLineEnemies.filter(({ enemy }, slot) => visibleEnemyIds.has(enemy.id) && hexDistance(playerPosition, enemy.position ?? ENEMY_FRONT_SPAWN_CELLS[slot] ?? ENEMY_FRONT_SPAWN_CELLS[0]) <= preparedAbilityRange).map((entry) => entry.enemy.id))
     : new Set<string>();
-  const preparedAbilityInRange = Boolean(preparedAbility && selectedEnemyId && targetableEnemyIds.has(selectedEnemyId));
+  const preparedAbilityInRange = Boolean(preparedAbility && (isSelfSkill || (selectedEnemyId && targetableEnemyIds.has(selectedEnemyId))));
   const preparedAreaLabel = preparedAbility?.area?.shape === "radius"
     ? `Área raio ${preparedAbility.area.radius ?? 1}`
     : preparedAbility?.area?.shape === "ring"
@@ -1200,17 +1206,18 @@ export default function HomePage() {
         return;
       }
     }
+    const isSelf = ability.range === 0 || ability.slotKind === "stance";
     const frontLine = activeFrontLine(battle.enemies);
-    const target = frontLine.find((enemy) => enemy.id === forcedTargetId) ?? frontLine.find((enemy) => enemy.id === selectedEnemyId) ?? frontLine[0];
-    if (!target) {
+    const target = isSelf ? null : (frontLine.find((enemy) => enemy.id === forcedTargetId) ?? frontLine.find((enemy) => enemy.id === selectedEnemyId) ?? frontLine[0]);
+    if (!isSelf && !target) {
       setMessage("Nenhum alvo disponível.");
       return;
     }
-    if (target.id !== selectedEnemyId) setSelectedEnemyId(target.id);
-    const targetPosition = target.position ?? ENEMY_FRONT_SPAWN_CELLS[0];
+    if (target && target.id !== selectedEnemyId) setSelectedEnemyId(target.id);
+    const targetPosition = target?.position ?? currentHero.position ?? PLAYER_START_CELL;
     const visualArea = new Set(abilityAreaCells(currentHero.position ?? PLAYER_START_CELL, targetPosition, ability.area, playerAbilityRange(ability, currentHero) ?? 1).map(hexKey));
     const visualTargetIds = frontLine.filter((enemy) => enemy.position && visualArea.has(hexKey(enemy.position))).map((enemy) => enemy.id);
-    const next = resolveHuntTurn(battle, ability, target.id);
+    const next = resolveHuntTurn(battle, ability, target?.id);
     if (target) {
       setBattleEffect({
         kind: ability.damageFamily === "magical" ? "magical" : "physical",
@@ -1223,6 +1230,7 @@ export default function HomePage() {
       }, 330);
       window.setTimeout(() => setBattleEffect(null), 1120);
     }
+    setContextualSheet("actions");
     applyBattleUpdate(next, `${currentHero.name} usa ${ability.name}.`);
   };
   const prepareAbility = (ability: AbilityDefinition) => {
@@ -1241,8 +1249,10 @@ export default function HomePage() {
         return;
       }
     }
+    setPreparedAbilityId(ability.id);
     setBattleActionMode("skill");
-    setMessage(`Habilidade preparada: ${ability.name}. ${selectedEnemy ? `Alvo atual: ${selectedEnemy.name}.` : "Escolha um alvo."}`);
+    setContextualSheet("skill_confirm");
+    setMessage(`Habilidade selecionada: ${ability.name}. ${selectedEnemy ? `Alvo atual: ${selectedEnemy.name}.` : "Selecione o alvo no campo ou confirme."}`);
   };
   const beginMoveMode = () => {
     if (!battle) return;
@@ -1253,23 +1263,26 @@ export default function HomePage() {
     setPreparedAbilityId(null);
     setBattleActionMode((current) => {
       const nextMode = current === "move" ? "idle" : "move";
-      setMessage(nextMode === "move" ? `Modo mover ativo para ${summary!.name}.` : "Modo mover cancelado.");
+      setMessage(nextMode === "move" ? `Modo mover ativo para ${summary!.name}. Toque num hexágono azul para mover.` : "Modo mover cancelado.");
       return nextMode;
     });
   };
   const cancelBattleMode = () => {
     setBattleActionMode("idle");
     setPreparedAbilityId(null);
+    setContextualSheet("actions");
     setMessage("Ação preparada cancelada.");
   };
   const moveTo = (cell: Axial) => {
     if (!battle || !selected) return;
     const next = resolveMoveTurn(battle, cell);
+    setContextualSheet("actions");
     applyBattleUpdate(next, `${summary!.name} se move pelo campo hexagonal.`);
   };
   const waitTurn = () => {
     if (!battle || !selected) return;
     const next = resolveWaitTurn(battle);
+    setContextualSheet("actions");
     applyBattleUpdate(next, `${summary!.name} aguarda e passa a rodada.`);
   };
   const handleEnemyInteraction = (enemyId: string, enemyName: string, immediateCast = false) => {
@@ -1282,7 +1295,8 @@ export default function HomePage() {
       executeAbility(preparedAbility, enemyId);
       return;
     }
-    setMessage(`${enemyName} selecionado como alvo.${preparedAbility ? ` ${preparedAbility.name} está preparado.` : ""}`);
+    setContextualSheet("enemy_inspect");
+    setMessage(`${enemyName} inspecionado no campo.`);
   };
   const applyDevLevel = () => {
     if (!selected) return;
@@ -2070,17 +2084,12 @@ export default function HomePage() {
               </section>
             </>
           ) : (
-            <section className={`battle-screen battle-screen-v6 ${battleFogEnabled ? "fog-on" : "fog-off"}`}>
-              <header className="battle-v6-header battle-v6-header-mockup">
-                <div className="battle-v6-brand">
-                  <span>RUPTERYA</span>
-                  <small>BATALHA TÁTICA</small>
-                </div>
-                <div className="battle-v6-title battle-v6-round-title">
-                  <span>Turno {battle.turn}</span>
-                </div>
+            <section className={`battle-v6-clean-shell ${battleFogEnabled ? "fog-on" : "fog-off"}`}>
+              {/* TOPBAR COMPACTA */}
+              <header className="battle-v6-clean-topbar">
                 <button
-                  className="battle-v6-back battle-v6-menu"
+                  type="button"
+                  className="battle-v6-clean-btn-icon"
                   aria-label="Recuar da batalha"
                   onClick={() => {
                     setShowBattleLoadout(false);
@@ -2089,354 +2098,382 @@ export default function HomePage() {
                     setPendingEncounterSpot(null);
                   }}
                 >
-                  ☰
+                  ⬅
                 </button>
-              </header>
 
-              <section className="battle-v6-enemy-ribbon" aria-label="Inimigos ativos">
-                {frontLineEnemies.map(({ enemy, index }) => {
-                  const creature = battle.creatures[index];
-                  const enemyVisible = visibleEnemyIds.has(enemy.id);
-                  const selectedTarget = enemy.id === selectedEnemyId;
-                  if (!enemyVisible) return (
-                    <article key={enemy.id} className="battle-v6-ribbon-card fog-hidden-card" aria-label="Inimigo oculto pela neblina ou por obstáculo">
-                      <div className="battle-v6-ribbon-portrait battle-v6-hidden-portrait">?</div>
-                      <div className="battle-v6-ribbon-copy">
-                        <strong>Presença Oculta</strong>
-                        <small>Fora da linha de visão</small>
-                        <div className="battle-v6-hidden-bar">DESCONHECIDO</div>
-                      </div>
-                    </article>
-                  );
-                  return (
-                    <article
-                      key={enemy.id}
-                      className={`battle-v6-ribbon-card ${selectedTarget ? "target-selected" : ""} ${preparedAbility && targetableEnemyIds.has(enemy.id) ? "cast-ready" : ""}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleEnemyInteraction(enemy.id, enemy.name)}
-                      onDoubleClick={() => setInspectedCreatureIndex(index)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          handleEnemyInteraction(enemy.id, enemy.name);
-                        }
-                      }}
-                    >
-                      <div className="battle-v6-ribbon-portrait">
-                        {enemy.portraitPath ? <img src={enemy.portraitPath} alt={`Retrato de ${enemy.name}`} /> : <div className="monster-art">✦</div>}
-                        <CreatureFrameOverlay family={creature.family} rarity={creature.rarity} />
-                      </div>
-                      <div className="battle-v6-ribbon-copy">
-                        <strong>{enemy.name}</strong>
-                        <small>Nv. {creature.level} · ⚡ {combatantSpeed(enemy)}</small>
-                        {enemy.tacticalIntent && <em className={`battle-v6-ai-intent intent-${enemy.tacticalIntent.kind}`}>◈ {enemy.tacticalIntent.label}</em>}
-                        {enemy.charging && <em className="battle-v6-ribbon-charge">⚠ {enemy.abilities?.find((ability) => ability.id === enemy.charging?.abilityId)?.name ?? "Carregando"}</em>}
-                        <div className="battle-v6-bar hp" aria-label={`HP ${enemy.hpCurrent} de ${enemy.hpMax}`}>
-                          <b style={{ width: `${Math.max(0, (enemy.hpCurrent / enemy.hpMax) * 100)}%` }} />
-                          <em>{enemy.hpCurrent}/{enemy.hpMax}</em>
-                        </div>
-                        {enemy.activeEffects.length > 0 && (
-                          <div className="battle-v6-ribbon-statuses">
-                            {enemy.activeEffects.slice(0, 3).map((effect, effectIndex) => (
-                              <StatusEffectIcon key={`${enemy.id}-${effect.kind}-${effectIndex}`} kind={effect.kind} />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </section>
-
-              <section className="battle-v6-turn-strip" aria-label="Ordem de turno real">
-                <span className="battle-v6-turn-label">PRÓXIMO</span>
-                <div className="battle-v6-turn-track">
+                {/* FITA DE INICIATIVA CENTRALIZADA */}
+                <div className="battle-v6-clean-turn-strip" aria-label="Ordem de iniciativa">
                   {battleTurnOrder.map((entry, orderIndex) => {
                     const hiddenEnemy = entry.side === "enemy" && !visibleEnemyIds.has(entry.id);
+                    const isCurrentActor = entry.id === (battle.activeHeroId ?? battle.currentActorId ?? battle.player.id);
+                    const isSelected = entry.id === selectedEnemyId;
                     return (
                       <button
                         key={entry.id}
                         type="button"
-                        className={`battle-v6-turn-chip ${entry.side} ${hiddenEnemy ? "fog-hidden-turn" : ""} ${entry.id === battle.player.id ? "active" : entry.id === selectedEnemyId ? "target-selected" : ""}`}
+                        className={`battle-v6-clean-turn-node ${entry.side} ${isCurrentActor ? "active-turn" : ""} ${isSelected ? "target-selected" : ""}`}
                         onClick={() => {
-                          if (entry.side === "enemy" && !hiddenEnemy) setSelectedEnemyId(entry.id);
+                          if (entry.side === "enemy" && !hiddenEnemy) {
+                            setSelectedEnemyId(entry.id);
+                            setContextualSheet("enemy_inspect");
+                          } else if (entry.side === "player") {
+                            setContextualSheet("actions");
+                          }
                         }}
-                        aria-label={hiddenEnemy ? "Ator inimigo oculto" : entry.name}
+                        aria-label={hiddenEnemy ? "Inimigo oculto" : entry.name}
                       >
                         {hiddenEnemy ? <span>?</span> : entry.portraitPath ? <img src={entry.portraitPath} alt="" /> : <span>{entry.side === "player" ? "♞" : "☠"}</span>}
-                        <small className="battle-v6-turn-speed">⚡{hiddenEnemy ? "?" : entry.speed}</small>
-                        <i>{orderIndex + 1}</i>
+                        <small>⚡{hiddenEnemy ? "?" : entry.speed}</small>
                       </button>
                     );
                   })}
                 </div>
-              </section>
 
-              <div className="battle-v6-arena" style={battleBoardStyle}>
-                <aside className="battle-v6-side-panel battle-v6-legend-panel" aria-label="Legenda tática">
-                  <h3>LEGENDA</h3>
-                  <div><i className="movement" /> Movimento</div>
-                  <div><i className="range" /> Alcance</div>
-                  <div><i className="magic" /> Área mágica</div>
-                  <div><i className="target" /> Alvo</div>
-                  <div><i className="threat" /> Área ameaçada</div>
-                  <div><i className="cover" /> Cobertura</div>
-                  <div><i className="blocked" /> Obstáculo</div>
-                </aside>
-
-                <div className="battle-v6-board-center">
-                  <div className="battle-v6-section-title">
-                    <span>CAMPO HEXAGONAL</span>
-                  </div>
-                  <div className="battle-v6-hex-board" style={{ aspectRatio: `${hexBoardBounds.width} / ${hexBoardBounds.height}` }}>
-                    <svg viewBox={`0 0 ${hexBoardBounds.width} ${hexBoardBounds.height}`} className="battle-v6-hex-svg">
-                      {boardCells().map((cell) => {
-                        const { x, y } = axialToPixel(cell);
-                        const cx = x - hexBoardBounds.minX;
-                        const cy = y - hexBoardBounds.minY;
-                        const cellKey = hexKey(cell);
-                        const terrain = terrainCellAt(battle.battlefield, cell);
-                        const isMove = moveTargets.has(cellKey);
-                        const isTargetCell = Boolean(selectedEnemyPosition && cellKey === hexKey(selectedEnemyPosition));
-                        const hiddenByFog = battleFogEnabled && !visibleCellKeys.has(cellKey);
-                        const terrainClass = terrain ? ` terrain-${terrain.terrain}` : "";
-                        const obstacleClass = terrain?.blocked ? " blocked-cell" : "";
-                        const coverClass = (terrain?.coverPercent ?? 0) > 0 ? " cover-cell" : "";
-                        const obstacleGlyph = terrain?.obstacle === "tree" ? "♣" : terrain?.obstacle === "rock" ? "◆" : terrain?.obstacle === "pillar" ? "▮" : terrain?.obstacle === "wall" ? "▰" : terrain?.obstacle === "crystal" ? "✦" : "";
-                        return (
-                          <g key={cellKey}>
-                            <polygon
-                              points={hexCorners(cx, cy)}
-                              className={`battle-v6-hex-cell${terrainClass}${obstacleClass}${coverClass}${hiddenByFog ? " fog-hidden-cell" : ""}${isMove ? " move" : ""}${isTargetCell ? " target" : ""}${enemyTelegraphCells.has(cellKey) ? " enemy-threat" : ""}${preparedAbility && preparedReachCells.has(cellKey) ? " ability-reach" : ""}${preparedAbility && preparedAreaCells.has(cellKey) ? preparedAbility.damageFamily === "magical" ? " magic-area" : " physical-area" : ""}`}
-                              onClick={() => {
-                                if (isMove) moveTo(cell);
-                              }}
-                            />
-                            {obstacleGlyph && !hiddenByFog && <text x={cx} y={cy + 5} textAnchor="middle" className="battle-v6-obstacle-glyph" pointerEvents="none">{obstacleGlyph}</text>}
-                          </g>
-                        );
-                      })}
-                    </svg>
-
-                    {frontLineEnemies.filter(({ enemy }) => visibleEnemyIds.has(enemy.id)).map(({ enemy, index }, slot) => {
-                      const selectedTarget = enemy.id === selectedEnemyId;
-                      const creature = battle.creatures[index];
-                      const cell = enemy.position ?? ENEMY_FRONT_SPAWN_CELLS[slot] ?? ENEMY_FRONT_SPAWN_CELLS[0];
-                      return (
-                        <article
-                          className={`battle-v6-hex-unit battle-v6-hex-token battle-v6-hex-token-enemy ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${preparedAbility && targetableEnemyIds.has(enemy.id) ? "cast-ready" : ""} ${(battleEffect?.targetId === enemy.id || battleEffect?.targetIds?.includes(enemy.id)) ? `hit-${battleEffect.kind}` : ""}`}
-                          key={enemy.id}
-                          style={hexToPercentForSlot(cell, slot)}
-                          role="button"
-                          tabIndex={0}
-                          aria-pressed={selectedTarget}
-                          aria-label={`${selectedTarget ? "Alvo atual" : "Selecionar"} ${enemy.name}. Toque duas vezes para ver detalhes.`}
-                          onClick={() => handleEnemyInteraction(enemy.id, enemy.name, true)}
-                          onDoubleClick={() => setInspectedCreatureIndex(index)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              handleEnemyInteraction(enemy.id, enemy.name, true);
-                            }
-                          }}
-                        >
-                          {selectedTarget && <span className="battle-v6-target-reticle" aria-hidden="true">⌖</span>}
-                          {(battleEffect?.targetId === enemy.id || battleEffect?.targetIds?.includes(enemy.id)) && (
-                            <span className={`battle-impact ${battleEffect.kind}`} aria-hidden="true">{battleEffect.damage ? `-${battleEffect.damage}` : ""}</span>
-                          )}
-                          {enemy.charging && (
-                            <span className="battle-v6-charge-badge">⚠ {enemy.abilities?.find((ability) => ability.id === enemy.charging?.abilityId)?.name ?? "CARREGANDO"}</span>
-                          )}
-                          {enemy.tacticalIntent && <span className={`battle-v6-ai-intent-badge intent-${enemy.tacticalIntent.kind}`}>{enemy.tacticalIntent.label}</span>}
-                          <span className="battle-v6-level-badge">Nv. {creature.level}</span>
-                          <div className="battle-v6-hex-token-portrait">
-                            <span className="battle-v6-hex-token-ring" aria-hidden="true" />
-                            {enemy.portraitPath ? <img src={enemy.portraitPath} alt={`Retrato de ${enemy.name}`} /> : <div className="monster-art">✦</div>}
-                          </div>
-                          <span className="battle-v6-hex-token-label">{enemy.name}</span>
-                        </article>
-                      );
-                    })}
-
-                    {(battle.party ?? [battle.player]).filter((hero) => hero.hpCurrent > 0).map((hero) => {
-                      const isCurrentTurnHero = hero.id === (battle.activeHeroId ?? battle.currentActorId ?? battle.player.id);
-                      return (
-                        <article
-                          key={hero.id}
-                          className={`battle-v6-hex-unit battle-v6-hex-token battle-v6-hex-token-player ${isCurrentTurnHero ? "target-selected active-turn-hero" : ""} ${battleEffect?.targetId === hero.id ? `hit-${battleEffect.kind}` : ""}`}
-                          style={hexToPercent(hero.position ?? PLAYER_START_CELL)}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`${hero.name} (${hero.className ?? "Herói"}). Toque duas vezes para ver equipamentos.`}
-                          onDoubleClick={() => setShowBattleLoadout(true)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") setShowBattleLoadout(true);
-                          }}
-                        >
-                          {battleEffect?.targetId === hero.id && (
-                            <span className={`battle-impact ${battleEffect.kind}`} aria-hidden="true">
-                              {battleEffect.damage ? `-${battleEffect.damage}` : ""}
-                            </span>
-                          )}
-                          {isCurrentTurnHero && <span className="battle-v6-target-reticle" aria-hidden="true">★</span>}
-                          {castEffect && <span className={`class-cast class-cast-${castEffect.classId}`} aria-hidden="true" />}
-                          <span className="battle-v6-level-badge">Nv. {summary!.level}</span>
-                          <div className="battle-v6-hex-token-portrait">
-                            <span className="battle-v6-hex-token-ring" aria-hidden="true" />
-                            <img src={hero.portraitPath ?? summary!.portraitPath} alt={`Retrato de ${hero.name}`} />
-                          </div>
-                          <span className="battle-v6-hex-token-label">{hero.name}</span>
-                        </article>
-                      );
-                    })}
-                  </div>
+                {/* BOTÕES COMPACTOS: LOG E AJUDA */}
+                <div className="battle-v6-clean-top-actions">
+                  <button
+                    type="button"
+                    className="battle-v6-clean-btn-icon"
+                    onClick={() => setShowLogDrawer(true)}
+                    aria-label="Abrir log de combate"
+                    title="Registro de Combate"
+                  >
+                    📜
+                  </button>
+                  <button
+                    type="button"
+                    className="battle-v6-clean-btn-icon"
+                    onClick={() => setShowTacticalHelp(true)}
+                    aria-label="Abrir legenda e ajuda"
+                    title="Legenda e Visão"
+                  >
+                    ❓
+                  </button>
                 </div>
+              </header>
 
-                <aside className="battle-v6-side-panel battle-v6-fog-panel" aria-label="Condição de visão do campo">
-                  <div className="battle-v6-fog-cloud">☁</div>
-                  <h3>{battle.battlefield.fog.label.toUpperCase()}</h3>
-                  <p>{battleFogEnabled ? "Condição ativa: unidades só enxergam dentro da própria visão e através de uma linha de visão livre." : "Campo aberto: a distância visual não limita o combate, mas obstáculos ainda bloqueiam linha de visão."}</p>
-                  <div className={`battle-v6-fog-toggle ${battleFogEnabled ? "on" : "off"}`}>
-                    {battleFogEnabled ? "ATIVA" : "SEM NEBLINA"}
-                  </div>
-                  <small>Visão do herói: {effectiveVisionRange(activeBattleHero ?? battle.player, battle.battlefield) >= 90 ? "campo inteiro" : `${effectiveVisionRange(activeBattleHero ?? battle.player, battle.battlefield)} hex`}</small>
-                  {battle.companion && (
-                    <button
-                      type="button"
-                      className="battle-v6-companion-chip"
-                      aria-label={`${battle.companion.name}. Toque para ver detalhes.`}
-                      onClick={() => setShowCompanionDetail(true)}
-                    >
-                      <img src={battle.companion.portraitPath} alt={battle.companion.name} />
-                      <span>{battle.companion.name}</span>
-                    </button>
-                  )}
-                </aside>
-                <div className="battle-v6-mode-note">Rupterya V1: Party de 3 Companions em campo simultâneo · Motor tático em 14 etapas.</div>
+              {/* CAMPO HEXAGONAL LIMPO (SEM BARRAS LATERAIS FIXAS) */}
+              <div className="battle-v6-clean-arena" style={battleBoardStyle}>
+                <div className="battle-v6-clean-board-frame">
+                  <svg viewBox={`0 0 ${hexBoardBounds.width} ${hexBoardBounds.height}`} className="battle-v6-hex-svg" style={{ width: "100%", height: "100%" }}>
+                    {boardCells().map((cell) => {
+                      const { x, y } = axialToPixel(cell);
+                      const cx = x - hexBoardBounds.minX;
+                      const cy = y - hexBoardBounds.minY;
+                      const cellKey = hexKey(cell);
+                      const terrain = terrainCellAt(battle.battlefield, cell);
+                      const isMove = moveTargets.has(cellKey);
+                      const isTargetCell = Boolean(selectedEnemyPosition && cellKey === hexKey(selectedEnemyPosition));
+                      const hiddenByFog = battleFogEnabled && !visibleCellKeys.has(cellKey);
+                      const terrainClass = terrain ? ` terrain-${terrain.terrain}` : "";
+                      const obstacleClass = terrain?.blocked ? " blocked-cell" : "";
+                      const coverClass = (terrain?.coverPercent ?? 0) > 0 ? " cover-cell" : "";
+                      const obstacleGlyph = terrain?.obstacle === "tree" ? "♣" : terrain?.obstacle === "rock" ? "◆" : terrain?.obstacle === "pillar" ? "▮" : terrain?.obstacle === "wall" ? "▰" : terrain?.obstacle === "crystal" ? "✦" : "";
+                      return (
+                        <g key={cellKey}>
+                          <polygon
+                            points={hexCorners(cx, cy)}
+                            className={`battle-v6-hex-cell${terrainClass}${obstacleClass}${coverClass}${hiddenByFog ? " fog-hidden-cell" : ""}${isMove ? " move" : ""}${isTargetCell ? " target" : ""}${enemyTelegraphCells.has(cellKey) ? " enemy-threat" : ""}${preparedAbility && preparedReachCells.has(cellKey) ? " ability-reach" : ""}${preparedAbility && preparedAreaCells.has(cellKey) ? preparedAbility.damageFamily === "magical" ? " magic-area" : " physical-area" : ""}`}
+                            onClick={() => {
+                              if (isMove) moveTo(cell);
+                            }}
+                          />
+                          {obstacleGlyph && !hiddenByFog && <text x={cx} y={cy + 5} textAnchor="middle" className="battle-v6-obstacle-glyph" pointerEvents="none">{obstacleGlyph}</text>}
+                        </g>
+                      );
+                    })}
+                  </svg>
+
+                  {/* PEÇAS DOS INIMIGOS NO TABULEIRO */}
+                  {frontLineEnemies.filter(({ enemy }) => visibleEnemyIds.has(enemy.id)).map(({ enemy, index }, slot) => {
+                    const selectedTarget = enemy.id === selectedEnemyId;
+                    const creature = battle.creatures[index];
+                    const cell = enemy.position ?? ENEMY_FRONT_SPAWN_CELLS[slot] ?? ENEMY_FRONT_SPAWN_CELLS[0];
+                    return (
+                      <article
+                        key={enemy.id}
+                        className={`battle-v6-token-unit enemy ${creatureFrameClassName(creature.family, creature.rarity)} ${selectedTarget ? "target-selected" : ""} ${preparedAbility && targetableEnemyIds.has(enemy.id) ? "cast-ready" : ""}`}
+                        style={hexToPercentForSlot(cell, slot)}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleEnemyInteraction(enemy.id, enemy.name, false)}
+                        onDoubleClick={() => setInspectedCreatureIndex(index)}
+                      >
+                        {selectedTarget && <span className="battle-v6-token-reticle" aria-hidden="true">⌖</span>}
+                        {(battleEffect?.targetId === enemy.id || battleEffect?.targetIds?.includes(enemy.id)) && (
+                          <span className={`battle-impact ${battleEffect.kind}`} aria-hidden="true">{battleEffect.damage ? `-${battleEffect.damage}` : ""}</span>
+                        )}
+                        <div className="battle-v6-token-frame">
+                          {enemy.portraitPath ? (
+                            <img className="battle-v6-token-img" src={enemy.portraitPath} alt={`Retrato de ${enemy.name}`} />
+                          ) : (
+                            <div className="battle-v6-token-placeholder">✦</div>
+                          )}
+                        </div>
+                        <div className="battle-v6-token-footer">
+                          <span className="battle-v6-token-name">{enemy.name}</span>
+                          <div className="battle-v6-token-hpbar">
+                            <div className="battle-v6-token-hpfill" style={{ width: `${Math.max(0, (enemy.hpCurrent / enemy.hpMax) * 100)}%` }} />
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+
+                  {/* PEÇAS DOS HERÓIS NO TABULEIRO */}
+                  {(battle.party ?? [battle.player]).filter((hero) => hero.hpCurrent > 0).map((hero) => {
+                    const isCurrentTurnHero = hero.id === (battle.activeHeroId ?? battle.currentActorId ?? battle.player.id);
+                    return (
+                      <article
+                        key={hero.id}
+                        className={`battle-v6-token-unit player ${isCurrentTurnHero ? "active-turn-hero" : ""}`}
+                        style={hexToPercent(hero.position ?? PLAYER_START_CELL)}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setContextualSheet("actions")}
+                        onDoubleClick={() => setShowBattleLoadout(true)}
+                      >
+                        {battleEffect?.targetId === hero.id && (
+                          <span className={`battle-impact ${battleEffect.kind}`} aria-hidden="true">
+                            {battleEffect.damage ? `-${battleEffect.damage}` : ""}
+                          </span>
+                        )}
+                        {castEffect && <span className={`class-cast class-cast-${castEffect.classId}`} aria-hidden="true" />}
+                        <div className="battle-v6-token-frame">
+                          <img className="battle-v6-token-img" src={hero.portraitPath ?? summary!.portraitPath} alt={`Retrato de ${hero.name}`} />
+                        </div>
+                        <div className="battle-v6-token-footer">
+                          <span className="battle-v6-token-name">{hero.name}</span>
+                          <div className="battle-v6-token-hpbar">
+                            <div className="battle-v6-token-hpfill" style={{ width: `${Math.max(0, (hero.hpCurrent / hero.hpMax) * 100)}%` }} />
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
               </div>
 
-              <section className="battle-v6-command-panel">
-                <div className="battle-v6-active-hero battle-v6-active-hero-card">
-                  <button
-                    className="battle-v6-avatar-button"
-                    onClick={() => setShowBattleLoadout(true)}
-                    aria-label="Abrir equipamentos"
-                  >
-                    <img src={activeBattleHero?.portraitPath ?? summary!.portraitPath} alt="" />
-                  </button>
-                  <div className="battle-v6-active-copy">
-                    <strong>{(activeBattleHero?.name ?? summary!.name)} <span>· {(activeBattleHero?.className ?? summary!.className)} · Nv. {summary!.level}</span></strong>
-                    <small>⚔ Potência {activeBattleHero?.power ?? activeBattleHero?.stats.physicalDamage ?? 30} · ⚡ Vel {combatantSpeed(activeBattleHero ?? battle.player)} · Dano {activeBattleHero?.damageType?.toUpperCase() ?? "SAGRADO"}</small>
-                    <em>Alvo: {battle.enemies.find((enemy) => enemy.id === selectedEnemyId)?.name ?? "selecione um inimigo"}</em>
-                  </div>
-                  <div className="battle-v6-resource-pills">
-                    <span className="hp-pill">♥ HP {activeBattleHero?.hpCurrent ?? battle.player.hpCurrent}/{activeBattleHero?.hpMax ?? battle.player.hpMax}</span>
-                    <span className="mp-pill">★ Ultimate {activeBattleHero?.ultimateCurrentCharge ?? 0}/{activeBattleHero?.ultimateRequiredCharge ?? 4}</span>
-                  </div>
-                </div>
-
-                <div className="battle-v6-tactical-toolbar">
-                  <button type="button" className={`battle-v6-tactical-button ${battleActionMode === "move" ? "active" : ""}`} onClick={beginMoveMode} disabled={Boolean(battle.movementUsed)}> {battle.movementUsed ? "Movimento usado" : "Mover"}</button>
-                  <button type="button" className="battle-v6-tactical-button" onClick={waitTurn}>Aguardar</button>
-                  <button type="button" className={`battle-v6-tactical-button primary ${preparedAbility ? "ready" : ""}`} onClick={() => preparedAbility && selectedEnemyId ? executeAbility(preparedAbility, selectedEnemyId) : undefined} disabled={!preparedAbility || !preparedAbilityInRange || !selectedEnemyId}>Usar habilidade</button>
-                  <button type="button" className="battle-v6-tactical-button ghost" onClick={cancelBattleMode} disabled={battleActionMode === "idle" && !preparedAbility}>Cancelar</button>
-                </div>
-                <p className="battle-v6-tactical-hint">{battleHint}{preparedAbility ? ` · ${preparedAreaLabel}` : ""}{activeChargeCount ? ` · ⚠ ${activeChargeCount} carregamento(s) telegrafado(s)` : ""}</p>
-
-                {battle.status === "active" ? (
-                  <section className="battle-v6-actions">
-                    {(activeBattleHero ?? battle.player).activeEffects.some((effect) => effect.kind === "stun") && (
-                      <p className="battle-v6-status-warning">Atordoado: você perde este turno.</p>
-                    )}
-                    <div className="battle-v6-skill-grid battle-v6-skill-grid-cards">
-                      {battleAbilities.map((ability, abilityIndex) => {
-                        const currentHero = activeBattleHero ?? battle.player;
-                        const cooldown = currentHero.abilityCooldowns?.[ability.id] ?? battle.cooldowns[ability.id] ?? 0;
-                        const isUltimate = Boolean(ability.isUltimate);
-                        const ultReq = currentHero.ultimateRequiredCharge ?? ability.requiredChargeTurns ?? 4;
-                        const ultCur = currentHero.ultimateCurrentCharge ?? 0;
-                        const ultNotReady = isUltimate && ultCur < ultReq;
-                        const noTarget = !selectedEnemyId;
-                        const stunned = currentHero.activeEffects.some((effect) => effect.kind === "stun");
-                        const silenced = ability.damageFamily === "magical" && currentHero.activeEffects.some((effect) => effect.kind === "silence");
-                        const displayedRange = playerAbilityRange(ability, currentHero) ?? 1;
-                        const outOfRange = !noTarget && ability.range !== undefined && distanceToSelected !== null && distanceToSelected > displayedRange;
-                        const disabled = cooldown > 0 || ultNotReady || stunned || silenced;
-                        const icon = isUltimate
-                          ? "★"
-                          : ability.damageFamily === "magical"
-                            ? "✦"
-                            : abilityIndex === 0
-                              ? "➶"
-                              : abilityIndex === 1
-                                ? "➷"
-                                : abilityIndex === 2
-                                  ? "➹"
-                                  : "◎";
-                        return (
-                          <button
-                            key={ability.id}
-                            onClick={() => prepareAbility(ability)}
-                            disabled={disabled}
-                            aria-pressed={preparedAbilityId === ability.id}
-                            className={`battle-v6-skill battle-v6-skill-card ${isUltimate ? "ultimate-card" : ""} ${preparedAbilityId === ability.id ? "prepared" : ""} ${disabled ? "combat-action-disabled" : ""}`}
-                            data-family={ability.damageFamily}
-                          >
-                            <b className="battle-v6-skill-icon" aria-hidden="true">{icon}</b>
-                            <span>
-                              <strong>{ability.name}</strong>
-                              <small>{ability.damageFamily === "magical" ? "Dano mágico" : "Dano físico"} · Alcance {displayedRange} · {ability.area?.shape === "radius" ? `Raio ${ability.area.radius ?? 1}` : ability.area?.shape === "ring" ? `Anel ${ability.area.radius ?? 1}` : ability.area?.shape === "line" ? "Linha" : ability.area?.shape === "cone" ? "Cone" : ability.area?.shape === "connected" ? "Conectada" : ability.area?.shape === "all" ? "Campo" : "Único"}</small>
-                            </span>
-                            {isUltimate ? (
-                              <em className="battle-v6-cost">{ultNotReady ? `${ultCur}/${ultReq} Turnos` : "★ PRONTA"}</em>
-                            ) : (
-                              <em className="battle-v6-cost">{cooldown > 0 ? `CD ${cooldown}` : "PRONTA"}</em>
-                            )}
-                            {cooldown > 0 && <i className="battle-v6-cd">CD {cooldown}</i>}
-                            {cooldown === 0 && isUltimate && ultNotReady && <i className="battle-v6-cd">CARREGANDO</i>}
-                            {cooldown === 0 && !ultNotReady && noTarget && <i className="battle-v6-cd">SEM ALVO</i>}
-                            {cooldown === 0 && !ultNotReady && !noTarget && silenced && <i className="battle-v6-cd">SILENCIADO</i>}
-                            {cooldown === 0 && !ultNotReady && !noTarget && !silenced && outOfRange && <i className="battle-v6-cd">FORA DE ALCANCE</i>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ) : (
+              {/* PAINEL CONTEXTUAL INFERIOR (BOTTOM SHEET) */}
+              <footer className="battle-v6-clean-sheet">
+                {battle.status !== "active" ? (
                   <section className={`battle-result ${battle.status}`}>
-                    <h2>{battle.status === "victory" ? "Vitória na Caça" : "Você foi derrotado"}</h2>
+                    <h2>{battle.status === "victory" ? "Vitória na Caça!" : "Você foi derrotado"}</h2>
                     <p>
                       {battle.status === "victory"
-                        ? `+${battle.reward?.xp} XP global · +${battle.reward?.gold} ouro`
-                        : "Procure cura antes da próxima caçada."}
+                        ? `+${battle.reward?.xp} XP global · +${battle.reward?.gold} ouro recebidos.`
+                        : "Descanse na estalagem antes de tentar novamente."}
                     </p>
                     {battle.status === "victory" && battle.reward?.itemIds.length ? (
-                      <small className="loot-result">Itens preservados: {battle.reward.itemIds.map((itemId) => equipment.find((item) => item.id === itemId)?.name ?? itemId).join(", ")}</small>
+                      <small className="loot-result">Itens obtidos: {battle.reward.itemIds.map((itemId) => equipment.find((item) => item.id === itemId)?.name ?? itemId).join(", ")}</small>
                     ) : null}
                     {battle.status === "victory" && battle.reward?.fragments.length ? (
                       <small className="loot-result">Fragmentos: {battle.reward.fragments.map((entry) => `${entry.amount} ${entry.rarity}`).join(" · ")}</small>
                     ) : null}
-                    <button className="primary" onClick={() => {
-                      setShowBattleLoadout(false);
-                      setBattle(null);
-                      setSelectedEnemyId(null);
-                      setPendingEncounterSpot(null);
-                    }}>
+                    <button
+                      className="primary"
+                      onClick={() => {
+                        setShowBattleLoadout(false);
+                        setBattle(null);
+                        setSelectedEnemyId(null);
+                        setPendingEncounterSpot(null);
+                      }}
+                    >
                       Voltar às rotas
                     </button>
                   </section>
-                )}
+                ) : (
+                  <>
+                    {/* CABEÇALHO DO ATOR DO TURNO */}
+                    <div className="battle-v6-sheet-hero-header">
+                      <div className="battle-v6-sheet-hero-meta">
+                        <img
+                          src={activeBattleHero?.portraitPath ?? summary!.portraitPath}
+                          alt=""
+                          className="battle-v6-sheet-hero-avatar"
+                          onClick={() => setShowBattleLoadout(true)}
+                        />
+                        <div className="battle-v6-sheet-hero-text">
+                          <strong>{activeBattleHero?.name ?? summary!.name}</strong>
+                          <small>{activeBattleHero?.className ?? summary!.className} · ⚡ Vel {combatantSpeed(activeBattleHero ?? battle.player)}</small>
+                        </div>
+                      </div>
+                      <div className="battle-v6-sheet-hero-stats">
+                        <span className="battle-v6-sheet-hp-pill">♥ {activeBattleHero?.hpCurrent ?? battle.player.hpCurrent}/{activeBattleHero?.hpMax ?? battle.player.hpMax} HP</span>
+                        <span className="battle-v6-sheet-ult-pill">★ Ult {activeBattleHero?.ultimateCurrentCharge ?? 0}/{activeBattleHero?.ultimateRequiredCharge ?? 4}</span>
+                      </div>
+                    </div>
 
-                <details className="battle-v6-log">
-                  <summary>▤ Registro de combate <span>⌄</span></summary>
-                  <div>
-                    {battle.log.slice(-8).map((line, index) => (
-                      <p className={line.tone} key={`${line.turn}-${index}`}>{line.text}</p>
-                    ))}
+                    {/* CONTEÚDO CONTEXTUAL BASEADO NA INTERAÇÃO */}
+                    {contextualSheet === "actions" && (
+                      <div className="battle-v6-sheet-main-actions">
+                        <button
+                          type="button"
+                          className={`battle-v6-sheet-action-btn ${battleActionMode === "move" ? "active" : ""}`}
+                          onClick={beginMoveMode}
+                          disabled={Boolean(battle.movementUsed)}
+                        >
+                          👣 {battle.movementUsed ? "Movido" : "Mover"}
+                        </button>
+                        <button
+                          type="button"
+                          className="battle-v6-sheet-action-btn"
+                          onClick={waitTurn}
+                        >
+                          ⏳ Aguardar
+                        </button>
+                        <button
+                          type="button"
+                          className="battle-v6-sheet-action-btn primary"
+                          onClick={() => setContextualSheet("skills")}
+                        >
+                          ⚔️ Habilidades
+                        </button>
+                      </div>
+                    )}
+
+                    {contextualSheet === "skills" && (
+                      <div className="battle-v6-skills-picker">
+                        <div className="battle-v6-skills-picker-top">
+                          <span>Escolha uma Técnica</span>
+                          <button
+                            type="button"
+                            className="back"
+                            onClick={() => setContextualSheet("actions")}
+                            style={{ minHeight: "28px", padding: "4px 8px", fontSize: "10px" }}
+                          >
+                            ← Voltar
+                          </button>
+                        </div>
+                        <div className="battle-v6-skills-grid">
+                          {battleAbilities.map((ability) => {
+                            const currentHero = activeBattleHero ?? battle.player;
+                            const cooldown = currentHero.abilityCooldowns?.[ability.id] ?? battle.cooldowns[ability.id] ?? 0;
+                            const isUltimate = Boolean(ability.isUltimate);
+                            const ultReq = currentHero.ultimateRequiredCharge ?? ability.requiredChargeTurns ?? 4;
+                            const ultCur = currentHero.ultimateCurrentCharge ?? 0;
+                            const ultNotReady = isUltimate && ultCur < ultReq;
+                            const disabled = cooldown > 0 || ultNotReady;
+                            const isSelf = ability.range === 0 || ability.slotKind === "stance";
+                            const displayedRange = isSelf ? "Auto" : `${playerAbilityRange(ability, currentHero) ?? 1} hex`;
+                            return (
+                              <button
+                                key={ability.id}
+                                type="button"
+                                className={`battle-v6-skill-pill-btn ${isUltimate ? "ultimate" : ""} ${preparedAbilityId === ability.id ? "prepared" : ""}`}
+                                onClick={() => prepareAbility(ability)}
+                                disabled={disabled}
+                              >
+                                <strong>{ability.name}</strong>
+                                <small>{ability.damageFamily === "magical" ? "✦ Mágico" : "⚔ Físico"} · {displayedRange}</small>
+                                {cooldown > 0 && <small style={{ color: "#ff8c8c" }}>Recarga: {cooldown} turno(s)</small>}
+                                {isUltimate && ultNotReady && <small style={{ color: "#d9b3ff" }}>Carga: {ultCur}/{ultReq}</small>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {contextualSheet === "skill_confirm" && preparedAbility && (
+                      <div className="battle-v6-confirm-box">
+                        <div className="battle-v6-confirm-info">
+                          <div className="battle-v6-confirm-title">
+                            <strong>{preparedAbility.name}</strong>
+                            <small>{preparedAbility.damageFamily === "magical" ? "Dano Mágico" : "Dano Físico"} · Alcance {preparedAbility.range === 0 ? "Próprio" : preparedAbilityRange} · {preparedAreaLabel}</small>
+                          </div>
+                          <span className="battle-v6-confirm-target-badge">
+                            {isSelfSkill ? "Alvo: Próprio Herói" : selectedEnemy ? `Alvo: ${selectedEnemy.name}` : "Toque no Inimigo"}
+                          </span>
+                        </div>
+                        <div className="battle-v6-confirm-actions">
+                          <button
+                            type="button"
+                            className="battle-v6-confirm-btn-cancel"
+                            onClick={cancelBattleMode}
+                          >
+                            ✖ Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            className="battle-v6-confirm-btn-execute"
+                            onClick={() => executeAbility(preparedAbility, selectedEnemyId ?? undefined)}
+                            disabled={!preparedAbilityInRange}
+                          >
+                            {preparedAbilityInRange ? "✔️ Confirmar Golpe" : "Fora de Alcance"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {contextualSheet === "enemy_inspect" && selectedEnemy && (
+                      <div className="battle-v6-confirm-box">
+                        <div className="battle-v6-confirm-info">
+                          <div className="battle-v6-confirm-title">
+                            <strong>{selectedEnemy.name}</strong>
+                            <small>HP {selectedEnemy.hpCurrent}/{selectedEnemy.hpMax} · ⚡ Vel {combatantSpeed(selectedEnemy)} {selectedEnemy.tacticalIntent ? `· ◈ ${selectedEnemy.tacticalIntent.label}` : ""}</small>
+                          </div>
+                        </div>
+                        <div className="battle-v6-confirm-actions">
+                          <button
+                            type="button"
+                            className="battle-v6-confirm-btn-cancel"
+                            onClick={() => setContextualSheet("actions")}
+                          >
+                            ✖ Fechar
+                          </button>
+                          <button
+                            type="button"
+                            className="battle-v6-confirm-btn-execute"
+                            onClick={() => setContextualSheet("skills")}
+                          >
+                            ⚔️ Escolher Habilidade
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </footer>
+
+              {/* MODAL / DRAWER DE LOG DE COMBATE */}
+              {showLogDrawer && (
+                <div className="battle-v6-clean-modal-overlay" onClick={() => setShowLogDrawer(false)}>
+                  <div className="battle-v6-clean-modal-card" onClick={(e) => e.stopPropagation()}>
+                    <header className="battle-v6-clean-modal-header">
+                      <h3>📜 Registro de Combate</h3>
+                      <button type="button" className="battle-v6-clean-btn-icon" onClick={() => setShowLogDrawer(false)}>✖</button>
+                    </header>
+                    <div className="battle-v6-clean-modal-content">
+                      {battle.log.map((line, index) => (
+                        <p key={`${line.turn}-${index}`} className={`combat-log-line ${line.tone}`}>
+                          <strong style={{ color: "#a8997a" }}>[T{line.turn}]</strong> {line.text}
+                        </p>
+                      ))}
+                    </div>
                   </div>
-                </details>
-              </section>
+                </div>
+              )}
+
+              {/* MODAL DE LEGENDA E CONDIÇÕES TÁTICAS */}
+              {showTacticalHelp && (
+                <div className="battle-v6-clean-modal-overlay" onClick={() => setShowTacticalHelp(false)}>
+                  <div className="battle-v6-clean-modal-card" onClick={(e) => e.stopPropagation()}>
+                    <header className="battle-v6-clean-modal-header">
+                      <h3>❓ Táticas & Campo de Batalha</h3>
+                      <button type="button" className="battle-v6-clean-btn-icon" onClick={() => setShowTacticalHelp(false)}>✖</button>
+                    </header>
+                    <div className="battle-v6-clean-modal-content">
+                      <p><strong>Condição do Campo:</strong> {battle.battlefield.fog.label} ({battleFogEnabled ? "Neblina Ativa — requer linha de visão desobstruída." : "Campo Aberto — visão total."})</p>
+                      <p><strong>Hexágonos Azuis:</strong> Alcance de movimento da unidade.</p>
+                      <p><strong>Hexágonos Vermelhos / Roxos:</strong> Alcance de habilidades físicas / mágicas e suas áreas de efeito.</p>
+                      <p><strong>Retícula Vermelha (⌖):</strong> Inimigo selecionado como alvo atual.</p>
+                      <p><strong>Anel Dourado (★):</strong> Herói no controle do turno atual.</p>
+                      <p><strong>Obstáculos no Campo:</strong> ♣ Árvores, ◆ Rochas e ▮ Pilares concedem cobertura ou bloqueiam passagem e projéteis.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
           )}
         </section>

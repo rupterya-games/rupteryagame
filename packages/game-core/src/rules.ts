@@ -260,9 +260,11 @@ export function buildInitiativeOrder(partyOrPlayer: HuntCombatant | HuntCombatan
     .map((entry) => entry.id);
 }
 
-/** Alcance provisório até todas as 112 habilidades receberem range explícito na Fase 4. */
+/** Alcance da habilidade. Preserva 0 para auto-conjuramento / buffs / posturas. */
 export function playerAbilityRange(ability: AbilityDefinition, player: HuntCombatant): number | undefined {
-  return ability.range === undefined ? undefined : Math.max(1, ability.range + (player.rangeBonus ?? 0));
+  if (ability.range === undefined) return undefined;
+  if (ability.range === 0 || ability.slotKind === "stance") return 0;
+  return Math.max(1, ability.range + (player.rangeBonus ?? 0));
 }
 
 export function creatureAbilityRange(ability: CreatureAbilityDefinition, self?: HuntCombatant): number {
@@ -1393,20 +1395,21 @@ export function resolveHuntTurn(state: HuntBattleState, ability: AbilityDefiniti
       return { ...state, log: [...logs, { turn: state.turn, tone: "system", text: `${activeHero.name} está silenciado e não pode conjurar magia.` }] };
     }
 
+    const isSelfCast = (ability.range === 0) || (ability.slotKind === "stance");
     const frontLine = activeFrontLine(enemies);
     const tauntEffect = activeHero.activeEffects.find((effect) => effect.kind === "taunted");
     const taunter = tauntEffect?.sourceId ? frontLine.find((entry) => entry.id === tauntEffect.sourceId) : undefined;
-    const primaryEnemy = taunter ?? frontLine.find((entry) => entry.id === targetId) ?? frontLine[0];
-    const targetCell = primaryEnemy?.position ?? ENEMY_FRONT_SPAWN_CELLS[0];
+    const primaryEnemy = isSelfCast ? undefined : (taunter ?? frontLine.find((entry) => entry.id === targetId) ?? frontLine[0]);
     const heroCell = activeHero.position ?? PLAYER_START_CELL;
+    const targetCell = isSelfCast ? heroCell : (primaryEnemy?.position ?? ENEMY_FRONT_SPAWN_CELLS[0]);
     const distanceToTarget = hexDistance(heroCell, targetCell);
 
-    if (primaryEnemy && !canUnitSeeCell(activeHero, targetCell, state.battlefield)) {
+    if (!isSelfCast && primaryEnemy && !canUnitSeeCell(activeHero, targetCell, state.battlefield)) {
       return { ...state, log: [...logs, { turn: state.turn, tone: "system", text: `${primaryEnemy.name} não está na sua linha de visão.` }] };
     }
 
-    const abilityRange = playerAbilityRange(ability, activeHero);
-    if (abilityRange !== undefined && distanceToTarget > abilityRange) {
+    const abilityRange = isSelfCast ? 0 : playerAbilityRange(ability, activeHero);
+    if (!isSelfCast && abilityRange !== undefined && distanceToTarget > abilityRange) {
       return { ...state, log: [...logs, { turn: state.turn, tone: "system", text: `${ability.name} fora de alcance (${distanceToTarget}/${abilityRange} hex).` }] };
     }
 

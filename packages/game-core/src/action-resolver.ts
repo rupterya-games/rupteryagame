@@ -183,14 +183,15 @@ export function resolveCombatActionV1(
       return { attacker: updatedAttacker, defenders: allCombatants, hits: [], logs };
     }
 
+    const isSelfSkill = (skill.range === 0) || Boolean(skill.selfEffects?.length);
     const declaredAttackerPos = updatedAttacker.position ?? { q: 0, r: 0 };
     const declaredDistance = hexDistance(declaredAttackerPos, effectiveTargetCell);
     const declaredMaxRange = skill.range ?? 1;
-    if (declaredDistance > declaredMaxRange) {
+    if (!isSelfSkill && declaredDistance > declaredMaxRange) {
       logs.push({ turn, tone: "system", text: `${updatedAttacker.name} tenta usar ${skill.name}, mas o alvo está fora de alcance (${declaredDistance}/${declaredMaxRange}).` });
       return { attacker: updatedAttacker, defenders: allCombatants, hits: [], logs };
     }
-    if (battlefield.fog.enabled && !canUnitSeeCell(updatedAttacker, effectiveTargetCell, battlefield)) {
+    if (!isSelfSkill && battlefield.fog.enabled && !canUnitSeeCell(updatedAttacker, effectiveTargetCell, battlefield)) {
       logs.push({ turn, tone: "system", text: `${updatedAttacker.name} tenta usar ${skill.name}, mas o alvo está fora de visão.` });
       return { attacker: updatedAttacker, defenders: allCombatants, hits: [], logs };
     }

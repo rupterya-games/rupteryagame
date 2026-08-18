@@ -52,7 +52,7 @@ import {
   sharedAbilities,
 } from "@/lib/catalog";
 import { HexUnitCard } from "@/components/battle/HexUnitCard";
-import { BATTLE_HEX_RADIUS, axialToPixel, hexCorners, getUnitPortraitCrop } from "@/lib/battle-layout";
+import { BATTLE_HEX_RADIUS, BATTLE_UNIT_HEIGHT, BATTLE_UNIT_WIDTH, axialToPixel, hexCorners, getUnitPortraitCrop } from "@/lib/battle-layout";
 import { emptyWorldProgress, repository, xpToNextLevel } from "@/lib/dev-character-repository";
 import { bestiaryById } from "@/lib/bestiary";
 import { blackMarketStock, innCost, marketStock } from "@/lib/economy";
@@ -125,6 +125,26 @@ const premiumSkins = [
   { id: "archer-shadowwood", classId: "archer", name: "Arqueiro da Floresta Sombria", image: "/art/skins/archer-shadowwood-premium.jpg" },
   { id: "samurai-moonblossom", classId: "samurai", name: "Samurai da Lua Florida", image: "/art/skins/samurai-moonblossom-premium.jpg" },
 ] as const;
+
+function playerHexFrameColor(identifier?: string) {
+  const key = (identifier ?? "").toLowerCase();
+  if (key.includes("samurai")) return "#d8ae45";
+  if (key.includes("arqueir") || key.includes("archer")) return "#aabcca";
+  if (key.includes("mago") || key.includes("mage")) return "#627fd8";
+  if (key.includes("palad") || key.includes("guard")) return "#c18a4f";
+  if (key.includes("duel")) return "#b95d65";
+  return "#6ba3d9";
+}
+
+function enemyHexFrameColor(rarity?: string) {
+  switch (rarity) {
+    case "rare": return "#4e88d1";
+    case "elite": return "#9a70dd";
+    case "boss": return "#c65353";
+    case "worldboss": return "#d9b447";
+    default: return "#5ea16f";
+  }
+}
 
 function EquipmentLoadoutModal({
   character,
@@ -674,8 +694,14 @@ export default function HomePage() {
   const cityQuests = questsByCity(adventureCity.id);
   const normalMarketListings = marketStock(adventureCity.id, equipment);
   const blackMarketListings = blackMarketStock(adventureCity.id, equipment);
+  const battleBoardRegionId = battle?.regionId ?? activeCityId;
+  const battleBoardArt =
+    battleBoardsByRegion[battleBoardRegionId] ??
+    battleBoardsByRegion[activeCityId] ??
+    battleBoardsByRegion.ryukuzan ??
+    adventureCity.heroArtPath;
   const battleBoardStyle = {
-    "--battle-board-art": `url("${battleBoardsByRegion[activeCityId] ?? adventureCity.heroArtPath}")`,
+    "--battle-board-art": `url("${battleBoardArt}")`,
   } as CSSProperties;
   const journeyNode =
     fiordevalleJourneyNodes.find((node) => node.id === journeyNodeId) ??
@@ -749,6 +775,10 @@ export default function HomePage() {
     const top = Math.min(...ys) - pad;
     return { minX: left, minY: top, width: Math.max(...xs) - left + pad, height: Math.max(...ys) - top + pad };
   }, []);
+  const battleUnitBoardStyle = {
+    "--battle-unit-width": `${(BATTLE_UNIT_WIDTH / hexBoardBounds.width) * 100}%`,
+    "--battle-unit-height": `${(BATTLE_UNIT_HEIGHT / hexBoardBounds.height) * 100}%`,
+  } as CSSProperties;
   const hexToPercent = (cell: Axial) => {
     const { x, y } = axialToPixel(cell);
     return {
@@ -2138,7 +2168,7 @@ export default function HomePage() {
 
               {/* CAMPO HEXAGONAL LIMPO (SEM BARRAS LATERAIS FIXAS) */}
               <div className="battle-v6-clean-arena" style={battleBoardStyle}>
-                <div className="battle-v6-clean-board-frame">
+                <div className="battle-v6-clean-board-frame" style={battleUnitBoardStyle}>
                   <svg viewBox={`0 0 ${hexBoardBounds.width} ${hexBoardBounds.height}`} className="battle-v6-hex-svg" style={{ width: "100%", height: "100%" }}>
                     {boardCells().map((cell) => {
                       const { x, y } = axialToPixel(cell);
@@ -2174,6 +2204,8 @@ export default function HomePage() {
                     const isTargetable = Boolean(preparedAbility && targetableEnemyIds.has(enemy.id));
                     const cell = enemy.position ?? ENEMY_FRONT_SPAWN_CELLS[slot] ?? ENEMY_FRONT_SPAWN_CELLS[0];
                     const crop = getUnitPortraitCrop(enemy.name ?? enemy.creatureId);
+                    const creatureDef = enemy.creatureId ? bestiaryById.get(enemy.creatureId) : undefined;
+                    const borderColor = enemyHexFrameColor(creatureDef?.rarity);
 
                     return (
                       <HexUnitCard
@@ -2188,6 +2220,7 @@ export default function HomePage() {
                         targetable={isTargetable}
                         portraitPosition={crop.portraitPosition}
                         portraitScale={crop.portraitScale}
+                        borderColor={borderColor}
                         style={hexToPercentForSlot(cell, slot)}
                         onClick={() => handleEnemyInteraction(enemy.id, enemy.name, false)}
                         onDoubleClick={() => setInspectedCreatureIndex(index)}
@@ -2207,6 +2240,7 @@ export default function HomePage() {
                     const isCurrentTurnHero = hero.id === (battle.activeHeroId ?? battle.currentActorId ?? battle.player.id);
                     const isMainPlayer = hero.id === battle.player.id;
                     const crop = getUnitPortraitCrop(hero.className ?? hero.name);
+                    const borderColor = playerHexFrameColor(hero.className ?? hero.name);
 
                     return (
                       <HexUnitCard
@@ -2220,6 +2254,7 @@ export default function HomePage() {
                         activeTurn={isCurrentTurnHero}
                         portraitPosition={crop.portraitPosition}
                         portraitScale={crop.portraitScale}
+                        borderColor={borderColor}
                         style={hexToPercent(hero.position ?? PLAYER_START_CELL)}
                         onClick={() => setContextualSheet("actions")}
                         onDoubleClick={() => setShowBattleLoadout(true)}

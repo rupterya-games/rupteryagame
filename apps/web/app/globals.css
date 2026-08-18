@@ -1903,3 +1903,206 @@ h1 { margin:3px 0 0; font-size:28px; } .character-main>p { margin:1px 0 14px; co
   flex-direction: column;
   gap: 8px;
 }
+
+/* ======================================================================
+   BATTLE LAB INTEGRATION R1 — grid grande, cards responsivos e cenário
+   Mantém a geometria/37 hexes; altera apenas a apresentação visual.
+   ====================================================================== */
+.battle-v6-clean-shell {
+  padding: 6px 6px 12px;
+  background: #080b09;
+}
+
+.battle-v6-clean-arena {
+  position: relative;
+  min-height: clamp(520px, 145vw, 760px);
+  padding: clamp(42px, 10vw, 88px) 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(180deg, rgba(4,7,6,.56), rgba(5,8,7,.18) 22%, rgba(5,8,7,.10) 68%, rgba(3,5,4,.72)),
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 35%, rgba(0,0,0,.58) 100%),
+    var(--battle-board-art) center / cover no-repeat,
+    #0b100d;
+  border: 1px solid #5f4c2d;
+  border-radius: 16px;
+  box-shadow: inset 0 0 42px rgba(0,0,0,.7), 0 10px 28px rgba(0,0,0,.45);
+  scrollbar-width: thin;
+  scrollbar-color: #685435 #0a0d0b;
+}
+
+.battle-v6-clean-arena::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.32), transparent 13% 87%, rgba(0,0,0,.32)),
+    linear-gradient(180deg, rgba(0,0,0,.28), transparent 16% 84%, rgba(0,0,0,.42));
+}
+
+.battle-v6-clean-board-frame {
+  position: relative;
+  isolation: isolate;
+  z-index: 1;
+  width: min(108%, 640px);
+  max-width: 640px;
+  aspect-ratio: 1.1160254;
+  flex: 0 0 auto;
+  margin: 0 auto;
+}
+
+.battle-v6-hex-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* O cenário deve continuar visível por baixo do grid. */
+.battle-v6-hex-cell {
+  fill: rgba(9, 14, 12, .34);
+  stroke: rgba(201, 183, 142, .44);
+  stroke-width: 1.55;
+}
+.battle-v6-hex-cell:hover {
+  fill: rgba(18, 28, 23, .48);
+  stroke: rgba(223, 204, 158, .65);
+}
+.battle-v6-hex-cell.terrain-forest { fill: rgba(17, 34, 24, .42); }
+.battle-v6-hex-cell.terrain-ruins { fill: rgba(31, 29, 24, .42); }
+.battle-v6-hex-cell.terrain-swamp { fill: rgba(20, 34, 27, .43); }
+.battle-v6-hex-cell.terrain-sand { fill: rgba(58, 43, 24, .34); }
+.battle-v6-hex-cell.terrain-glass { fill: rgba(19, 38, 44, .38); }
+.battle-v6-hex-cell.terrain-rift { fill: rgba(38, 22, 49, .40); }
+
+/*
+ * O tamanho do card vem do próprio board-frame em %, não de pixels fixos.
+ * Assim, quando o SVG diminui no celular, a unidade diminui junto e nunca
+ * passa a ocupar 2 ou 3 hexes como acontecia no layout anterior.
+ */
+.hex-unit-card {
+  width: var(--battle-unit-width, 11.38%);
+  height: var(--battle-unit-height, 14.67%);
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  max-height: none;
+  transform: translate(-50%, -50%);
+  overflow: visible;
+  z-index: 10;
+  filter: drop-shadow(0 5px 5px rgba(0,0,0,.82));
+}
+.hex-unit-card:hover {
+  transform: translate(-50%, -50%) scale(1.025);
+}
+
+.hex-unit-portrait-mask {
+  inset: 5.5%;
+  clip-path: polygon(50% 0%, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
+  background: #0c100f;
+}
+
+.hex-unit-portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  pointer-events: none;
+  transform-origin: center 24%;
+}
+
+.hex-unit-bottom-shade {
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 38%,
+    rgba(4,5,5,.06) 49%,
+    rgba(4,5,5,.48) 68%,
+    rgba(4,5,5,.94) 94%
+  );
+}
+
+/* Moldura SVG real: fica dentro do hex, sem cobrir o retrato. */
+.hex-unit-frame {
+  position: absolute;
+  inset: 1.5%;
+  width: 97%;
+  height: 97%;
+  z-index: 5;
+  overflow: visible;
+  pointer-events: none;
+}
+.hex-unit-frame::before,
+.hex-unit-frame::after {
+  content: none !important;
+  display: none !important;
+}
+.hex-unit-frame-outer {
+  fill: none;
+  stroke: var(--unit-frame-color);
+  stroke-width: 4;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.hex-unit-frame-inner {
+  fill: none;
+  stroke: rgba(255,255,255,.38);
+  stroke-width: 1.15;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.hex-unit-frame-gem {
+  fill: var(--unit-frame-color);
+  stroke: rgba(255,245,218,.78);
+  stroke-width: .75;
+  vector-effect: non-scaling-stroke;
+}
+
+.hex-unit-info {
+  left: 17%;
+  right: 17%;
+  bottom: 16%;
+  gap: 2px;
+  z-index: 8;
+}
+.hex-unit-info strong {
+  font-size: clamp(7px, 2.2vw, 10px);
+  line-height: 1;
+  letter-spacing: .01em;
+}
+.hex-unit-hp-track {
+  height: 3px;
+}
+
+/* Retícula e dano ficam sobre a moldura, mas continuam presos à peça. */
+.battle-v6-token-reticle { z-index: 12; transform: scale(.82); transform-origin: top right; }
+.battle-impact { z-index: 30; }
+
+@media (max-width: 600px) {
+  .battle-v6-clean-shell { padding-inline: 3px; }
+  .battle-v6-clean-topbar { padding-inline: 3px; }
+  .battle-v6-clean-arena {
+    min-height: 560px;
+    padding-block: 72px;
+    border-radius: 12px;
+  }
+  .battle-v6-clean-board-frame {
+    width: 106%;
+    max-width: none;
+  }
+  .hex-unit-info strong { font-size: 8px; }
+  .hex-unit-hp-track { height: 2.5px; }
+}
+
+@media (max-width: 390px) {
+  .battle-v6-clean-arena {
+    min-height: 540px;
+    padding-block: 66px;
+  }
+  .battle-v6-clean-board-frame { width: 104%; }
+}

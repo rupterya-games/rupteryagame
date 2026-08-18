@@ -225,6 +225,7 @@ export const huntRegions: HuntRegionDefinition[] = [
 ];
 
 export const battleBoardsByRegion: Record<string, string> = {
+  ryukuzan: "/art/boards/ryukuzan-torii-board.png",
   fiordevalle: "/art/boards/fiordevalle-rose-board.jpeg",
   eldravia: "/art/maps/cities/eldravia.jpg",
   dustfall: "/art/maps/cities/dustfall.jpg",

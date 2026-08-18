@@ -214,6 +214,30 @@ export interface CreatureAbilityDefinition {
   /** Reação: não consome a ação normal e nunca dispara outra reação. */
   reaction?: boolean;
   oncePerBattle?: boolean;
+  /** Tipo de dano elemental V1. */
+  damageType?: string;
+  /** Canal de defesa verificado pelo golpe. */
+  defenseChannel?: "physical" | "magical";
+  /** Quantidade de hits independentes (padrão 1). */
+  hitsCount?: number;
+  /** Se false, Esquiva é proibida. */
+  isSingleTarget?: boolean;
+  /** Efeitos sobre o próprio conjurador. */
+  selfEffects?: Array<{ keyword: string; amount: number; duration: number }>;
+  /** Interrompe carregamento ao acertar. */
+  interruptsCharging?: boolean;
+  /** Interrompe no ato da declaração. */
+  interruptOnDeclare?: boolean;
+  /** Aplica provocação. */
+  appliesTaunt?: boolean;
+  /** Aplica sangramento garantido. */
+  appliesBleed?: boolean;
+  /** Movimento bônus concedido. */
+  grantsBonusMovement?: number;
+  /** Avanço antes de golpear. */
+  advanceBeforeHit?: number;
+  /** Marcador de habilidade mestre. */
+  isMasterSkill?: boolean;
 }
 
 export interface CharacterVitals {
@@ -273,6 +297,26 @@ export interface AbilityDefinition {
   isUltimate?: boolean;
   /** Turnos necessários para carregar a Ultimate (ex: 4 ou 5). */
   requiredChargeTurns?: number;
+  /** Multi-hit: quantidade de hits independentes (padrão 1, ex: 3 para Tríplice Disparo). */
+  hitsCount?: number;
+  /** Se false, Esquiva é estritamente proibida (ataques em área). */
+  isSingleTarget?: boolean;
+  /** Buffs temporários aplicados ao próprio usuário (ex: Égide, Postura da Lua). */
+  selfEffects?: Array<{ keyword: string; amount: number; duration: number }>;
+  /** Interrompe carregamento inimigo se acertar o golpe. */
+  interruptsCharging?: boolean;
+  /** Interrupção preventiva no ato da declaração (ignora esquiva). */
+  interruptOnDeclare?: boolean;
+  /** Aplica efeito de Provocar no alvo. */
+  appliesTaunt?: boolean;
+  /** Sangramento garantido pelo golpe (ignora cap). */
+  appliesBleed?: boolean;
+  /** Concede movimento extra neste turno (ex: Passo de Caça). */
+  grantsBonusMovement?: number;
+  /** Avanço antes de golpear (ex: Iai). */
+  advanceBeforeHit?: number;
+  /** Habilidade mestre modificada pela Maestria 50. */
+  isMasterSkill?: boolean;
 }
 
 export interface SecretArtDefinition extends AbilityDefinition {
@@ -513,6 +557,10 @@ export interface HuntCombatant {
   isPartyMember?: boolean;
   /** Nome da classe do Companion. */
   className?: string;
+  /** Keywords de combate V1 (Bloqueio, Esquiva, Contra-golpe, Vampirismo, Sangramento). */
+  keywords?: any;
+  /** Perfil de fraqueza, resistência e imunidade a tipos de dano. */
+  damageAffinity?: any;
 }
 
 export interface HuntCompanion {

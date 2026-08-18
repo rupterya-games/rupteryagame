@@ -717,8 +717,13 @@ export default function HomePage() {
         range: a.range,
         area: a.area,
         cooldownTurns: a.cooldownTurns,
+        damageType: a.damageFamily === "magical" ? "fire" : "slashing",
+        powerScaling: a.scaling,
+        defenseChannel: a.damageFamily === "magical" ? "magical" : "physical",
         isUltimate: a.id.includes("decree") || a.id.includes("eclipse") || a.id.includes("horizon") || a.id.includes("ultimate"),
         requiredChargeTurns: a.cooldownTurns || 4,
+        hitsCount: a.id.includes("triple") ? 3 : 1,
+        isSingleTarget: !(a.area && a.area.shape !== "single"),
       }))
     : preset
       ? Array.from(
@@ -759,7 +764,7 @@ export default function HomePage() {
       top: `${((y - hexBoardBounds.minY) / hexBoardBounds.height) * 100}%`,
     };
   };
-  const FRONT_SLOT_NUDGE_PX = [{ x: 0, y: 0 }, { x: 7, y: -5 }, { x: -7, y: 5 }];
+  const FRONT_SLOT_NUDGE_PX = [{ x: 0, y: 0 }, { x: 7, y: -5 }, { x: -7, y: 5 }, { x: 5, y: -8 }, { x: -5, y: 8 }];
   const hexToPercentForSlot = (cell: Axial, slot: number) => {
     const base = hexToPercent(cell);
     const nudge = FRONT_SLOT_NUDGE_PX[slot % FRONT_SLOT_NUDGE_PX.length];
@@ -807,12 +812,14 @@ export default function HomePage() {
               : "Alvo único";
   const activeChargeCount = frontLineEnemies.filter(({ enemy }) => Boolean(enemy.charging)).length;
   const battleTurnOrder: BattleTurnEntry[] = battle ? (() => {
-    const fallbackOrder = [battle.player.id, ...frontLineEnemies.map(({ enemy }) => enemy.id)];
+    const partyHeroes = (battle.party ?? [battle.player]).filter((h) => h.hpCurrent > 0);
+    const fallbackOrder = [...partyHeroes.map((h) => h.id), ...frontLineEnemies.map(({ enemy }) => enemy.id)];
     const order = battle.initiativeOrder?.length ? battle.initiativeOrder : fallbackOrder;
     const currentIndex = Math.max(0, battle.initiativeIndex ?? order.indexOf(battle.player.id));
     const rotated = [...order.slice(currentIndex), ...order.slice(0, currentIndex)];
     return rotated.flatMap<BattleTurnEntry>((actorId) => {
-      if (actorId === battle.player.id) return [{ id: battle.player.id, name: summary?.name ?? "Herói", portraitPath: summary?.portraitPath ?? "", side: "player" as const, speed: combatantSpeed(battle.player) }];
+      const hero = partyHeroes.find((h) => h.id === actorId);
+      if (hero) return [{ id: hero.id, name: hero.name, portraitPath: hero.portraitPath ?? "", side: "player" as const, speed: combatantSpeed(hero) }];
       const enemy = battle.enemies.find((entry) => entry.id === actorId && entry.hpCurrent > 0);
       return enemy ? [{ id: enemy.id, name: enemy.name, portraitPath: enemy.portraitPath ?? "", side: "enemy" as const, speed: combatantSpeed(enemy) }] : [];
     });

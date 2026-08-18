@@ -263,6 +263,16 @@ export interface AbilityDefinition {
   range?: number;
   /** Forma da área no grid. Ausente = alvo único. */
   area?: AbilityAreaDefinition;
+  /** Tipo de dano V1 (ex: "holy", "slashing", "piercing", "fire", "nature", "death", "crushing"). */
+  damageType?: string;
+  /** Escala de Potência V1. */
+  powerScaling?: number;
+  /** Canal de defesa verificado pelo golpe ("physical" ou "magical"). */
+  defenseChannel?: "physical" | "magical";
+  /** Identificador de Ultimate (carrega por turnos). */
+  isUltimate?: boolean;
+  /** Turnos necessários para carregar a Ultimate (ex: 4 ou 5). */
+  requiredChargeTurns?: number;
 }
 
 export interface SecretArtDefinition extends AbilityDefinition {
@@ -487,6 +497,22 @@ export interface HuntCombatant {
   lastAbilityUsed?: string;
   dodgedLastTurn?: boolean;
   attackedLastTurn?: boolean;
+  /** Potência V1: base unificada para habilidades. */
+  power?: number;
+  /** Tipo de dano característico da unidade. */
+  damageType?: string;
+  /** Canal de defesa padrão. */
+  defenseChannel?: "physical" | "magical";
+  /** Tags de formação e identidade (ex: ["paladin", "human"], ["samurai", "human"], ["goblin"]). */
+  tags?: string[];
+  /** Carga atual da Ultimate (0 a ultimateRequiredCharge). */
+  ultimateCurrentCharge?: number;
+  /** Turnos necessários para carregar a Ultimate. */
+  ultimateRequiredCharge?: number;
+  /** Se é membro da party jogável. */
+  isPartyMember?: boolean;
+  /** Nome da classe do Companion. */
+  className?: string;
 }
 
 export interface HuntCompanion {
@@ -510,6 +536,10 @@ export interface HuntBattleState {
   /** Terreno, obstáculos, cobertura e condição de neblina desta batalha. */
   battlefield: BattlefieldState;
   player: HuntCombatant;
+  /** Party completa de até 3 heróis controlados pelo jogador (ex: Aldren, Kael, Elyra). */
+  party?: HuntCombatant[];
+  /** Id do herói da party cujo turno está atualmente ativo. */
+  activeHeroId?: string;
   companion: HuntCompanion | null;
   enemies: HuntCombatant[];
   /** Ids de criaturas dominadas no Bestiário (abates >= meta), com bônus de dano. */
@@ -519,11 +549,11 @@ export interface HuntBattleState {
   cooldowns: Record<string, number>;
   /** Movimento e ação são recursos separados. Mover não encerra mais a rodada. */
   movementUsed?: boolean;
-  /** Ordem real de iniciativa da rodada atual. Contém Player + linha de frente viva. */
+  /** Ordem real de iniciativa da rodada atual. Contém Heróis da Party + linha de frente viva. */
   initiativeOrder?: string[];
-  /** Índice do ator que está com o turno aberto. Quando a UI é entregue ao jogador, aponta para o Player. */
+  /** Índice do ator que está com o turno aberto. */
   initiativeIndex?: number;
-  /** Ator atual. Em solo a UI só permanece interativa quando este id é o Player. */
+  /** Ator atual da fila de iniciativa. */
   currentActorId?: string | null;
   turn: number;
   status: "active" | "victory" | "defeat";

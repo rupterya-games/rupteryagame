@@ -705,23 +705,38 @@ export default function HomePage() {
         selected.ownedAbilityIds.includes(ability.id),
       )
     : [];
-  const battleAbilities = preset
-    ? Array.from(
-        new Map(
-          Object.values(preset.loadout)
-            .flatMap((abilityId) =>
-              ownedAbilities.filter(
-                (ability) =>
-                  ability.id === abilityId &&
-                  ability.damageFamily &&
-                  ability.slotKind !== "passive" &&
-                  ability.slotKind !== "stance",
-              ),
-            )
-            .map((ability) => [ability.id, ability]),
-        ).values(),
-      )
-    : [];
+  const activeBattleHero = battle?.party?.find((h) => h.id === (battle.activeHeroId ?? battle.currentActorId ?? battle.player.id)) ?? battle?.player;
+  const battleAbilities: AbilityDefinition[] = activeBattleHero?.abilities?.length
+    ? activeBattleHero.abilities.map((a) => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        slotKind: a.id.includes("decree") || a.id.includes("eclipse") || a.id.includes("horizon") || a.id.includes("ultimate") ? "ultimate" : "skill",
+        damageFamily: a.damageFamily === "magical" ? "magical" : "physical",
+        source: "class" as const,
+        range: a.range,
+        area: a.area,
+        cooldownTurns: a.cooldownTurns,
+        isUltimate: a.id.includes("decree") || a.id.includes("eclipse") || a.id.includes("horizon") || a.id.includes("ultimate"),
+        requiredChargeTurns: a.cooldownTurns || 4,
+      }))
+    : preset
+      ? Array.from(
+          new Map(
+            Object.values(preset.loadout)
+              .flatMap((abilityId) =>
+                ownedAbilities.filter(
+                  (ability) =>
+                    ability.id === abilityId &&
+                    ability.damageFamily &&
+                    ability.slotKind !== "passive" &&
+                    ability.slotKind !== "stance",
+                ),
+              )
+              .map((ability) => [ability.id, ability]),
+          ).values(),
+        )
+      : [];
   const frontLineEnemies = battle
     ? battle.enemies
         .map((enemy, index) => ({ enemy, index }))
@@ -732,15 +747,6 @@ export default function HomePage() {
     const points = boardCells().map(axialToPixel);
     const xs = points.map((p) => p.x);
     const ys = points.map((p) => p.y);
-    // Precisa de folga suficiente pra caber MEIO token além da borda do hex mais externo,
-    // nos dois eixos — não só o hexágono em si. Um valor pequeno demais aqui é exatamente
-    // o bug de "carta presa embaixo/fora da tela" (a unidade sentava perto da borda do
-    // grid e a metade do card vazava pra fora do container). Mas um valor grande demais
-    // tem um efeito colateral direto: ele reduz a escala visual do tabuleiro inteiro
-    // dentro da mesma largura de CSS, encolhendo a distância real entre hexágonos vizinhos
-    // até menos que o próprio token — dois inimigos em hexágonos adjacentes (não a mesma
-    // célula) passam a se sobrepor na tela mesmo estando em posições diferentes de verdade.
-    // Este valor é calibrado pro tamanho atual do token (48px, ver .battle-v6-hex-token).
     const pad = HEX_SIZE * 1.5;
     const left = Math.min(...xs) - pad;
     const top = Math.min(...ys) - pad;
@@ -748,13 +754,11 @@ export default function HomePage() {
   }, []);
   const hexToPercent = (cell: Axial) => {
     const { x, y } = axialToPixel(cell);
-    return { left: `${((x - hexBoardBounds.minX) / hexBoardBounds.width) * 100}%`, top: `${((y - hexBoardBounds.minY) / hexBoardBounds.height) * 100}%` };
+    return {
+      left: `${((x - hexBoardBounds.minX) / hexBoardBounds.width) * 100}%`,
+      top: `${((y - hexBoardBounds.minY) / hexBoardBounds.height) * 100}%`,
+    };
   };
-  // A IA pode legitimamente posicionar várias unidades em hexágonos vizinhos bem próximos
-  // (ex: tática "Cercar"), e nesse caso o token de cada uma pode se tocar/sobrepor na tela
-  // mesmo estando em células realmente diferentes. Um leve deslocamento fixo por slot da
-  // linha de frente faz esses casos ficarem em leque, deixando claro que são unidades
-  // distintas, sem mexer em nenhuma posição/regra real do combate — é só renderização.
   const FRONT_SLOT_NUDGE_PX = [{ x: 0, y: 0 }, { x: 7, y: -5 }, { x: -7, y: 5 }];
   const hexToPercentForSlot = (cell: Axial, slot: number) => {
     const base = hexToPercent(cell);
@@ -1175,15 +1179,19 @@ export default function HomePage() {
   };
   const executeAbility = (ability: AbilityDefinition, forcedTargetId?: string) => {
     if (!battle || !selected) return;
-    const cooldown = battle.cooldowns[ability.id] ?? 0;
+    const currentHero = activeBattleHero ?? battle.player;
+    const cooldown = currentHero.abilityCooldowns?.[ability.id] ?? battle.cooldowns[ability.id] ?? 0;
     if (cooldown > 0) {
       setMessage(`${ability.name} estará disponível em ${cooldown} turno(s).`);
       return;
     }
-    const manaCost = ability.manaCost ?? 0;
-    if (battle.player.mpCurrent < manaCost) {
-      setMessage(`MP insuficiente para ${ability.name}.`);
-      return;
+    if (ability.isUltimate) {
+      const required = currentHero.ultimateRequiredCharge ?? ability.requiredChargeTurns ?? 4;
+      const current = currentHero.ultimateCurrentCharge ?? 0;
+      if (current < required) {
+        setMessage(`Ultimate ${ability.name} ainda carregando (${current}/${required} turnos).`);
+        return;
+      }
     }
     const frontLine = activeFrontLine(battle.enemies);
     const target = frontLine.find((enemy) => enemy.id === forcedTargetId) ?? frontLine.find((enemy) => enemy.id === selectedEnemyId) ?? frontLine[0];
@@ -1193,7 +1201,7 @@ export default function HomePage() {
     }
     if (target.id !== selectedEnemyId) setSelectedEnemyId(target.id);
     const targetPosition = target.position ?? ENEMY_FRONT_SPAWN_CELLS[0];
-    const visualArea = new Set(abilityAreaCells(battle.player.position ?? PLAYER_START_CELL, targetPosition, ability.area, playerAbilityRange(ability, battle.player) ?? 1).map(hexKey));
+    const visualArea = new Set(abilityAreaCells(currentHero.position ?? PLAYER_START_CELL, targetPosition, ability.area, playerAbilityRange(ability, currentHero) ?? 1).map(hexKey));
     const visualTargetIds = frontLine.filter((enemy) => enemy.position && visualArea.has(hexKey(enemy.position))).map((enemy) => enemy.id);
     const next = resolveHuntTurn(battle, ability, target.id);
     if (target) {
@@ -1206,24 +1214,26 @@ export default function HomePage() {
       window.setTimeout(() => {
         if (next.player.hpCurrent < battle.player.hpCurrent) setBattleEffect({ kind: "physical", targetId: battle.player.id });
       }, 330);
-      window.setTimeout(() => {
-        if (next.status !== "defeat" && next.lastPetTargetId)
-          setBattleEffect({ kind: "dragonfire", targetId: next.lastPetTargetId, damage: next.lastPetDamage });
-      }, 650);
       window.setTimeout(() => setBattleEffect(null), 1120);
     }
-    applyBattleUpdate(next, `${summary!.name} usa ${ability.name}.`);
+    applyBattleUpdate(next, `${currentHero.name} usa ${ability.name}.`);
   };
   const prepareAbility = (ability: AbilityDefinition) => {
     if (!battle) return;
-    const cooldown = battle.cooldowns[ability.id] ?? 0;
-    const manaCost = ability.manaCost ?? 0;
-    if (cooldown > 0) return void setMessage(`${ability.name} estará disponível em ${cooldown} turno(s).`);
-    if (battle.player.mpCurrent < manaCost) return void setMessage(`MP insuficiente para ${ability.name}.`);
-    if (battle.player.activeEffects.some((effect) => effect.kind === "stun")) return void setMessage(`${summary!.name} está atordoado e não consegue agir.`);
-    if (ability.damageFamily === "magical" && battle.player.activeEffects.some((effect) => effect.kind === "silence")) return void setMessage(`${summary!.name} está silenciado e não consegue usar ${ability.name}.`);
-    if (preparedAbilityId === ability.id && preparedAbilityInRange && selectedEnemyId) return executeAbility(ability, selectedEnemyId);
-    setPreparedAbilityId(ability.id);
+    const currentHero = activeBattleHero ?? battle.player;
+    const cooldown = currentHero.abilityCooldowns?.[ability.id] ?? battle.cooldowns[ability.id] ?? 0;
+    if (cooldown > 0) {
+      setMessage(`${ability.name} em recarga por mais ${cooldown} turno(s).`);
+      return;
+    }
+    if (ability.isUltimate) {
+      const required = currentHero.ultimateRequiredCharge ?? ability.requiredChargeTurns ?? 4;
+      const current = currentHero.ultimateCurrentCharge ?? 0;
+      if (current < required) {
+        setMessage(`Ultimate ${ability.name} ainda carregando (${current}/${required} turnos).`);
+        return;
+      }
+    }
     setBattleActionMode("skill");
     setMessage(`Habilidade preparada: ${ability.name}. ${selectedEnemy ? `Alvo atual: ${selectedEnemy.name}.` : "Escolha um alvo."}`);
   };
@@ -2242,30 +2252,37 @@ export default function HomePage() {
                       );
                     })}
 
-                    <article
-                      className={`battle-v6-hex-unit battle-v6-hex-token battle-v6-hex-token-player ${battleEffect?.targetId === battle.player.id ? `hit-${battleEffect.kind}` : ""}`}
-                      style={hexToPercent(playerPosition)}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`${summary!.name}. Toque duas vezes para ver equipamentos.`}
-                      onDoubleClick={() => setShowBattleLoadout(true)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") setShowBattleLoadout(true);
-                      }}
-                    >
-                      {battleEffect?.targetId === battle.player.id && (
-                        <span className={`battle-impact ${battleEffect.kind}`} aria-hidden="true">
-                          {battleEffect.damage ? `-${battleEffect.damage}` : ""}
-                        </span>
-                      )}
-                      {castEffect && <span className={`class-cast class-cast-${castEffect.classId}`} aria-hidden="true" />}
-                      <span className="battle-v6-level-badge">Nv. {summary!.level}</span>
-                      <div className="battle-v6-hex-token-portrait">
-                        <span className="battle-v6-hex-token-ring" aria-hidden="true" />
-                        <img src={summary!.portraitPath} alt={`Retrato de ${summary!.name}`} />
-                      </div>
-                      <span className="battle-v6-hex-token-label">{summary!.name}</span>
-                    </article>
+                    {(battle.party ?? [battle.player]).filter((hero) => hero.hpCurrent > 0).map((hero) => {
+                      const isCurrentTurnHero = hero.id === (battle.activeHeroId ?? battle.currentActorId ?? battle.player.id);
+                      return (
+                        <article
+                          key={hero.id}
+                          className={`battle-v6-hex-unit battle-v6-hex-token battle-v6-hex-token-player ${isCurrentTurnHero ? "target-selected active-turn-hero" : ""} ${battleEffect?.targetId === hero.id ? `hit-${battleEffect.kind}` : ""}`}
+                          style={hexToPercent(hero.position ?? PLAYER_START_CELL)}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`${hero.name} (${hero.className ?? "Herói"}). Toque duas vezes para ver equipamentos.`}
+                          onDoubleClick={() => setShowBattleLoadout(true)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") setShowBattleLoadout(true);
+                          }}
+                        >
+                          {battleEffect?.targetId === hero.id && (
+                            <span className={`battle-impact ${battleEffect.kind}`} aria-hidden="true">
+                              {battleEffect.damage ? `-${battleEffect.damage}` : ""}
+                            </span>
+                          )}
+                          {isCurrentTurnHero && <span className="battle-v6-target-reticle" aria-hidden="true">★</span>}
+                          {castEffect && <span className={`class-cast class-cast-${castEffect.classId}`} aria-hidden="true" />}
+                          <span className="battle-v6-level-badge">Nv. {summary!.level}</span>
+                          <div className="battle-v6-hex-token-portrait">
+                            <span className="battle-v6-hex-token-ring" aria-hidden="true" />
+                            <img src={hero.portraitPath ?? summary!.portraitPath} alt={`Retrato de ${hero.name}`} />
+                          </div>
+                          <span className="battle-v6-hex-token-label">{hero.name}</span>
+                        </article>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -2276,7 +2293,7 @@ export default function HomePage() {
                   <div className={`battle-v6-fog-toggle ${battleFogEnabled ? "on" : "off"}`}>
                     {battleFogEnabled ? "ATIVA" : "SEM NEBLINA"}
                   </div>
-                  <small>Visão do herói: {effectiveVisionRange(battle.player, battle.battlefield) >= 90 ? "campo inteiro" : `${effectiveVisionRange(battle.player, battle.battlefield)} hex`}</small>
+                  <small>Visão do herói: {effectiveVisionRange(activeBattleHero ?? battle.player, battle.battlefield) >= 90 ? "campo inteiro" : `${effectiveVisionRange(activeBattleHero ?? battle.player, battle.battlefield)} hex`}</small>
                   {battle.companion && (
                     <button
                       type="button"
@@ -2289,7 +2306,7 @@ export default function HomePage() {
                     </button>
                   )}
                 </aside>
-                <div className="battle-v6-mode-note">Layout mobile em portrait · unidades representadas por cards para simplificar a implementação mantendo a essência do mockup.</div>
+                <div className="battle-v6-mode-note">Rupterya V1: Party de 3 Companions em campo simultâneo · Motor tático em 14 etapas.</div>
               </div>
 
               <section className="battle-v6-command-panel">
@@ -2299,16 +2316,16 @@ export default function HomePage() {
                     onClick={() => setShowBattleLoadout(true)}
                     aria-label="Abrir equipamentos"
                   >
-                    <img src={summary!.portraitPath} alt="" />
+                    <img src={activeBattleHero?.portraitPath ?? summary!.portraitPath} alt="" />
                   </button>
                   <div className="battle-v6-active-copy">
-                    <strong>{summary!.name} <span>· {summary!.className} · Nv. {summary!.level}</span></strong>
-                    <small>⚡ Velocidade {combatantSpeed(battle.player)} · +{PLAYER_MP_REGEN_PER_TURN} MP no início do turno · recargas reduzem no início do seu turno</small>
+                    <strong>{(activeBattleHero?.name ?? summary!.name)} <span>· {(activeBattleHero?.className ?? summary!.className)} · Nv. {summary!.level}</span></strong>
+                    <small>⚔ Potência {activeBattleHero?.power ?? activeBattleHero?.stats.physicalDamage ?? 30} · ⚡ Vel {combatantSpeed(activeBattleHero ?? battle.player)} · Dano {activeBattleHero?.damageType?.toUpperCase() ?? "SAGRADO"}</small>
                     <em>Alvo: {battle.enemies.find((enemy) => enemy.id === selectedEnemyId)?.name ?? "selecione um inimigo"}</em>
                   </div>
                   <div className="battle-v6-resource-pills">
-                    <span className="hp-pill">♥ HP {battle.player.hpCurrent}/{battle.player.hpMax}</span>
-                    <span className="mp-pill">◆ MP {battle.player.mpCurrent}/{battle.player.mpMax}</span>
+                    <span className="hp-pill">♥ HP {activeBattleHero?.hpCurrent ?? battle.player.hpCurrent}/{activeBattleHero?.hpMax ?? battle.player.hpMax}</span>
+                    <span className="mp-pill">★ Ultimate {activeBattleHero?.ultimateCurrentCharge ?? 0}/{activeBattleHero?.ultimateRequiredCharge ?? 4}</span>
                   </div>
                 </div>
 
@@ -2322,36 +2339,41 @@ export default function HomePage() {
 
                 {battle.status === "active" ? (
                   <section className="battle-v6-actions">
-                    {battle.player.activeEffects.some((effect) => effect.kind === "stun") && (
+                    {(activeBattleHero ?? battle.player).activeEffects.some((effect) => effect.kind === "stun") && (
                       <p className="battle-v6-status-warning">Atordoado: você perde este turno.</p>
                     )}
                     <div className="battle-v6-skill-grid battle-v6-skill-grid-cards">
                       {battleAbilities.map((ability, abilityIndex) => {
-                        const cooldown = battle.cooldowns[ability.id] ?? 0;
-                        const manaCost = ability.manaCost ?? 0;
-                        const blockedByMana = battle.player.mpCurrent < manaCost;
+                        const currentHero = activeBattleHero ?? battle.player;
+                        const cooldown = currentHero.abilityCooldowns?.[ability.id] ?? battle.cooldowns[ability.id] ?? 0;
+                        const isUltimate = Boolean(ability.isUltimate);
+                        const ultReq = currentHero.ultimateRequiredCharge ?? ability.requiredChargeTurns ?? 4;
+                        const ultCur = currentHero.ultimateCurrentCharge ?? 0;
+                        const ultNotReady = isUltimate && ultCur < ultReq;
                         const noTarget = !selectedEnemyId;
-                        const stunned = battle.player.activeEffects.some((effect) => effect.kind === "stun");
-                        const silenced = ability.damageFamily === "magical" && battle.player.activeEffects.some((effect) => effect.kind === "silence");
-                        const displayedRange = playerAbilityRange(ability, battle.player) ?? 1;
+                        const stunned = currentHero.activeEffects.some((effect) => effect.kind === "stun");
+                        const silenced = ability.damageFamily === "magical" && currentHero.activeEffects.some((effect) => effect.kind === "silence");
+                        const displayedRange = playerAbilityRange(ability, currentHero) ?? 1;
                         const outOfRange = !noTarget && ability.range !== undefined && distanceToSelected !== null && distanceToSelected > displayedRange;
-                        const disabled = cooldown > 0 || blockedByMana || stunned || silenced;
-                        const icon = ability.damageFamily === "magical"
-                          ? "✦"
-                          : abilityIndex === 0
-                            ? "➶"
-                            : abilityIndex === 1
-                              ? "➷"
-                              : abilityIndex === 2
-                                ? "➹"
-                                : "◎";
+                        const disabled = cooldown > 0 || ultNotReady || stunned || silenced;
+                        const icon = isUltimate
+                          ? "★"
+                          : ability.damageFamily === "magical"
+                            ? "✦"
+                            : abilityIndex === 0
+                              ? "➶"
+                              : abilityIndex === 1
+                                ? "➷"
+                                : abilityIndex === 2
+                                  ? "➹"
+                                  : "◎";
                         return (
                           <button
                             key={ability.id}
                             onClick={() => prepareAbility(ability)}
                             disabled={disabled}
                             aria-pressed={preparedAbilityId === ability.id}
-                            className={`battle-v6-skill battle-v6-skill-card ${preparedAbilityId === ability.id ? "prepared" : ""} ${disabled ? "combat-action-disabled" : ""}`}
+                            className={`battle-v6-skill battle-v6-skill-card ${isUltimate ? "ultimate-card" : ""} ${preparedAbilityId === ability.id ? "prepared" : ""} ${disabled ? "combat-action-disabled" : ""}`}
                             data-family={ability.damageFamily}
                           >
                             <b className="battle-v6-skill-icon" aria-hidden="true">{icon}</b>
@@ -2359,12 +2381,16 @@ export default function HomePage() {
                               <strong>{ability.name}</strong>
                               <small>{ability.damageFamily === "magical" ? "Dano mágico" : "Dano físico"} · Alcance {displayedRange} · {ability.area?.shape === "radius" ? `Raio ${ability.area.radius ?? 1}` : ability.area?.shape === "ring" ? `Anel ${ability.area.radius ?? 1}` : ability.area?.shape === "line" ? "Linha" : ability.area?.shape === "cone" ? "Cone" : ability.area?.shape === "connected" ? "Conectada" : ability.area?.shape === "all" ? "Campo" : "Único"}</small>
                             </span>
-                            <em className="battle-v6-cost">{manaCost} MP</em>
+                            {isUltimate ? (
+                              <em className="battle-v6-cost">{ultNotReady ? `${ultCur}/${ultReq} Turnos` : "★ PRONTA"}</em>
+                            ) : (
+                              <em className="battle-v6-cost">{cooldown > 0 ? `CD ${cooldown}` : "PRONTA"}</em>
+                            )}
                             {cooldown > 0 && <i className="battle-v6-cd">CD {cooldown}</i>}
-                            {cooldown === 0 && blockedByMana && <i className="battle-v6-cd">SEM MP</i>}
-                            {cooldown === 0 && !blockedByMana && noTarget && <i className="battle-v6-cd">SEM ALVO</i>}
-                            {cooldown === 0 && !blockedByMana && !noTarget && silenced && <i className="battle-v6-cd">SILENCIADO</i>}
-                            {cooldown === 0 && !blockedByMana && !noTarget && !silenced && outOfRange && <i className="battle-v6-cd">FORA DE ALCANCE</i>}
+                            {cooldown === 0 && isUltimate && ultNotReady && <i className="battle-v6-cd">CARREGANDO</i>}
+                            {cooldown === 0 && !ultNotReady && noTarget && <i className="battle-v6-cd">SEM ALVO</i>}
+                            {cooldown === 0 && !ultNotReady && !noTarget && silenced && <i className="battle-v6-cd">SILENCIADO</i>}
+                            {cooldown === 0 && !ultNotReady && !noTarget && !silenced && outOfRange && <i className="battle-v6-cd">FORA DE ALCANCE</i>}
                           </button>
                         );
                       })}

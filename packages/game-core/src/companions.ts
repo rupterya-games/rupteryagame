@@ -208,3 +208,108 @@ export function buildCompanionSkillLoadout(
     ultimate: allSkills[allSkills.length - 1],
   };
 }
+
+export function skillV1ToAbilityDefinition(skill: SkillDefinitionV1, companionClass: string): import("./domain").AbilityDefinition {
+  return {
+    id: skill.id,
+    name: skill.name,
+    description: skill.description,
+    slotKind: skill.isUltimate ? "ultimate" : "skill",
+    damageFamily: skill.defenseChannel === "magical" ? "magical" : "physical",
+    source: "class",
+    range: skill.range,
+    area: skill.area ? {
+      shape: skill.area.shape,
+      radius: skill.area.radius,
+    } : { shape: "single" },
+    damageType: skill.damageType,
+    powerScaling: skill.powerScaling,
+    defenseChannel: skill.defenseChannel,
+    isUltimate: skill.isUltimate,
+    requiredChargeTurns: skill.isUltimate ? (skill.cooldownTurns ?? 4) : undefined,
+    cooldownTurns: skill.isUltimate ? 0 : skill.cooldownTurns,
+  };
+}
+
+export function companionToHuntCombatant(
+  companion: CompanionDefinitionV1,
+  accountLevel: number,
+  progress?: CompanionProgress,
+  positionIndex: number = 0,
+): import("./domain").HuntCombatant {
+  const stats = buildCompanionCombatantStats(companion, accountLevel, progress);
+  const startCells: import("./domain").Axial[] = [
+    { q: 0, r: 2 },  // Posição 0 (Centro - Aldren)
+    { q: 1, r: 2 },  // Posição 1 (Direita - Kael)
+    { q: -1, r: 2 }, // Posição 2 (Esquerda - Elyra)
+  ];
+  const portraitMap: Record<string, string> = {
+    paladin_aldren: "/art/characters/paladin.png",
+    samurai_kael: "/art/characters/samurai.png",
+    archer_elyra: "/art/characters/archer.png",
+  };
+  const abilities = [
+    ...companion.skills.map((s) => skillV1ToAbilityDefinition(s, companion.className)),
+    skillV1ToAbilityDefinition(companion.ultimate, companion.className),
+  ];
+  const creatureAbilities: import("./domain").CreatureAbilityDefinition[] = abilities.map((a) => ({
+    id: a.id,
+    name: a.name,
+    damageFamily: a.defenseChannel === "magical" ? "magical" : "physical",
+    scaling: a.powerScaling ?? 1.0,
+    cooldownTurns: a.cooldownTurns ?? 0,
+    target: a.area && a.area.shape !== "single" ? "all_enemies" : "single_enemy",
+    description: a.description,
+    aiTrigger: "always",
+    range: a.range,
+    area: a.area,
+  }));
+  const requiredCharge = companion.ultimate.cooldownTurns || 4;
+
+  return {
+    id: companion.id,
+    name: companion.name,
+    className: companion.className,
+    portraitPath: portraitMap[companion.id] ?? "/art/characters/paladin.png",
+    hpCurrent: stats.hpMax,
+    hpMax: stats.hpMax,
+    mpCurrent: 0,
+    mpMax: 0,
+    power: stats.power,
+    damageType: companion.damageType,
+    defenseChannel: companion.skills[0]?.defenseChannel ?? "physical",
+    tags: [companion.id.split("_")[0], companion.family],
+    position: startCells[positionIndex] ?? { q: 0, r: 2 },
+    facing: 2,
+    visionRange: 4,
+    visionTraits: [],
+    isPartyMember: true,
+    ultimateCurrentCharge: 0,
+    ultimateRequiredCharge: requiredCharge,
+    activeEffects: [],
+    onHitEffects: [],
+    abilities: creatureAbilities,
+    abilityCooldowns: {},
+    counterAttack: stats.keywords.counterAttackChance
+      ? { chance: stats.keywords.counterAttackChance, scaling: stats.keywords.counterAttackScaling ?? 1.0, sourceName: "Contra-golpe" }
+      : undefined,
+    stats: {
+      speed: stats.speed,
+      physicalDamage: stats.power,
+      magicalDamage: stats.power,
+      physicalDefense: stats.physicalDefense,
+      magicalDefense: stats.magicalDefense,
+      criticalChance: 10,
+      dodgeChance: stats.keywords.dodgeChance ?? 0,
+      blockChance: stats.keywords.blockChance ?? 0,
+      bleedChance: stats.keywords.bleedChance ?? 0,
+      burnChance: 0,
+      poisonChance: 0,
+      blindChance: 0,
+      bleedResistance: 15,
+      burnResistance: 15,
+      poisonResistance: 15,
+      blindResistance: 15,
+    },
+  };
+}
